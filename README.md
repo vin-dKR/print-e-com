@@ -1,135 +1,367 @@
-# Turborepo starter
+# Custom Printing E-commerce Platform
 
-This Turborepo starter is maintained by the Turborepo core team.
+A full-stack monorepo for a custom printing e-commerce platform (t-shirts, mugs, hoodies, etc.) built with modern technologies.
 
-## Using this example
+## 🏗️ Tech Stack
 
-Run the following command:
+- **Frontend**: Next.js 16.0.7 (App Router, TypeScript)
+- **Backend**: Bun 1.3.1 + Express.js
+- **Monorepo**: Turborepo 2.6.3
+- **Package Manager**: Bun 1.3.1
+- **Node.js**: v22.17.1
+- **TypeScript**: 5.9.2
 
-```sh
-npx create-turbo@latest
+## 📋 Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+### Required Versions (MUST MATCH)
+
+- **Bun**: `1.3.1` ([Installation Guide](https://bun.sh/docs/installation))
+- **Node.js**: `v22.17.1` (Use `.nvmrc` file if using nvm)
+
+### Verify Your Versions
+
+```bash
+# Check Bun version
+bun --version
+# Should output: 1.3.1
+
+# Check Node.js version
+node --version
+# Should output: v22.17.1
 ```
 
-## What's inside?
+### Installing Node.js with nvm (Recommended)
 
-This Turborepo includes the following packages/apps:
+If you're using `nvm` (Node Version Manager):
 
-### Apps and Packages
+```bash
+# Install/use the correct Node.js version
+nvm install 22.17.1
+nvm use 22.17.1
 
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
-
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
+# Or simply run (if .nvmrc exists)
+nvm use
 ```
+
+## 🚀 Getting Started
+
+### Step 1: Clone the Repository
+
+```bash
+git clone <repository-url>
 cd my-turborepo
-
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo build
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo build
-yarn dlx turbo build
-pnpm exec turbo build
 ```
 
-You can build a specific package by using a [filter](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters):
+### Step 2: Install Dependencies
 
-```
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo build --filter=docs
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo build --filter=docs
-yarn exec turbo build --filter=docs
-pnpm exec turbo build --filter=docs
+```bash
+# Install all dependencies for all workspaces
+bun install
 ```
 
-### Develop
+This will install dependencies for:
+- Root workspace
+- All apps (`apps/web`, `apps/api`)
+- All packages (`packages/ui`, `packages/types`, etc.)
 
-To develop all apps and packages, run the following command:
+### Step 3: Set Up Environment Variables
 
-```
-cd my-turborepo
+#### Frontend (apps/web)
 
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo dev
+Create `apps/web/.env.local`:
 
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo dev
-yarn exec turbo dev
-pnpm exec turbo dev
-```
-
-You can develop a specific package by using a [filter](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters):
-
-```
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo dev --filter=web
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo dev --filter=web
-yarn exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
+```env
+NEXT_PUBLIC_API_URL=http://localhost:3001
 ```
 
-### Remote Caching
+#### Backend (apps/api)
 
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
+Create `apps/api/.env`:
 
-Turborepo can use a technique known as [Remote Caching](https://turborepo.com/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo login
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo login
-yarn exec turbo login
-pnpm exec turbo login
+```env
+PORT=3001
+NODE_ENV=development
 ```
 
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
+### Step 4: Start Development Servers
 
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
+#### Option A: Start All Apps (Recommended)
 
-```
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo link
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo link
-yarn exec turbo link
-pnpm exec turbo link
+```bash
+# Start both frontend and backend
+bun run dev
 ```
 
-## Useful Links
+This will start:
+- **Frontend**: http://localhost:3000
+- **Backend API**: http://localhost:3001
 
-Learn more about the power of Turborepo:
+#### Option B: Start Individual Apps
 
-- [Tasks](https://turborepo.com/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.com/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.com/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.com/docs/reference/configuration)
-- [CLI Usage](https://turborepo.com/docs/reference/command-line-reference)
+```bash
+# Start only the frontend
+bun run dev --filter=web
+
+# Start only the backend
+bun run dev --filter=api
+```
+
+### Step 5: Verify Everything Works
+
+1. **Frontend**: Open http://localhost:3000 in your browser
+2. **Backend**: Open http://localhost:3001/health in your browser (should return `{"status":"ok"}`)
+
+## 📁 Project Structure
+
+```
+my-turborepo/
+├── apps/
+│   ├── web/              # Next.js frontend application
+│   │   ├── app/          # Next.js App Router pages
+│   │   ├── public/       # Static assets
+│   │   └── package.json
+│   └── api/               # Bun + Express backend API
+│       ├── src/
+│       │   └── index.ts  # Express server entry point
+│       └── package.json
+├── packages/
+│   ├── ui/                # Shared React UI components
+│   ├── types/             # Shared TypeScript types
+│   ├── eslint-config/     # Shared ESLint configurations
+│   └── typescript-config/ # Shared TypeScript configurations
+├── package.json           # Root package.json
+├── turbo.json             # Turborepo configuration
+├── .editorconfig          # Editor configuration
+├── .prettierrc            # Prettier configuration
+├── .nvmrc                 # Node.js version specification
+└── README.md
+```
+
+## 📜 Available Scripts
+
+### Root Level Scripts
+
+Run these from the root directory:
+
+```bash
+# Development
+bun run dev              # Start all apps in development mode
+
+# Build
+bun run build            # Build all apps and packages
+
+# Code Quality
+bun run lint             # Lint all packages
+bun run check-types      # Type-check all packages
+bun run format           # Format code with Prettier
+
+# Specific app/package
+bun run dev --filter=web    # Start only web app
+bun run dev --filter=api    # Start only API server
+bun run build --filter=web  # Build only web app
+```
+
+### App-Specific Scripts
+
+#### Frontend (apps/web)
+
+```bash
+cd apps/web
+
+bun run dev      # Start Next.js dev server (port 3000)
+bun run build    # Build for production
+bun run start    # Start production server
+bun run lint     # Run ESLint
+```
+
+#### Backend (apps/api)
+
+```bash
+cd apps/api
+
+bun run dev      # Start Express server (port 3001)
+bun run build    # Build for production
+bun run start    # Start production server
+bun run lint     # Run ESLint
+```
+
+## 🔧 Configuration Files
+
+### Workspace-Wide Configs
+
+These files apply to the entire monorepo:
+
+- **`.editorconfig`**: Editor settings (indentation, line endings, etc.)
+- **`.prettierrc`**: Code formatting rules
+- **`.prettierignore`**: Files to exclude from formatting
+- **`.nvmrc`**: Node.js version specification
+- **`.gitignore`**: Git ignore patterns
+
+### Package Manager
+
+The project uses **Bun 1.3.1** as specified in `package.json`:
+
+```json
+"packageManager": "bun@1.3.1"
+```
+
+**Important**: Always use `bun` commands, not `npm`, `yarn`, or `pnpm`.
+
+## 🎯 Development Workflow
+
+### Adding a New Package
+
+1. Create package in `packages/` directory
+2. Add `package.json` with scoped name (`@repo/package-name`)
+3. Add to consuming packages' dependencies
+4. Update `turbo.json` if needed
+
+### Adding a New App
+
+1. Create app in `apps/` directory
+2. Add `package.json` with app name
+3. Configure in `turbo.json` if needed
+4. Add to root `workspaces` array (if using custom paths)
+
+### Using Shared Types
+
+Import shared types from `@repo/types`:
+
+```typescript
+import { Product, Order, OrderStatus } from "@repo/types";
+```
+
+### Using Shared UI Components
+
+Import shared components from `@repo/ui`:
+
+```typescript
+import { Button, Card } from "@repo/ui";
+```
+
+## 🧪 Testing
+
+```bash
+# Run tests (when implemented)
+bun run test
+
+# Run tests for specific package
+bun run test --filter=web
+```
+
+## 🏗️ Building for Production
+
+```bash
+# Build all apps and packages
+bun run build
+
+# Build specific app
+bun run build --filter=web
+bun run build --filter=api
+```
+
+## 📦 Remote Caching (Optional)
+
+Turborepo supports remote caching to share build artifacts across machines and CI/CD.
+
+### Setup Remote Caching
+
+1. **Login to Vercel**:
+
+```bash
+bunx turbo login
+```
+
+2. **Link your repository**:
+
+```bash
+bunx turbo link
+```
+
+This enables:
+- Faster CI/CD builds
+- Shared cache across team members
+- Better build performance
+
+## 🐛 Troubleshooting
+
+### Issue: Wrong Node.js Version
+
+**Solution**: Use the version specified in `.nvmrc`:
+
+```bash
+nvm use
+```
+
+### Issue: Wrong Bun Version
+
+**Solution**: Install the correct Bun version:
+
+```bash
+# Install Bun 1.3.1
+curl -fsSL https://bun.sh/install | bash -s "bun-v1.3.1"
+```
+
+### Issue: Dependencies Not Installing
+
+**Solution**: Clear cache and reinstall:
+
+```bash
+rm -rf node_modules
+rm -rf apps/*/node_modules
+rm -rf packages/*/node_modules
+rm bun.lock
+bun install
+```
+
+### Issue: Build Failures
+
+**Solution**: Clear Turborepo cache:
+
+```bash
+rm -rf .turbo
+bun run build
+```
+
+### Issue: Type Errors
+
+**Solution**: Rebuild shared packages first:
+
+```bash
+bun run build --filter=@repo/types
+bun run check-types
+```
+
+## 📚 Additional Resources
+
+- [Turborepo Documentation](https://turborepo.com/docs)
+- [Next.js Documentation](https://nextjs.org/docs)
+- [Bun Documentation](https://bun.sh/docs)
+- [Express.js Documentation](https://expressjs.com/)
+
+## 🤝 Contributing
+
+1. Ensure you're using the correct versions (Bun 1.3.1, Node.js v22.17.1)
+2. Follow the code style defined in `.editorconfig` and `.prettierrc`
+3. Run `bun run lint` and `bun run check-types` before committing
+4. Format code with `bun run format`
+
+## 📝 Version Information
+
+This project uses the following versions (DO NOT CHANGE without team discussion):
+
+- **Bun**: `1.3.1`
+- **Node.js**: `v22.17.1`
+- **Next.js**: `^16.0.7`
+- **React**: `^19.2.0`
+- **TypeScript**: `5.9.2`
+- **Turborepo**: `^2.6.3`
+
+To ensure consistency across the team, always verify your versions match these before starting development.
+
+---
+
+**Happy Coding! 🚀**
+# print-e-com
