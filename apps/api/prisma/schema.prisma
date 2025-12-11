@@ -1,0 +1,213 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+
+// User (Customer) model
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  name          String?
+  phone         String?
+  supabaseId    String?   @unique // Supabase user ID
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  addresses     Address[]
+  orders        Order[]
+  payments      Payment[]
+
+  @@map("users")
+}
+
+// Admin model
+model Admin {
+  id            String    @id @default(uuid())
+  username      String    @unique
+  password      String    // Hashed password
+  email         String    @unique
+  name          String?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("admins")
+}
+
+// Address model
+model Address {
+  id            String    @id @default(uuid())
+  userId        String
+  street        String
+  city          String
+  state         String
+  zipCode       String
+  country       String    @default("India")
+  isDefault     Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders        Order[]
+
+  @@map("addresses")
+}
+
+// Category model
+model Category {
+  id            String    @id @default(uuid())
+  name          String    @unique
+  slug          String    @unique
+  description   String?
+  image         String?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  products      Product[]
+
+  @@map("categories")
+}
+
+// Product model
+model Product {
+  id            String    @id @default(uuid())
+  name          String
+  description   String?
+  basePrice     Decimal   @db.Decimal(10, 2)
+  categoryId    String
+  images        String[]  @default([])
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  category      Category  @relation(fields: [categoryId], references: [id])
+  variants      ProductVariant[]
+  orderItems    OrderItem[]
+
+  @@map("products")
+}
+
+// ProductVariant model (size, color, etc.)
+model ProductVariant {
+  id            String    @id @default(uuid())
+  productId     String
+  name          String    // e.g., "Small", "Red", "Cotton"
+  priceModifier Decimal   @default(0) @db.Decimal(10, 2) // Additional cost
+  available     Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  product       Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  orderItems    OrderItem[]
+
+  @@map("product_variants")
+}
+
+// Order model
+model Order {
+  id                String              @id @default(uuid())
+  userId            String
+  addressId         String
+  total             Decimal             @db.Decimal(10, 2)
+  status            OrderStatus         @default(PENDING_REVIEW)
+  paymentMethod     PaymentMethod
+  paymentStatus     PaymentStatus       @default(PENDING)
+  razorpayOrderId   String?             @unique
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  user              User                @relation(fields: [userId], references: [id])
+  address           Address             @relation(fields: [addressId], references: [id])
+  items             OrderItem[]
+  payments          Payment[]
+  statusHistory     OrderStatusHistory[]
+
+  @@map("orders")
+}
+
+// OrderItem model
+model OrderItem {
+  id                String    @id @default(uuid())
+  orderId           String
+  productId         String
+  variantId         String?
+  quantity          Int
+  price             Decimal   @db.Decimal(10, 2) // Price at time of order
+  customDesignUrl   String?
+  customText        String?
+  createdAt         DateTime  @default(now())
+
+  order             Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product           Product   @relation(fields: [productId], references: [id])
+  variant           ProductVariant? @relation(fields: [variantId], references: [id])
+
+  @@map("order_items")
+}
+
+// OrderStatusHistory model
+model OrderStatusHistory {
+  id            String      @id @default(uuid())
+  orderId      String
+  status        OrderStatus
+  comment      String?
+  createdAt     DateTime    @default(now())
+
+  order         Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("order_status_history")
+}
+
+// Payment model
+model Payment {
+  id                String          @id @default(uuid())
+  orderId           String
+  userId            String
+  amount            Decimal         @db.Decimal(10, 2)
+  razorpayOrderId   String?         @unique
+  razorpayPaymentId String?         @unique
+  status            PaymentStatus   @default(PENDING)
+  method            PaymentMethod
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  order             Order           @relation(fields: [orderId], references: [id])
+  user              User            @relation(fields: [userId], references: [id])
+
+  @@map("payments")
+}
+
+// Enums
+enum OrderStatus {
+  PENDING_REVIEW
+  ACCEPTED
+  REJECTED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  ONLINE
+  OFFLINE
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+

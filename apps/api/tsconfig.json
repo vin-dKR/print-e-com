@@ -1,0 +1,16 @@
+{
+  "extends": "@repo/typescript-config/base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "module": "ESNext",
+    "target": "ES2023",
+    "moduleResolution": "node",
+    "lib": ["ESNext"],
+    "types": ["bun-types", "node"],
+    "esModuleInterop": true,
+  },
+  "type": "module",
+    "include": ["src/**/*", "prisma/**/*", "generated/**/*"],
+    "exclude": ["node_modules", "dist"]
+  }
+
