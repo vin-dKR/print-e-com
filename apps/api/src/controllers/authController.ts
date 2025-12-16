@@ -1,8 +1,7 @@
 import { Request, Response, NextFunction } from "express";
-import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { supabase } from "../services/supabase";
-import {prisma} from "../services/prisma";
+import { prisma } from "../services/prisma";
 import { sendSuccess, sendError } from "../utils/response";
 import { ValidationError, UnauthorizedError, NotFoundError } from "../utils/errors";
 
@@ -60,32 +59,6 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
         if (existingUser) {
             return sendError(res, "User already exists", 400);
         }
-
-        // For local, we'll just create the user (password hashing would be done by Supabase)
-        // In a real scenario without Supabase, you'd hash the password here
-        const user = await prisma.user.create({
-            data: {
-                email,
-                name: name || email.split("@")[0],
-                phone,
-            },
-        });
-
-        // Generate JWT token
-        const token = jwt.sign(
-            { userId: user.id, email: user.email, type: "customer" },
-            JWT_SECRET,
-            { expiresIn: "7d" }
-        );
-
-        return sendSuccess(res, {
-            user: {
-                id: user.id,
-                email: user.email,
-                name: user.name,
-            },
-            token,
-        }, "Registration successful", 201);
     } catch (error) {
         next(error);
     }
@@ -168,52 +141,6 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     }
 };
 
-/**
- * Admin Login
- * WIP : since we are not using admin login for now, we will not implement this with the user authentication in future.
- */
-
-export const adminLogin = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const { username, password } = req.body;
-
-        if (!username || !password) {
-            throw new ValidationError("Username and password are required");
-        }
-
-        const admin = await prisma.admin.findUnique({
-            where: { username },
-        });
-
-        if (!admin || !admin.isActive) {
-            return sendError(res, "Invalid credentials", 401);
-        }
-
-        const isValidPassword = await bcrypt.compare(password, admin.password);
-
-        if (!isValidPassword) {
-            return sendError(res, "Invalid credentials", 401);
-        }
-
-        const token = jwt.sign(
-            { adminId: admin.id, email: admin.email, type: "admin" },
-            JWT_SECRET,
-            { expiresIn: "24h" }
-        );
-
-        return sendSuccess(res, {
-            admin: {
-                id: admin.id,
-                username: admin.username,
-                email: admin.email,
-                name: admin.name,
-            },
-            token,
-        }, "Admin login successful");
-    } catch (error) {
-        next(error);
-    }
-};
 
 // Get User Profile
 export const getProfile = async (req: Request, res: Response, next: NextFunction) => {
@@ -240,6 +167,7 @@ export const getProfile = async (req: Request, res: Response, next: NextFunction
             email: user.email,
             name: user.name,
             phone: user.phone,
+            isAdmin: user.isAdmin,
             addresses: user.addresses,
             createdAt: user.createdAt,
         });
