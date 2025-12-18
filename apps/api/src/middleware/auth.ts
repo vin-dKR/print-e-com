@@ -31,11 +31,11 @@ export const customerAuth = async (
         }
 
         const token = authHeader.substring(7);
-        console.log("---", authHeader)
 
         // Try Supabase first
         if (supabase) {
             const { data: { user }, error } = await supabase.auth.getUser(token);
+            // console.log("---", user)
 
             if (!error && user) {
                 // Find or create user in our database
@@ -84,6 +84,7 @@ export const customerAuth = async (
                 email: user.email,
                 type: "customer",
             };
+            console.log("--this is the id of the token user", req.user)
             return next();
         } catch (jwtError) {
             throw new UnauthorizedError("Invalid or expired token");

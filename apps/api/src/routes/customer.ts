@@ -6,6 +6,7 @@ import {
     trackOrder,
 } from "../controllers/orderController";
 import { customerAuth } from "../middleware/auth";
+import { createAddress } from "../controllers/addressController";
 
 const router: IRouter = Router();
 
@@ -15,6 +16,9 @@ router.get("/orders/:id/track", trackOrder);
 // Protected routes
 router.use(customerAuth);
 
+// Address routes
+
+router.post("/address", createAddress)
 // Order routes
 router.post("/orders", createOrder);
 router.get("/orders", getMyOrders);
