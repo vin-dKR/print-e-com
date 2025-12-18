@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { prisma } from "../services/prisma";
-import { sendSuccess, sendError } from "../utils/response";
+import { sendSuccess } from "../utils/response";
 import { ValidationError, NotFoundError, UnauthorizedError } from "../utils/errors";
 
 // Customer: Create order
@@ -112,6 +112,7 @@ export const createOrder = async (req: Request, res: Response, next: NextFunctio
         });
 
         return sendSuccess(res, order, "Order created successfully", 201);
+        //Order creation working
     } catch (error) {
         next(error);
     }

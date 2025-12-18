@@ -1,20 +1,16 @@
 import { Request, Response, NextFunction } from "express";
 import { prisma } from "../services/prisma";
 import { sendError, sendSuccess } from "../utils/response";
+import { UnauthorizedError } from "../utils/errors";
 
 export const createAddress = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { userId, street, city, state, zipCode, country } = req.body
-        const user = req.user
+        if (!req.user) return new UnauthorizedError("User not authorized")
+        const { street, city, state, zipCode, country } = req.body
 
-        console.log(user)
-
-        if (user?.id !== userId) {
-            return sendError(res, "This token is not authorized with this user", 400)
-        }
         const address = await prisma.address.create({
             data: {
-                userId,
+                userId: req.user.id,
                 street,
                 city,
                 state,
