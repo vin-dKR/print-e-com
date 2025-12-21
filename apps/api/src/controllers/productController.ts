@@ -70,8 +70,13 @@ export const getProducts = async (req: Request, res: Response, next: NextFunctio
                 where,
                 include: {
                     category: true,
+                    brand: true,
                     variants: {
                         where: { available: true },
+                    },
+                    images: {
+                        where: { isPrimary: true },
+                        take: 1,
                     },
                 },
                 skip,
@@ -104,8 +109,30 @@ export const getProduct = async (req: Request, res: Response, next: NextFunction
             where: { id },
             include: {
                 category: true,
+                brand: true,
                 variants: {
                     where: { available: true },
+                },
+                images: {
+                    orderBy: { displayOrder: "asc" },
+                },
+                specifications: {
+                    orderBy: { displayOrder: "asc" },
+                },
+                attributes: true,
+                tags: true,
+                reviews: {
+                    where: { isApproved: true },
+                    include: {
+                        user: {
+                            select: {
+                                id: true,
+                                name: true,
+                            },
+                        },
+                    },
+                    take: 5,
+                    orderBy: { createdAt: "desc" },
                 },
             },
         });
@@ -114,16 +141,71 @@ export const getProduct = async (req: Request, res: Response, next: NextFunction
             throw new NotFoundError("Product not found");
         }
 
+        // Track recently viewed (if user is authenticated)
+        if (req.user) {
+            await prisma.recentlyViewedProduct.upsert({
+                where: {
+                    userId_productId: {
+                        userId: req.user.id,
+                        productId: product.id,
+                    },
+                },
+                update: {
+                    viewedAt: new Date(),
+                },
+                create: {
+                    userId: req.user.id,
+                    productId: product.id,
+                },
+            });
+        }
+
         return sendSuccess(res, product);
     } catch (error) {
         next(error);
     }
 };
 
+// Helper function to generate slug from name
+function generateSlug(name: string): string {
+    return name
+        .toLowerCase()
+        .trim()
+        .replace(/[^\w\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .substring(0, 100);
+}
+
 // Admin: Create product
 export const createProduct = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { name, description, basePrice, categoryId, images } = req.body;
+        const {
+            name,
+            slug,
+            description,
+            shortDescription,
+            basePrice,
+            sellingPrice,
+            mrp,
+            categoryId,
+            brandId,
+            sku,
+            stock,
+            minOrderQuantity,
+            maxOrderQuantity,
+            weight,
+            dimensions,
+            returnPolicy,
+            warranty,
+            isFeatured,
+            isNewArrival,
+            isBestSeller,
+            images,
+            specifications,
+            attributes,
+            tags,
+        } = req.body;
 
         if (!name || !basePrice || !categoryId) {
             throw new ValidationError("Name, basePrice, and categoryId are required");
@@ -137,17 +219,83 @@ export const createProduct = async (req: Request, res: Response, next: NextFunct
             throw new NotFoundError("Category not found");
         }
 
+        // Generate slug if not provided
+        let productSlug = slug || generateSlug(name);
+        let uniqueSlug = productSlug;
+        let counter = 1;
+
+        // Ensure slug is unique
+        while (await prisma.product.findUnique({ where: { slug: uniqueSlug } })) {
+            uniqueSlug = `${productSlug}-${counter}`;
+            counter++;
+        }
+
+        // Create product with images, specifications, attributes, and tags
         const product = await prisma.product.create({
             data: {
                 name,
+                slug: uniqueSlug,
                 description,
+                shortDescription,
                 basePrice: parseFloat(basePrice),
+                sellingPrice: sellingPrice ? parseFloat(sellingPrice) : null,
+                mrp: mrp ? parseFloat(mrp) : null,
                 categoryId,
-                images: images || [],
+                brandId: brandId || null,
+                sku: sku || null,
+                stock: stock || 0,
+                minOrderQuantity: minOrderQuantity || 1,
+                maxOrderQuantity: maxOrderQuantity || null,
+                weight: weight ? parseFloat(weight) : null,
+                dimensions: dimensions || null,
+                returnPolicy: returnPolicy || null,
+                warranty: warranty || null,
+                isFeatured: isFeatured || false,
+                isNewArrival: isNewArrival || false,
+                isBestSeller: isBestSeller || false,
+                images: images
+                    ? {
+                          create: images.map((img: any, index: number) => ({
+                              url: typeof img === 'string' ? img : img.url,
+                              alt: typeof img === 'string' ? null : img.alt,
+                              isPrimary: index === 0,
+                              displayOrder: index,
+                          })),
+                      }
+                    : undefined,
+                specifications: specifications
+                    ? {
+                          create: specifications.map((spec: any, index: number) => ({
+                              key: spec.key,
+                              value: spec.value,
+                              displayOrder: index,
+                          })),
+                      }
+                    : undefined,
+                attributes: attributes
+                    ? {
+                          create: attributes.map((attr: any) => ({
+                              attributeType: attr.type,
+                              attributeValue: attr.value,
+                          })),
+                      }
+                    : undefined,
+                tags: tags
+                    ? {
+                          create: tags.map((tag: string) => ({
+                              tag,
+                          })),
+                      }
+                    : undefined,
             },
             include: {
                 category: true,
+                brand: true,
                 variants: true,
+                images: true,
+                specifications: true,
+                attributes: true,
+                tags: true,
             },
         });
 
@@ -161,8 +309,37 @@ export const createProduct = async (req: Request, res: Response, next: NextFunct
 export const updateProduct = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { id } = req.params;
-        const { name, description, basePrice, categoryId, images, isActive } = req.body;
+        const {
+            name,
+            slug,
+            description,
+            shortDescription,
+            basePrice,
+            sellingPrice,
+            mrp,
+            categoryId,
+            brandId,
+            sku,
+            stock,
+            minOrderQuantity,
+            maxOrderQuantity,
+            weight,
+            dimensions,
+            returnPolicy,
+            warranty,
+            isActive,
+            isFeatured,
+            isNewArrival,
+            isBestSeller,
+            images,
+            specifications,
+            attributes,
+            tags,
+        } = req.body;
 
+        if(!id) {
+            throw new ValidationError("Pprovide the id to update")
+        }
         const product = await prisma.product.findUnique({
             where: { id },
         });
@@ -173,22 +350,119 @@ export const updateProduct = async (req: Request, res: Response, next: NextFunct
 
         const updateData: any = {};
         if (name) updateData.name = name;
+        if (slug) {
+            // Ensure slug is unique
+            let uniqueSlug = slug;
+            let counter = 1;
+            while (
+                await prisma.product.findFirst({
+                    where: { slug: uniqueSlug, id: { not: id } },
+                })
+            ) {
+                uniqueSlug = `${slug}-${counter}`;
+                counter++;
+            }
+            updateData.slug = uniqueSlug;
+        }
         if (description !== undefined) updateData.description = description;
+        if (shortDescription !== undefined) updateData.shortDescription = shortDescription;
         if (basePrice) updateData.basePrice = parseFloat(basePrice);
+        if (sellingPrice !== undefined) updateData.sellingPrice = sellingPrice ? parseFloat(sellingPrice) : null;
+        if (mrp !== undefined) updateData.mrp = mrp ? parseFloat(mrp) : null;
         if (categoryId) updateData.categoryId = categoryId;
-        if (images) updateData.images = images;
+        if (brandId !== undefined) updateData.brandId = brandId || null;
+        if (sku !== undefined) updateData.sku = sku || null;
+        if (stock !== undefined) updateData.stock = parseInt(stock);
+        if (minOrderQuantity !== undefined) updateData.minOrderQuantity = parseInt(minOrderQuantity);
+        if (maxOrderQuantity !== undefined) updateData.maxOrderQuantity = maxOrderQuantity ? parseInt(maxOrderQuantity) : null;
+        if (weight !== undefined) updateData.weight = weight ? parseFloat(weight) : null;
+        if (dimensions !== undefined) updateData.dimensions = dimensions || null;
+        if (returnPolicy !== undefined) updateData.returnPolicy = returnPolicy || null;
+        if (warranty !== undefined) updateData.warranty = warranty || null;
         if (isActive !== undefined) updateData.isActive = isActive;
+        if (isFeatured !== undefined) updateData.isFeatured = isFeatured;
+        if (isNewArrival !== undefined) updateData.isNewArrival = isNewArrival;
+        if (isBestSeller !== undefined) updateData.isBestSeller = isBestSeller;
 
         const updatedProduct = await prisma.product.update({
             where: { id },
             data: updateData,
             include: {
                 category: true,
+                brand: true,
                 variants: true,
+                images: true,
+                specifications: true,
+                attributes: true,
+                tags: true,
             },
         });
 
-        return sendSuccess(res, updatedProduct, "Product updated successfully");
+        // Update images if provided
+        if (images && Array.isArray(images)) {
+            await prisma.productImage.deleteMany({ where: { productId: id } });
+            await prisma.productImage.createMany({
+                data: images.map((img: any, index: number) => ({
+                    productId: id,
+                    url: typeof img === 'string' ? img : img.url,
+                    alt: typeof img === 'string' ? null : img.alt,
+                    isPrimary: index === 0,
+                    displayOrder: index,
+                })),
+            });
+        }
+
+        // Update specifications if provided
+        if (specifications && Array.isArray(specifications)) {
+            await prisma.productSpecification.deleteMany({ where: { productId: id } });
+            await prisma.productSpecification.createMany({
+                data: specifications.map((spec: any, index: number) => ({
+                    productId: id,
+                    key: spec.key,
+                    value: spec.value,
+                    displayOrder: index,
+                })),
+            });
+        }
+
+        // Update attributes if provided
+        if (attributes && Array.isArray(attributes)) {
+            await prisma.productAttribute.deleteMany({ where: { productId: id } });
+            await prisma.productAttribute.createMany({
+                data: attributes.map((attr: any) => ({
+                    productId: id,
+                    attributeType: attr.type,
+                    attributeValue: attr.value,
+                })),
+            });
+        }
+
+        // Update tags if provided
+        if (tags && Array.isArray(tags)) {
+            await prisma.productTag.deleteMany({ where: { productId: id } });
+            await prisma.productTag.createMany({
+                data: tags.map((tag: string) => ({
+                    productId: id,
+                    tag,
+                })),
+            });
+        }
+
+        // Fetch updated product with all relations
+        const finalProduct = await prisma.product.findUnique({
+            where: { id },
+            include: {
+                category: true,
+                brand: true,
+                variants: true,
+                images: true,
+                specifications: true,
+                attributes: true,
+                tags: true,
+            },
+        });
+
+        return sendSuccess(res, finalProduct, "Product updated successfully");
     } catch (error) {
         next(error);
     }
@@ -301,11 +575,13 @@ export const searchProducts = async (req: Request, res: Response, next: NextFunc
         ])
 
         const data = {
-            page: pageNumber,
-            limit: limitNumber,
-            totalProducts,
-            totalPages: Math.ceil(totalProducts / limitNumber),
             products,
+            pagination: {
+                page: pageNumber,
+                limit: limitNumber,
+                totalProducts,
+                totalPages: Math.ceil(totalProducts / limitNumber),
+            },
         }
 
         return sendSuccess(

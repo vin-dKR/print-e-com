@@ -36,8 +36,10 @@ export const createOrder = async (req: Request, res: Response, next: NextFunctio
             throw new NotFoundError("Address not found");
         }
 
-        // Calculate total and validate items
-        let total = 0;
+        const { couponCode, shippingCharges = 0 } = req.body;
+
+        // Calculate subtotal and validate items
+        let subtotal = 0;
         const orderItems = [];
 
         for (const item of items) {
@@ -56,7 +58,8 @@ export const createOrder = async (req: Request, res: Response, next: NextFunctio
                 throw new NotFoundError(`Product ${productId} not found`);
             }
 
-            let itemPrice = Number(product.basePrice);
+            // Use sellingPrice if available, otherwise basePrice
+            let itemPrice = Number(product.sellingPrice || product.basePrice);
 
             if (variantId) {
                 const variant = product.variants.find((v: { id: string }) => v.id === variantId);
@@ -67,7 +70,7 @@ export const createOrder = async (req: Request, res: Response, next: NextFunctio
             }
 
             const itemTotal = itemPrice * quantity;
-            total += itemTotal;
+            subtotal += itemTotal;
 
             orderItems.push({
                 productId,
@@ -79,13 +82,68 @@ export const createOrder = async (req: Request, res: Response, next: NextFunctio
             });
         }
 
+        // Calculate discount from coupon if provided
+        let discountAmount = 0;
+        let couponId = null;
+
+        if (couponCode) {
+            const coupon = await prisma.coupon.findUnique({
+                where: { code: couponCode.toUpperCase() },
+            });
+
+            if (coupon && coupon.isActive) {
+                const now = new Date();
+                if (now >= coupon.validFrom && now <= coupon.validUntil) {
+                    if (!coupon.minPurchaseAmount || subtotal >= Number(coupon.minPurchaseAmount)) {
+                        // Check usage limits
+                        const usageCount = await prisma.couponUsage.count({
+                            where: { couponId: coupon.id },
+                        });
+
+                        if (coupon.usageLimit === null || usageCount < coupon.usageLimit) {
+                            const userUsageCount = await prisma.couponUsage.count({
+                                where: {
+                                    couponId: coupon.id,
+                                    userId: req.user.id,
+                                },
+                            });
+
+                            if (userUsageCount < coupon.usageLimitPerUser) {
+                                // Calculate discount
+                                if (coupon.discountType === "PERCENTAGE") {
+                                    discountAmount = (subtotal * Number(coupon.discountValue)) / 100;
+                                } else {
+                                    discountAmount = Number(coupon.discountValue);
+                                }
+
+                                // Apply max discount cap
+                                if (coupon.maxDiscountAmount && discountAmount > Number(coupon.maxDiscountAmount)) {
+                                    discountAmount = Number(coupon.maxDiscountAmount);
+                                }
+
+                                couponId = coupon.id;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Calculate final total
+        const finalShippingCharges = Number(shippingCharges) || 0;
+        const total = subtotal - discountAmount + finalShippingCharges;
+
         // Create order
         const order = await prisma.order.create({
             data: {
                 userId: req.user.id,
                 addressId,
+                subtotal,
+                discountAmount: discountAmount > 0 ? discountAmount : null,
+                shippingCharges: finalShippingCharges > 0 ? finalShippingCharges : null,
                 total,
                 paymentMethod,
+                couponId,
                 status: "PENDING_REVIEW",
                 items: {
                     create: orderItems,
@@ -111,8 +169,18 @@ export const createOrder = async (req: Request, res: Response, next: NextFunctio
             },
         });
 
+        // Record coupon usage if applied
+        if (couponId) {
+            await prisma.couponUsage.create({
+                data: {
+                    couponId,
+                    userId: req.user.id,
+                    orderId: order.id,
+                },
+            });
+        }
+
         return sendSuccess(res, order, "Order created successfully", 201);
-        //Order creation working
     } catch (error) {
         next(error);
     }
@@ -356,7 +424,7 @@ export const updateOrderStatus = async (req: Request, res: Response, next: NextF
         await prisma.orderStatusHistory.create({
             data: {
                 orderId: id,
-                status,
+                status, 
                 comment: comment || `Status updated to ${status}`,
             },
         });

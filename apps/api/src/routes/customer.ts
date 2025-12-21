@@ -23,8 +23,8 @@ router.get("/orders/:id/track", trackOrder);
 router.use(customerAuth);
 
 // Address routes
+router.post("/address", createAddress);
 
-router.post("/address", createAddress)
 // Order routes
 router.post("/orders", createOrder);
 router.get("/orders", getMyOrders);

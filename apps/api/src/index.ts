@@ -10,6 +10,10 @@ import publicRoutes from "./routes/public";
 import customerRoutes from "./routes/customer";
 import adminRoutes from "./routes/admin";
 import paymentRoutes from "./routes/payment";
+import cartRoutes from "./routes/cart";
+import wishlistRoutes from "./routes/wishlist";
+import reviewRoutes from "./routes/reviews";
+import couponRoutes from "./routes/coupons";
 
 import { errorHandler } from "./middleware/errorHandler";
 
@@ -36,10 +40,15 @@ app.get("/health", (_req, res) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
+// API routes - Order matters! More specific routes before broader ones
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1", publicRoutes);
 app.use("/api/v1/admin", adminRoutes);
 app.use("/api/v1/payment", paymentRoutes);
+app.use("/api/v1/cart", cartRoutes);
+app.use("/api/v1/wishlist", wishlistRoutes);
+app.use("/api/v1/reviews", reviewRoutes);
+app.use("/api/v1/coupons", couponRoutes);
 app.use("/api/v1/customer", customerRoutes);
 
 app.use(errorHandler);
