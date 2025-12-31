@@ -14,7 +14,16 @@
     "db:migrate": "bunx prisma migrate dev",
     "db:generate": "bunx prisma generate",
     "db:seed": "bunx prisma db seed",
-    "db:studio": "bunx prisma studio"
+    "db:studio": "bunx prisma studio",
+    "seed:printouts": "bun scripts/seed-printouts.ts",
+    "seed:books": "bun scripts/seed-books.ts",
+    "seed:photos": "bun scripts/seed-photos.ts",
+    "seed:business-cards": "bun scripts/seed-business-cards.ts",
+    "seed:letter-heads": "bun scripts/seed-letter-heads.ts",
+    "seed:bill-books": "bun scripts/seed-bill-books.ts",
+    "seed:pamphlets-brochures": "bun scripts/seed-pamphlets-brochures.ts",
+    "seed:maps": "bun scripts/seed-maps.ts",
+    "seed:all": "bun scripts/seed-all.ts"
   },
   "prisma": {
     "seed": "bun prisma/seed.ts"
