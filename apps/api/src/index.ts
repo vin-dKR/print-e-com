@@ -2,6 +2,10 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import path from "path";
+import fs from "fs";
+import redoc from "redoc-express";
+import swaggerUi from "swagger-ui-express";
+import yaml from "js-yaml";
 
 dotenv.config();
 
@@ -27,6 +31,29 @@ app.use(express.urlencoded({ extended: true }));
 // Serve uploaded files
 // WIP: not in use now
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+
+// Serve OpenAPI YAML spec (for Redoc UI)
+app.get("/api/openapi.yaml", (_req, res) => {
+    const specPath = path.join(process.cwd(), "openapi.yaml");
+    const yaml = fs.readFileSync(specPath, "utf8");
+    res.type("text/yaml").send(yaml);
+});
+
+// Serve API documentation UI at /api/docs using Redoc
+app.get(
+    "/api/docs",
+    redoc({
+        title: "Custom Printing E-commerce API Docs",
+        specUrl: "/api/openapi.yaml"
+    })
+);
+
+// Load OpenAPI spec once for Swagger UI
+const openapiSpecPath = path.join(process.cwd(), "openapi.yaml");
+const openapiDocument = yaml.load(fs.readFileSync(openapiSpecPath, "utf8")) as object;
+
+// Interactive API playground using Swagger UI
+app.use("/api/playground", swaggerUi.serve, swaggerUi.setup(openapiDocument));
 
 app.get("/", (_req, res) => {
     res.json({
