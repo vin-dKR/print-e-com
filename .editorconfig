@@ -30,4 +30,3 @@ indent_size = 2
 # Package.json files
 [package.json]
 indent_size = 4
-

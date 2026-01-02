@@ -5,146 +5,147 @@
 import { get, ApiResponse } from '../api-client';
 
 export interface Category {
-  id: string;
-  name: string;
-  slug: string;
-  description?: string;
-  image?: string;
-  parentId?: string;
-  isActive: boolean;
-}
-
-export interface ProductImage {
-  id: string;
-  url: string;
-  alt?: string;
-  isPrimary: boolean;
-  displayOrder: number;
-}
-
-export interface ProductVariant {
-  id: string;
-  name: string;
-  sku?: string;
-  stock: number;
-  priceModifier: number;
-  available: boolean;
-}
-
-export interface Product {
-  id: string;
-  name: string;
-  slug?: string;
-  description?: string;
-  shortDescription?: string;
-  basePrice: number;
-  sellingPrice?: number;
-  mrp?: number;
-  categoryId: string;
-  brandId?: string;
-  sku?: string;
-  stock: number;
-  minOrderQuantity: number;
-  maxOrderQuantity?: number;
-  weight?: number;
-  dimensions?: string;
-  isActive: boolean;
-  isFeatured: boolean;
-  isNewArrival: boolean;
-  isBestSeller: boolean;
-  rating?: number;
-  totalReviews: number;
-  totalSold: number;
-  returnPolicy?: string;
-  warranty?: string;
-  createdAt: string;
-  updatedAt: string;
-  category?: Category;
-  brand?: {
     id: string;
     name: string;
     slug: string;
-  };
-  images?: ProductImage[];
-  variants?: ProductVariant[];
+    description?: string;
+    image?: string;
+    parentId?: string;
+    isActive: boolean;
+}
+
+export interface ProductImage {
+    id: string;
+    url: string;
+    alt?: string;
+    isPrimary: boolean;
+    displayOrder: number;
+}
+
+export interface ProductVariant {
+    id: string;
+    name: string;
+    sku?: string;
+    stock: number;
+    priceModifier: number;
+    available: boolean;
+}
+
+export interface Product {
+    id: string;
+    name: string;
+    slug?: string;
+    description?: string;
+    shortDescription?: string;
+    basePrice: number;
+    sellingPrice?: number;
+    mrp?: number;
+    categoryId: string;
+    brandId?: string;
+    sku?: string;
+    stock: number;
+    minOrderQuantity: number;
+    maxOrderQuantity?: number;
+    weight?: number;
+    dimensions?: string;
+    isActive: boolean;
+    isFeatured: boolean;
+    isNewArrival: boolean;
+    isBestSeller: boolean;
+    rating?: number;
+    totalReviews: number;
+    totalSold: number;
+    returnPolicy?: string;
+    warranty?: string;
+    createdAt: string;
+    updatedAt: string;
+    category?: Category;
+    brand?: {
+        id: string;
+        name: string;
+        slug: string;
+    };
+    images?: ProductImage[];
+    variants?: ProductVariant[];
 }
 
 export interface ProductListParams {
-  page?: number;
-  limit?: number;
-  category?: string;
-  brand?: string;
-  minPrice?: number;
-  maxPrice?: number;
-  sortBy?: 'price' | 'rating' | 'createdAt' | 'totalSold';
-  sortOrder?: 'asc' | 'desc';
-  search?: string;
-  isFeatured?: boolean;
-  isNewArrival?: boolean;
-  isBestSeller?: boolean;
+    page?: number;
+    limit?: number;
+    category?: string;
+    brand?: string;
+    minPrice?: number;
+    maxPrice?: number;
+    sortBy?: 'price' | 'rating' | 'createdAt' | 'totalSold';
+    sortOrder?: 'asc' | 'desc';
+    search?: string;
+    isFeatured?: boolean;
+    isNewArrival?: boolean;
+    isBestSeller?: boolean;
 }
 
 export interface ProductListResponse {
-  products: Product[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
+    products: Product[];
+    pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+    };
 }
 
 /**
  * Get all categories
  */
 export async function getCategories(): Promise<ApiResponse<Category[]>> {
-  return get<Category[]>('/categories');
+    return get<Category[]>('/categories');
 }
 
 /**
  * Get products with filters and pagination
  */
 export async function getProducts(
-  params?: ProductListParams
+    params?: ProductListParams
 ): Promise<ApiResponse<ProductListResponse>> {
-  const queryParams = new URLSearchParams();
-  
-  if (params) {
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        queryParams.append(key, String(value));
-      }
-    });
-  }
-  
-  const queryString = queryParams.toString();
-  return get<ProductListResponse>(`/products${queryString ? `?${queryString}` : ''}`);
+    const queryParams = new URLSearchParams();
+
+    if (params) {
+        Object.entries(params).forEach(([key, value]) => {
+            if (value !== undefined && value !== null) {
+                queryParams.append(key, String(value));
+            }
+        });
+    }
+
+    const queryString = queryParams.toString();
+    console.log("this is the queryString", queryString)
+    return get<ProductListResponse>(`/products${queryString ? `?${queryString}` : ''}`);
 }
 
 /**
  * Get single product by ID
  */
 export async function getProduct(id: string): Promise<ApiResponse<Product>> {
-  return get<Product>(`/products/${id}`);
+    return get<Product>(`/products/${id}`);
 }
 
 /**
  * Search products
  */
 export async function searchProducts(
-  query: string,
-  params?: Omit<ProductListParams, 'search'>
+    query: string,
+    params?: Omit<ProductListParams, 'search'>
 ): Promise<ApiResponse<ProductListResponse>> {
-  const queryParams = new URLSearchParams({ search: query });
-  
-  if (params) {
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        queryParams.append(key, String(value));
-      }
-    });
-  }
-  
-  return get<ProductListResponse>(`/search?${queryParams.toString()}`);
+    const queryParams = new URLSearchParams({ search: query });
+
+    if (params) {
+        Object.entries(params).forEach(([key, value]) => {
+            if (value !== undefined && value !== null) {
+                queryParams.append(key, String(value));
+            }
+        });
+    }
+
+    return get<ProductListResponse>(`/search?${queryParams.toString()}`);
 }
 

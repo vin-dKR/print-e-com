@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+@theme {
+    --font-hkgr: "HK Grotesk Reg", "sans-serif";
+    --font-hkgb: "HK Grotesk Bold", "sans-serif";
+}
+
 @layer utilities {
     .scrollbar-hide {
         -ms-overflow-style: none;
@@ -10,3 +15,15 @@
     }
 }
 
+
+@font-face {
+  font-family: "HK Grotesk Reg";
+  font-display: swap;
+  src: url("/fonts/hk-grotesk/HKGrotesk-RegularLegacy.ttf");
+}
+
+@font-face {
+  font-family: "HK Grotesk Bold";
+  font-display: swap;
+  src: url("/fonts/hk-grotesk/HKGrotesk-Bold.ttf")
+}
