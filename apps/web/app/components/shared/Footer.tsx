@@ -17,7 +17,7 @@ export default function Footer() {
     return (
         <footer className="bg-[#F0F0F0] mt-auto">
             {/* Newsletter Section - Half in content, half in footer */}
-            <div className="relative">
+            <div className="hidden lg:block relative">
                 {/* This creates the overlap effect */}
                 <div className="absolute bottom-0 left-0 right-0 transform translate-y-1/2">
                     <div className="w-full mx-auto px-30">
@@ -71,7 +71,7 @@ export default function Footer() {
             </div>
 
             {/* Spacer to accommodate the newsletter section */}
-            <div className="pt-32 lg:pt-40">
+            <div className="pt-10 lg:pt-40 bg-white">
                 {/* Main Footer Content */}
                 <div className="bg-[#F0F0F0]">
                     <div className="w-full px-6 lg:px-30 py-12">

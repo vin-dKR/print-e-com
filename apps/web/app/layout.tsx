@@ -19,7 +19,7 @@ export default function RootLayout({
             <body className={`flex flex-col min-h-screen font-hkgr`}>
                 <AuthProvider>
                     <Header />
-                    <main className="flex-1">
+                    <main className="flex-1 bg-white">
                         {children}
                     </main>
                     <Footer />
