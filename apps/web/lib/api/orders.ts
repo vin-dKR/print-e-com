@@ -4,7 +4,7 @@
 
 import { get, post, ApiResponse } from '../api-client';
 
-export type OrderStatus = 
+export type OrderStatus =
   | 'PENDING_REVIEW'
   | 'ACCEPTED'
   | 'REJECTED'
@@ -76,11 +76,21 @@ export interface CreateOrderData {
   couponCode?: string;
 }
 
+export interface OrdersResponse {
+  orders: Order[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
 /**
  * Get user's orders
  */
-export async function getMyOrders(): Promise<ApiResponse<Order[]>> {
-  return get<Order[]>('/customer/orders');
+export async function getMyOrders(): Promise<ApiResponse<OrdersResponse>> {
+  return get<OrdersResponse>('/customer/orders');
 }
 
 /**

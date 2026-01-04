@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import { supabase } from "../services/supabase";
+import { supabase, supabaseAdmin } from "../services/supabase";
 import { prisma } from "../services/prisma";
 import { sendSuccess, sendError } from "../utils/response";
 import { ValidationError, UnauthorizedError, NotFoundError } from "../utils/errors";
@@ -32,8 +32,35 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
                 return sendError(res, error.message, 400);
             }
 
-            if (data.user) {
+            if (data.user && data.session) {
                 // Create user in our database
+                const user = await prisma.user.create({
+                    data: {
+                        email: data.user.email || email,
+                        supabaseId: data.user.id,
+                        name: name || data.user.user_metadata?.name || email.split("@")[0],
+                        phone: phone,
+                        isAdmin: isAdmin || false,
+                        isSuperAdmin: isSuperAdmin || false,
+                    },
+                });
+
+                return sendSuccess(
+                    res,
+                    {
+                        user: {
+                            id: user.id,
+                            email: user.email,
+                            name: user.name,
+                            phone: user.phone,
+                            isAdmin: user.isAdmin,
+                        },
+                        token: data.session.access_token,
+                    },
+                    "Registration successful"
+                );
+            } else if (data.user) {
+                // User created but no session (email confirmation required)
                 const user = await prisma.user.create({
                     data: {
                         email,
@@ -46,14 +73,18 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
                 });
 
                 return sendSuccess(res, {
-                    id: user.id,
-                    email: user.email,
-                    name: user.name,
-                }, "Registration successful", 201);
+                    user: {
+                        id: user.id,
+                        email: user.email,
+                        name: user.name,
+                    },
+                    // No token if email confirmation is required
+                }, "Registration successful. Please check your email to confirm your account.", 201);
             }
         }
 
         // Fallback: Local registration (without Supabase)
+        // In a real scenario, you'd hash the password here
         const existingUser = await prisma.user.findUnique({
             where: { email },
         });
@@ -61,6 +92,36 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
         if (existingUser) {
             return sendError(res, "User already exists", 400);
         }
+
+        const user = await prisma.user.create({
+            data: {
+                email,
+                name: name || email.split("@")[0],
+                phone: phone,
+                isAdmin: isAdmin || false,
+                isSuperAdmin: isSuperAdmin || false,
+            },
+        });
+
+        // Generate JWT token
+        const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, {
+            expiresIn: "7d",
+        });
+
+        return sendSuccess(
+            res,
+            {
+                user: {
+                    id: user.id,
+                    email: user.email,
+                    name: user.name,
+                    phone: user.phone,
+                    isAdmin: user.isAdmin,
+                },
+                token,
+            },
+            "Registration successful"
+        );
     } catch (error) {
         next(error);
     }
@@ -126,20 +187,24 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
         const isAdmin = user.isAdmin
 
         // Generate JWT token
-        const token = jwt.sign(
-            { userId: user.id, email: user.email, type: isAdmin ? "admin" : "customer" },
-            JWT_SECRET,
-            { expiresIn: "7d" }
-        );
+        const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, {
+            expiresIn: "7d",
+        });
 
-        return sendSuccess(res, {
-            user: {
-                id: user.id,
-                email: user.email,
-                name: user.name,
+        return sendSuccess(
+            res,
+            {
+                user: {
+                    id: user.id,
+                    email: user.email,
+                    name: user.name,
+                    phone: user.phone,
+                    isAdmin: user.isAdmin,
+                },
+                token,
             },
-            token,
-        }, "Login successful");
+            "Login successful"
+        );
     } catch (error) {
         next(error);
     }
@@ -174,9 +239,191 @@ export const getProfile = async (req: Request, res: Response, next: NextFunction
             isAdmin: user.isAdmin,
             addresses: user.addresses,
             createdAt: user.createdAt,
+            notificationPreferences: user.notificationPreferences || {},
         });
     } catch (error) {
         next(error);
     }
 };
 
+// Update User Profile
+export const updateProfile = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        if (!req.user) {
+            throw new UnauthorizedError("User not authenticated");
+        }
+
+        const { name, phone } = req.body;
+
+        const updateData: any = {};
+        if (name !== undefined) updateData.name = name;
+        if (phone !== undefined) updateData.phone = phone;
+
+        const updatedUser = await prisma.user.update({
+            where: { id: req.user.id },
+            data: updateData,
+            include: {
+                addresses: {
+                    orderBy: { isDefault: "desc" },
+                },
+            },
+        });
+
+        return sendSuccess(res, {
+            id: updatedUser.id,
+            email: updatedUser.email,
+            name: updatedUser.name,
+            phone: updatedUser.phone,
+            isAdmin: updatedUser.isAdmin,
+            addresses: updatedUser.addresses,
+            createdAt: updatedUser.createdAt,
+            notificationPreferences: updatedUser.notificationPreferences || {},
+        }, "Profile updated successfully");
+    } catch (error) {
+        next(error);
+    }
+};
+
+// Update Password
+export const updatePassword = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        if (!req.user) {
+            throw new UnauthorizedError("User not authenticated");
+        }
+
+        const { currentPassword, newPassword } = req.body;
+
+        if (!currentPassword || !newPassword) {
+            throw new ValidationError("Current password and new password are required");
+        }
+
+        if (newPassword.length < 6) {
+            throw new ValidationError("New password must be at least 6 characters long");
+        }
+
+        const user = await prisma.user.findUnique({
+            where: { id: req.user.id },
+        });
+
+        if (!user) {
+            throw new NotFoundError("User not found");
+        }
+
+        // If user has Supabase ID, update password via Supabase
+        if (user.supabaseId && supabaseAdmin) {
+            try {
+                // First, verify current password by attempting to sign in
+                if (supabase) {
+                    const { error: signInError } = await supabase.auth.signInWithPassword({
+                        email: user.email,
+                        password: currentPassword,
+                    });
+
+                    if (signInError) {
+                        return sendError(res, "Current password is incorrect", 400);
+                    }
+                }
+
+                // If current password is correct, use admin API to update password
+                const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+                    user.supabaseId,
+                    { password: newPassword }
+                );
+
+                if (updateError) {
+                    return sendError(res, updateError.message || "Failed to update password", 400);
+                }
+            } catch (supabaseError: any) {
+                console.error("Error updating password in Supabase:", supabaseError);
+                return sendError(res, supabaseError.message || "Failed to update password", 400);
+            }
+        } else {
+            // If no Supabase ID, this is a local user - password update not supported without Supabase
+            return sendError(res, "Password update requires Supabase authentication", 400);
+        }
+
+        return sendSuccess(res, null, "Password updated successfully");
+    } catch (error) {
+        next(error);
+    }
+};
+
+// Update Notification Preferences
+export const updateNotificationPreferences = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        if (!req.user) {
+            throw new UnauthorizedError("User not authenticated");
+        }
+
+        const { preferences } = req.body;
+
+        if (!preferences || typeof preferences !== 'object') {
+            throw new ValidationError("Preferences must be an object");
+        }
+
+        const updatedUser = await prisma.user.update({
+            where: { id: req.user.id },
+            data: {
+                notificationPreferences: preferences,
+            },
+            include: {
+                addresses: {
+                    orderBy: { isDefault: "desc" },
+                },
+            },
+        });
+
+        return sendSuccess(res, {
+            id: updatedUser.id,
+            email: updatedUser.email,
+            name: updatedUser.name,
+            phone: updatedUser.phone,
+            isAdmin: updatedUser.isAdmin,
+            addresses: updatedUser.addresses,
+            createdAt: updatedUser.createdAt,
+            notificationPreferences: updatedUser.notificationPreferences || {},
+        }, "Notification preferences updated successfully");
+    } catch (error) {
+        next(error);
+    }
+};
+
+// Delete User Account
+export const deleteAccount = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        if (!req.user) {
+            throw new UnauthorizedError("User not authenticated");
+        }
+
+        const user = await prisma.user.findUnique({
+            where: { id: req.user.id },
+        });
+
+        if (!user) {
+            throw new NotFoundError("User not found");
+        }
+
+        // Delete user from Supabase if supabaseId exists
+        if (user.supabaseId && supabaseAdmin) {
+            try {
+                const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(user.supabaseId);
+                if (deleteError) {
+                    console.error("Error deleting user from Supabase:", deleteError);
+                    // Continue with Prisma deletion even if Supabase deletion fails
+                }
+            } catch (supabaseError) {
+                console.error("Error deleting from Supabase:", supabaseError);
+                // Continue with Prisma deletion even if Supabase deletion fails
+            }
+        }
+
+        // Delete user from Prisma (cascade will handle related data)
+        await prisma.user.delete({
+            where: { id: req.user.id },
+        });
+
+        return sendSuccess(res, null, "Account deleted successfully");
+    } catch (error) {
+        next(error);
+    }
+};

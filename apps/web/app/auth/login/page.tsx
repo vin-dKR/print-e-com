@@ -27,7 +27,10 @@ export default function LoginPage() {
 
         try {
             await login(email, password);
-            router.push("/");
+            // Redirect to the stored path or home page
+            const redirectPath = sessionStorage.getItem("redirectAfterLogin") || "/";
+            sessionStorage.removeItem("redirectAfterLogin");
+            router.push(redirectPath);
         } catch (err: any) {
             setError(err.message || "Login failed. Please check your credentials.");
         } finally {

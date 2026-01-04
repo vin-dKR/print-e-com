@@ -3,6 +3,10 @@ import {
     register,
     login,
     getProfile,
+    updateProfile,
+    updatePassword,
+    updateNotificationPreferences,
+    deleteAccount,
 } from "../controllers/authController";
 import { customerAuth } from "../middleware/auth";
 
@@ -228,5 +232,111 @@ router.post("/login", login);
  *                   type: string
  */
 router.get("/user/profile", customerAuth, getProfile);
+
+/**
+ * @openapi
+ * /api/v1/auth/user/profile:
+ *   put:
+ *     summary: Update customer profile
+ *     tags:
+ *       - Auth
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               phone:
+ *                 type: string
+ *     responses:
+ *       '200':
+ *         description: Profile updated successfully.
+ *       '401':
+ *         description: Unauthorized.
+ */
+router.put("/user/profile", customerAuth, updateProfile);
+
+/**
+ * @openapi
+ * /api/v1/auth/user/password:
+ *   put:
+ *     summary: Update user password
+ *     tags:
+ *       - Auth
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - currentPassword
+ *               - newPassword
+ *             properties:
+ *               currentPassword:
+ *                 type: string
+ *               newPassword:
+ *                 type: string
+ *     responses:
+ *       '200':
+ *         description: Password updated successfully.
+ *       '400':
+ *         description: Invalid input or incorrect current password.
+ *       '401':
+ *         description: Unauthorized.
+ */
+router.put("/user/password", customerAuth, updatePassword);
+
+/**
+ * @openapi
+ * /api/v1/auth/user/notifications:
+ *   put:
+ *     summary: Update notification preferences
+ *     tags:
+ *       - Auth
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - preferences
+ *             properties:
+ *               preferences:
+ *                 type: object
+ *     responses:
+ *       '200':
+ *         description: Notification preferences updated successfully.
+ *       '401':
+ *         description: Unauthorized.
+ */
+router.put("/user/notifications", customerAuth, updateNotificationPreferences);
+
+/**
+ * @openapi
+ * /api/v1/auth/user/account:
+ *   delete:
+ *     summary: Delete user account
+ *     tags:
+ *       - Auth
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       '200':
+ *         description: Account deleted successfully.
+ *       '401':
+ *         description: Unauthorized.
+ */
+router.delete("/user/account", customerAuth, deleteAccount);
 
 export default router;

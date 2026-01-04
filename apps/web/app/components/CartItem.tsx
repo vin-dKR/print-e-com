@@ -3,35 +3,45 @@
 import Link from "next/link";
 import QuantitySelector from "./QuantitySelector";
 import PriceDisplay from "./PriceDisplay";
+import { CartItem as CartItemType } from "@/lib/api/cart";
+import Image from "next/image";
 
 interface CartItemProps {
-    id: string;
-    name: string;
-    image: string;
-    size?: string;
-    color?: string;
-    price: number;
-    quantity: number;
+    item: CartItemType;
     onQuantityChange: (id: string, quantity: number) => void;
     onRemove: (id: string) => void;
+    isUpdating?: boolean;
+    isRemoving?: boolean;
 }
 
 export default function CartItem({
-    id,
-    name,
-    image,
-    size,
-    color,
-    price,
-    quantity,
+    item,
     onQuantityChange,
     onRemove,
+    isUpdating = false,
+    isRemoving = false,
 }: CartItemProps) {
+    const product = item.product;
+    const variant = item.variant;
+    const productId = product?.id || item.productId;
+    const productName = product?.name || 'Unknown Product';
+
+    // Get product image
+    const productImage = product?.images?.find(img => img.isPrimary)?.url ||
+                        product?.images?.[0]?.url ||
+                        '/images/placeholder.png';
+
+    // Calculate price
+    const basePrice = Number(product?.sellingPrice || product?.basePrice || 0);
+    const variantModifier = Number(variant?.priceModifier || 0);
+    const itemPrice = basePrice + variantModifier;
+
+    const size = variant?.name;
     return (
         <div className="border-b border-gray-100 pb-4 flex gap-4 relative">
             {/* Delete Button */}
             <button
-                onClick={() => onRemove(id)}
+                onClick={() => onRemove(item.id)}
                 className="absolute top-2 right-2 text-red-500 hover:text-red-700 transition-colors cursor-pointer"
                 aria-label="Remove item"
             >
@@ -42,31 +52,26 @@ export default function CartItem({
             </button>
 
             {/* Product Image */}
-            <Link href={`/products/${id}`} className="shrink-0">
-                <div className="w-30 h-30 rounded-lg overflow-hidden bg-gray-100">
-                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
-                        <span className="text-xs text-gray-400">Image</span>
-                    </div>
-                </div>
+            <Link href={`/products/${item.productId}`} className="shrink-0">
+                <Image src={productImage} alt={productName} width={100} height={100} />
             </Link>
 
             {/* Product Details */}
             <div className="flex-1 flex flex-col justify-between">
                 <div>
-                    <Link href={`/products/${id}`}>
+                    <Link href={`/products/${item.productId}`}>
                         <h3 className="font-bold text-gray-900 mb-2 hover:text-blue-600 transition-colors">
-                            {name}
+                            {productName}
                         </h3>
                     </Link>
                     <div className="flex flex-wrap gap-4 text-sm text-gray-600 mb-2">
                         {size && <span>Size: {size}</span>}
-                        {color && <span>Color: {color}</span>}
                     </div>
                     <div className="flex justify-between text-lg font-bold text-gray-900">
-                        <PriceDisplay currentPrice={price} />
+                        <PriceDisplay currentPrice={itemPrice} />
                         <QuantitySelector
-                            quantity={quantity}
-                            onQuantityChange={(newQuantity) => onQuantityChange(id, newQuantity)}
+                            quantity={item.quantity}
+                            onQuantityChange={(newQuantity) => onQuantityChange(item.id, newQuantity)}
                         />
                     </div>
                 </div>
