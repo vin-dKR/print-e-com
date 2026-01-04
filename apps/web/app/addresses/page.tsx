@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import ProfileSidebar from "../components/shared/ProfileSidebar";
 import { MapPin, Home, Briefcase, Map, Plus, Edit2, Trash2, Check, X, Phone, User, Building } from "lucide-react";
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
 
 interface Address {
     id: string;
@@ -64,7 +65,7 @@ const addressTypeIcons = {
     Other: Map,
 };
 
-export default function AddressesPage() {
+function AddressesPageContent() {
     const [addresses, setAddresses] = useState<Address[]>(initialAddresses);
     const [showAddForm, setShowAddForm] = useState(false);
     const [formData, setFormData] = useState({
@@ -441,5 +442,13 @@ export default function AddressesPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function AddressesPage() {
+    return (
+        <ProtectedRoute>
+            <AddressesPageContent />
+        </ProtectedRoute>
     );
 }

@@ -6,8 +6,9 @@ import ShippingMethod from "../components/ShippingMethod";
 import PaymentMethod from "../components/PaymentMethod";
 import CollapsibleSection from "../components/CollapsibleSection";
 import BillingSummary from "../components/BillingSummary";
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
 
-export default function CheckoutPage() {
+function CheckoutPageContent() {
     // Sample cart items - this would come from cart state/API
     const cartItems = [
         {
@@ -166,5 +167,13 @@ export default function CheckoutPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function CheckoutPage() {
+    return (
+        <ProtectedRoute>
+            <CheckoutPageContent />
+        </ProtectedRoute>
     );
 }

@@ -32,7 +32,7 @@ export function getAuthToken(): string | null {
 /**
  * Set authentication token in cookies
  */
-export function setAuthToken(token: string | null): void {
+export function setAuthToken(token: string | undefined): void {
     if (token) {
         // Store token in cookie with 7 day expiration
         setCookie(AUTH_TOKEN_COOKIE, token, 7);
@@ -77,7 +77,7 @@ async function fetchAPI<T>(
 
             // Handle authentication errors
             if (response.status === 401) {
-                setAuthToken(null);
+                setAuthToken(undefined);
                 // Redirect to login if not already there
                 if (typeof window !== 'undefined' && !window.location.pathname.includes('/auth/login')) {
                     window.location.href = '/auth/login';

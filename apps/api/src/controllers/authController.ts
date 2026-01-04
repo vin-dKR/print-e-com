@@ -32,7 +32,7 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
                 return sendError(res, error.message, 400);
             }
 
-            if (data.user) {
+            if (data.user && data.session) {
                 // Create user in our database
                 const user = await prisma.user.create({
                     data: {
@@ -45,11 +45,36 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
                     },
                 });
 
+                // Auto-login after registration - return token
                 return sendSuccess(res, {
-                    id: user.id,
-                    email: user.email,
-                    name: user.name,
+                    user: {
+                        id: user.id,
+                        email: user.email,
+                        name: user.name,
+                    },
+                    token: data.session.access_token, // Supabase JWT token
                 }, "Registration successful", 201);
+            } else if (data.user) {
+                // User created but no session (email confirmation required)
+                const user = await prisma.user.create({
+                    data: {
+                        email,
+                        name: name || email.split("@")[0],
+                        phone,
+                        supabaseId: data.user.id,
+                        isAdmin,
+                        isSuperAdmin
+                    },
+                });
+
+                return sendSuccess(res, {
+                    user: {
+                        id: user.id,
+                        email: user.email,
+                        name: user.name,
+                    },
+                    // No token if email confirmation is required
+                }, "Registration successful. Please check your email to confirm your account.", 201);
             }
         }
 
@@ -61,6 +86,34 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
         if (existingUser) {
             return sendError(res, "User already exists", 400);
         }
+
+        // Create user in database
+        const user = await prisma.user.create({
+            data: {
+                email,
+                name: name || email.split("@")[0],
+                phone,
+                isAdmin,
+                isSuperAdmin
+            },
+        });
+
+        // Auto-login after registration - generate JWT token
+        const isAdminUser = user.isAdmin;
+        const token = jwt.sign(
+            { userId: user.id, email: user.email, type: isAdminUser ? "admin" : "customer" },
+            JWT_SECRET,
+            { expiresIn: "7d" }
+        );
+
+        return sendSuccess(res, {
+            user: {
+                id: user.id,
+                email: user.email,
+                name: user.name,
+            },
+            token,
+        }, "Registration successful", 201);
     } catch (error) {
         next(error);
     }

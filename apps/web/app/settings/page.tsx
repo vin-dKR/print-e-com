@@ -6,8 +6,9 @@ import {
     User, Mail, Phone, Lock, Bell, Shield, AlertTriangle,
     Save, Eye, EyeOff, Globe, Users, Check
 } from "lucide-react";
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
 
-export default function SettingsPage() {
+function SettingsPageContent() {
     const [notifications, setNotifications] = useState({
         email: true,
         sms: false,
@@ -368,5 +369,13 @@ export default function SettingsPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function SettingsPage() {
+    return (
+        <ProtectedRoute>
+            <SettingsPageContent />
+        </ProtectedRoute>
     );
 }

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import ProfileSidebar from "../components/shared/ProfileSidebar";
 import { Package, Search, Filter } from "lucide-react";
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
 
 interface Order {
     id: string;
@@ -78,7 +79,7 @@ const statusColors = {
     Cancelled: "bg-red-100 text-red-700 border border-red-200",
 };
 
-export default function OrdersPage() {
+function OrdersPageContent() {
     const [filterStatus, setFilterStatus] = useState<string>("all");
     const [searchQuery, setSearchQuery] = useState<string>("");
 
@@ -332,5 +333,13 @@ export default function OrdersPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function OrdersPage() {
+    return (
+        <ProtectedRoute>
+            <OrdersPageContent />
+        </ProtectedRoute>
     );
 }

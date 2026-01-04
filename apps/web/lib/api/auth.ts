@@ -31,7 +31,7 @@ export interface User {
 
 export interface AuthResponse {
   user: User;
-  token: string;
+  token?: string; // Optional - may not be present if email confirmation is required
 }
 
 /**

@@ -3,8 +3,9 @@
 import Link from "next/link";
 import ProfileSidebar from "../components/shared/ProfileSidebar";
 import { Package, MapPin, Heart, Calendar, Phone, Mail, Edit2 } from "lucide-react";
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
 
-export default function ProfilePage() {
+function ProfilePageContent() {
     // Sample user data
     const userData = {
         name: "John Doe",
@@ -233,5 +234,13 @@ export default function ProfilePage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function ProfilePage() {
+    return (
+        <ProtectedRoute>
+            <ProfilePageContent />
+        </ProtectedRoute>
     );
 }

@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { login as apiLogin, register as apiRegister, getProfile, User } from '../lib/api/auth';
 import { setAuthToken, getAuthToken } from '../lib/api-client';
 import { ApiError } from '../lib/api-client';
+import { setUserCookie, getUserCookie, removeUserCookie } from '../lib/cookies';
 
 interface AuthContextType {
   user: User | null;
@@ -29,28 +30,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const checkAuth = async () => {
     const token = getAuthToken();
     console.log('[AuthContext] Checking auth, token exists:', !!token);
-    
+
+    // Try to get user from cookie first for faster initial load
+    const cachedUser = getUserCookie();
+    if (cachedUser) {
+      setUser(cachedUser as User);
+    }
+
     if (!token) {
       setLoading(false);
+      if (!cachedUser) {
+        removeUserCookie();
+      }
       return;
     }
 
     try {
       const response = await getProfile();
       console.log('[AuthContext] Profile response:', response);
-      
+
       if (response.success && response.data) {
         console.log('[AuthContext] Setting user:', response.data);
         setUser(response.data);
+        // Store user info in cookie for persistence
+        setUserCookie(response.data);
       } else {
         console.log('[AuthContext] Invalid response, clearing token');
         // Invalid token, remove it
-        setAuthToken(null);
+        setAuthToken(undefined);
+        removeUserCookie();
       }
     } catch (error) {
       console.error('[AuthContext] Error fetching profile:', error);
       // Error fetching profile, user might not be authenticated
-      setAuthToken(null);
+      setAuthToken(undefined);
+      removeUserCookie();
     } finally {
       setLoading(false);
     }
@@ -59,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string) => {
     const response = await apiLogin({ email, password });
     console.log('[AuthContext] Login response:', response);
-    
+
     if (!response.success || !response.data) {
       throw new Error(response.error || response.message || 'Login failed');
     }
@@ -68,6 +82,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log('[AuthContext] Setting token and user after login:', { userData, hasToken: !!token });
     setAuthToken(token);
     setUser(userData);
+    // Store user info in cookie for persistence
+    setUserCookie(userData);
   };
 
   const register = async (
@@ -82,13 +98,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const { user: userData, token } = response.data;
-    setAuthToken(token);
-    setUser(userData);
+
+    // Only set token and user if token is provided (auto-login after registration)
+    if (token && userData) {
+      setAuthToken(token);
+      setUser(userData);
+      // Store user info in cookie for persistence
+      setUserCookie(userData);
+    } else if (userData) {
+      // User registered but needs email confirmation
+      setUser(userData);
+      setUserCookie(userData);
+    }
   };
 
   const logout = () => {
-    setAuthToken(null);
+    setAuthToken(undefined);
     setUser(null);
+    removeUserCookie();
   };
 
   const refreshUser = async () => {
@@ -96,6 +123,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const response = await getProfile();
       if (response.success && response.data) {
         setUser(response.data);
+        // Update user info in cookie
+        setUserCookie(response.data);
       }
     } catch (error) {
       // If refresh fails, user might not be authenticated

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { use } from "react";
 import ProfileSidebar from "../../components/shared/ProfileSidebar";
 import { Package, Truck, CreditCard, MapPin, Download, HelpCircle, ArrowLeft, Check, Printer } from "lucide-react";
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
 
 interface OrderItem {
     id: string;
@@ -193,7 +194,7 @@ const statusColors = {
     Cancelled: "bg-red-100 text-red-700 border border-red-200",
 };
 
-export default function OrderDetailsPage({
+function OrderDetailsPageContent({
     params,
 }: {
     params: Promise<{ id: string }>;
@@ -549,5 +550,13 @@ export default function OrderDetailsPage({
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function OrderDetailsPage({ params }: { params: Promise<{ id: string }> }) {
+    return (
+        <ProtectedRoute>
+            <OrderDetailsPageContent params={params} />
+        </ProtectedRoute>
     );
 }

@@ -4,6 +4,7 @@ import { useState } from "react";
 import Breadcrumbs from "../components/Breadcrumbs";
 import CartItem from "../components/CartItem";
 import OrderSummary from "../components/OrderSummary";
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
 
 interface CartItemData {
     id: string;
@@ -15,7 +16,7 @@ interface CartItemData {
     quantity: number;
 }
 
-export default function CartPage() {
+function CartPageContent() {
     const [cartItems, setCartItems] = useState<CartItemData[]>([
         {
             id: "1",
@@ -117,5 +118,13 @@ export default function CartPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function CartPage() {
+    return (
+        <ProtectedRoute>
+            <CartPageContent />
+        </ProtectedRoute>
     );
 }
