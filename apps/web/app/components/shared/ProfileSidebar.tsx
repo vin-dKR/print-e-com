@@ -7,11 +7,22 @@ import {
     User, Package, MapPin, Settings, HelpCircle, LogOut, Heart,
     Menu, X, ChevronRight
 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useRouter } from "next/navigation";
 
 export default function ProfileSidebar() {
     const pathname = usePathname();
     const isProfilePage = pathname === "/profile";
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const { user, logout } = useAuth();
+    const router = useRouter();
+
+    const formatMemberSince = (dateString: string): string => {
+        const date = new Date(dateString);
+        const month = date.toLocaleString('default', { month: 'short' });
+        const year = date.getFullYear();
+        return `${month} ${year}`;
+    };
 
     const tabs = [
         { id: "overview", label: "Overview", href: "/profile", icon: User },
@@ -42,7 +53,9 @@ export default function ProfileSidebar() {
                                 <User className="w-5 h-5 text-white" />
                             </div>
                             <div className="min-w-0">
-                                <p className="text-sm font-hkgb text-gray-900 truncate">John Doe</p>
+                                <p className="text-sm font-hkgb text-gray-900 truncate">
+                                    {user?.name || user?.email?.split('@')[0] || 'User'}
+                                </p>
                                 <p className="text-xs text-gray-600 truncate">{activeTab?.label}</p>
                             </div>
                         </div>
@@ -71,16 +84,22 @@ export default function ProfileSidebar() {
                                 <User className="w-6 h-6 text-white" />
                             </div>
                             <div className="min-w-0">
-                                <p className="font-hkgb text-gray-900 truncate">John Doe</p>
-                                <p className="text-sm text-gray-600 truncate">john.doe@example.com</p>
+                                <p className="font-hkgb text-gray-900 truncate">
+                                    {user?.name || user?.email?.split('@')[0] || 'User'}
+                                </p>
+                                <p className="text-sm text-gray-600 truncate">{user?.email || ''}</p>
                             </div>
                         </div>
-                        <div className="border-t border-gray-100 pt-3">
-                            <div className="flex items-center justify-between text-sm">
-                                <span className="text-gray-600">Member Since</span>
-                                <span className="font-hkgb text-gray-900">Jan 2024</span>
+                        {user?.createdAt && (
+                            <div className="border-t border-gray-100 pt-3">
+                                <div className="flex items-center justify-between text-sm">
+                                    <span className="text-gray-600">Member Since</span>
+                                    <span className="font-hkgb text-gray-900">
+                                        {formatMemberSince(user.createdAt)}
+                                    </span>
+                                </div>
                             </div>
-                        </div>
+                        )}
                     </div>
                 )}
 
@@ -123,10 +142,10 @@ export default function ProfileSidebar() {
                         </Link>
                         <button
                             onClick={() => {
-                                // Handle logout
-                                console.log("Logout clicked");
+                                logout();
+                                router.push("/");
                             }}
-                            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-red-600 hover:bg-red-50 transition-all duration-200"
+                            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-red-600 hover:bg-red-50 transition-all duration-200 cursor-pointer"
                         >
                             <LogOut className="w-4 h-4" />
                             <span className="font-medium">Logout</span>
@@ -165,9 +184,15 @@ export default function ProfileSidebar() {
                                         <User className="w-6 h-6 text-white" />
                                     </div>
                                     <div className="min-w-0">
-                                        <p className="font-hkgb text-gray-900 truncate">John Doe</p>
-                                        <p className="text-sm text-gray-600 truncate">john.doe@example.com</p>
-                                        <p className="text-xs text-gray-500 mt-1">Member since Jan 2024</p>
+                                        <p className="font-hkgb text-gray-900 truncate">
+                                            {user?.name || user?.email?.split('@')[0] || 'User'}
+                                        </p>
+                                        <p className="text-sm text-gray-600 truncate">{user?.email || ''}</p>
+                                        {user?.createdAt && (
+                                            <p className="text-xs text-gray-500 mt-1">
+                                                Member since {formatMemberSince(user.createdAt)}
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -216,10 +241,11 @@ export default function ProfileSidebar() {
                                     </Link>
                                     <button
                                         onClick={() => {
-                                            console.log("Logout clicked");
                                             setIsMobileMenuOpen(false);
+                                            logout();
+                                            router.push("/");
                                         }}
-                                        className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm text-red-600 hover:bg-red-50 transition-all duration-200"
+                                        className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm text-red-600 hover:bg-red-50 transition-all duration-200 cursor-pointer"
                                     >
                                         <div className="flex items-center gap-3">
                                             <LogOut className="w-4 h-4" />
