@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
-    User, Package, MapPin, Settings, HelpCircle, LogOut,
+    User, Package, MapPin, Settings, HelpCircle, LogOut, Heart,
     Menu, X, ChevronRight
 } from "lucide-react";
 
@@ -17,6 +17,7 @@ export default function ProfileSidebar() {
         { id: "overview", label: "Overview", href: "/profile", icon: User },
         { id: "orders", label: "My Orders", href: "/orders", icon: Package },
         { id: "addresses", label: "Saved Addresses", href: "/addresses", icon: MapPin },
+        { id: "wishlist", label: "Wishlist", href: "/wishlist", icon: Heart },
         { id: "settings", label: "Settings", href: "/settings", icon: Settings },
     ];
 
@@ -42,7 +43,7 @@ export default function ProfileSidebar() {
                             </div>
                             <div className="min-w-0">
                                 <p className="text-sm font-hkgb text-gray-900 truncate">John Doe</p>
-                                <p className="text-xs text-gray-600 truncate">{activeTab.label}</p>
+                                <p className="text-xs text-gray-600 truncate">{activeTab?.label}</p>
                             </div>
                         </div>
                         <button

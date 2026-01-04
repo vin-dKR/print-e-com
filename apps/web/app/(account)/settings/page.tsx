@@ -1,12 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import ProfileSidebar from "@/app/components/shared/ProfileSidebar";
 import {
     User, Mail, Phone, Lock, Bell, Shield, AlertTriangle,
     Save, Eye, EyeOff, Globe, Users, Check
 } from "lucide-react";
-import ProtectedRoute from "@/components/auth/ProtectedRoute";
 
 function SettingsPageContent() {
     const [notifications, setNotifications] = useState({
@@ -56,16 +54,9 @@ function SettingsPageContent() {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 py-4 sm:py-8 pb-10 lg:pb-40">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6">
-                <div className="flex flex-col lg:flex-row gap-4 sm:gap-6">
-                    {/* Sidebar Navigation */}
-                    <div className="lg:w-64">
-                        <ProfileSidebar />
-                    </div>
-
-                    {/* Main Content */}
-                    <main className="flex-1 max-w-4xl">
+        <>
+            {/* Main Content */}
+            <div className="flex-1 max-w-4xl">
                         {/* Header */}
                         <div className="mb-4 sm:mb-6">
                             <h1 className="text-xl sm:text-2xl font-hkgb text-gray-900 mb-1 sm:mb-2">
@@ -365,17 +356,11 @@ function SettingsPageContent() {
                                 </div>
                             </div>
                         </div>
-                    </main>
-                </div>
-            </div>
-        </div>
+                    </div>
+                </>
     );
 }
 
 export default function SettingsPage() {
-    return (
-        <ProtectedRoute>
-            <SettingsPageContent />
-        </ProtectedRoute>
-    );
+    return <SettingsPageContent />;
 }

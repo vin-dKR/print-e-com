@@ -6,7 +6,7 @@ import {
     trackOrder,
 } from "../controllers/orderController";
 import { customerAuth } from "../middleware/auth";
-import { createAddress } from "../controllers/addressController";
+import { createAddress, updateAddress, deleteAddress } from "../controllers/addressController";
 
 const router: IRouter = Router();
 
@@ -155,6 +155,77 @@ router.use(customerAuth);
  *         description: Unauthorized.
  */
 router.post("/address", createAddress);
+
+/**
+ * @openapi
+ * /api/v1/customer/address/{id}:
+ *   put:
+ *     summary: Update customer address
+ *     tags:
+ *       - Customer
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               street:
+ *                 type: string
+ *               city:
+ *                 type: string
+ *               state:
+ *                 type: string
+ *               zipCode:
+ *                 type: string
+ *               country:
+ *                 type: string
+ *               isDefault:
+ *                 type: boolean
+ *     responses:
+ *       '200':
+ *         description: Address updated.
+ *       '400':
+ *         description: Validation error.
+ *       '401':
+ *         description: Unauthorized.
+ *       '404':
+ *         description: Address not found.
+ */
+router.put("/address/:id", updateAddress);
+
+/**
+ * @openapi
+ * /api/v1/customer/address/{id}:
+ *   delete:
+ *     summary: Delete customer address
+ *     tags:
+ *       - Customer
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       '200':
+ *         description: Address deleted.
+ *       '401':
+ *         description: Unauthorized.
+ *       '404':
+ *         description: Address not found.
+ */
+router.delete("/address/:id", deleteAddress);
 
 /**
  * @openapi
