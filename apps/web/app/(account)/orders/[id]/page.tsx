@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { use } from "react";
-import ProfileSidebar from "../../components/shared/ProfileSidebar";
+import ProfileSidebar from "@/app/components/shared/ProfileSidebar";
 import { Package, Truck, CreditCard, MapPin, Download, HelpCircle, ArrowLeft, Check, Printer } from "lucide-react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 

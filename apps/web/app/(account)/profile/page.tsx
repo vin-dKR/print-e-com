@@ -1,18 +1,58 @@
 "use client";
 
 import Link from "next/link";
-import ProfileSidebar from "../components/shared/ProfileSidebar";
+import ProfileSidebar from "@/app/components/shared/ProfileSidebar";
 import { Package, MapPin, Heart, Calendar, Phone, Mail, Edit2 } from "lucide-react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import { useEffect, useState } from "react";
+import { get } from "@/lib/api-client";
+import { BarsSpinner } from "@/app/components/shared/BarsSpinner";
+
+interface UserDataType {
+    id: string
+    email: string
+    name: string
+    phone: string
+    isAdmin: boolean
+    addresses: []
+    createdAt: string
+}
+
+interface ErrorType {
+    success: boolean
+    error: string
+}
 
 function ProfilePageContent() {
-    // Sample user data
-    const userData = {
-        name: "John Doe",
-        email: "john.doe@example.com",
-        phone: "+91 9876543210",
-        memberSince: "January 2024",
-    };
+    const [userData, setUserData] = useState<UserDataType | null>(null)
+    const [error, setError] = useState<ErrorType | null>(null)
+
+    useEffect(() => {
+        const fetchUserData = async () => {
+            try {
+                const response = await get<UserDataType>("/auth/user/profile")
+
+                if (response.success && response.data) {
+                    setUserData(response.data)
+                    setError(null)
+                } else {
+                    setError({
+                        success: false,
+                        error: response.error || 'Failed to fetch user data'
+                    })
+                    setUserData(null)
+                }
+            } catch (err) {
+                setError({
+                    success: false,
+                    error: err instanceof Error ? err.message : 'An unknown error occurred'
+                })
+                setUserData(null)
+            }
+        }
+
+        fetchUserData()
+    }, [])
 
     const stats = [
         { label: "Total Orders", value: "12", icon: Package, href: "/orders", color: "blue" },
@@ -25,6 +65,45 @@ function ProfilePageContent() {
         { id: "ORD-1002", date: "Jan 22, 2024", amount: "₹2,499.99", status: "Shipped" },
         { id: "ORD-1003", date: "Jan 18, 2024", amount: "₹899.99", status: "Delivered" },
     ];
+
+    if (userData === null) {
+        return (
+            <div className="h-180 flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+                <div className="max-w-md w-full space-y-8">
+                    {/* Loading State */}
+                    {error === null ? (
+                        <BarsSpinner />
+                    ) : (
+                        /* Error State */
+                        <div className="text-center bg-white p-8 rounded-lg shadow-lg">
+                            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
+                                <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.884-.833-2.654 0L4.196 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                                </svg>
+                            </div>
+                            <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
+                                {error.success === false ? 'Error' : 'Something went wrong'}
+                            </h2>
+                            <p className="mt-2 text-sm text-gray-600">
+                                {error.error || 'Unable to load user profile. Please try again.'}
+                            </p>
+                            <div className="mt-6">
+                                <button
+                                    onClick={() => window.location.reload()}
+                                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                >
+                                    <svg className="mr-2 -ml-1 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                    </svg>
+                                    Retry
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-gray-50 py-4 sm:py-8 pb-10 lg:pb-40">
@@ -60,7 +139,7 @@ function ProfilePageContent() {
                                 <div className="flex items-center gap-2">
                                     <Calendar className="w-4 h-4 text-gray-400" />
                                     <p className="text-sm text-gray-500">
-                                        Member since {userData.memberSince}
+                                        Member since {userData.createdAt}
                                     </p>
                                 </div>
                             </div>

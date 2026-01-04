@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import ProfileSidebar from "../components/shared/ProfileSidebar";
+import ProfileSidebar from "@/app/components/shared/ProfileSidebar";
 import { Package, Search, Filter } from "lucide-react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 

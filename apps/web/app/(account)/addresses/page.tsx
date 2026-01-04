@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import ProfileSidebar from "../components/shared/ProfileSidebar";
+import ProfileSidebar from "@/app/components/shared/ProfileSidebar";
 import { MapPin, Home, Briefcase, Map, Plus, Edit2, Trash2, Check, X, Phone, User, Building } from "lucide-react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 

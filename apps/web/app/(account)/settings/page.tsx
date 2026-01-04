@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import ProfileSidebar from "../components/shared/ProfileSidebar";
+import ProfileSidebar from "@/app/components/shared/ProfileSidebar";
 import {
     User, Mail, Phone, Lock, Bell, Shield, AlertTriangle,
     Save, Eye, EyeOff, Globe, Users, Check
