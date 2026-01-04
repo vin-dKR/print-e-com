@@ -1,5 +1,6 @@
 "use client";
 import { ArrowRight } from 'lucide-react';
+import Link from 'next/link';
 import { useState } from 'react';
 
 export default function AnimatedProductCards() {
@@ -12,7 +13,8 @@ export default function AnimatedProductCards() {
             description: "Professional printing in all sizes with various paper qualities and lamination options.",
             action: "Print Now",
             imageUrl: "/images/rows/row1.png",
-            color: "from-blue-900/90 to-blue-700/90"
+            color: "from-blue-900/90 to-blue-700/90",
+            href: "/services/pdf-printing"
         },
         {
             id: 2,
@@ -20,7 +22,8 @@ export default function AnimatedProductCards() {
             description: "Complete book printing and binding solutions for publishing and educational needs.",
             action: "Print Books",
             imageUrl: "/images/rows/row2.png",
-            color: "from-purple-900/90 to-purple-700/90"
+            color: "from-purple-900/90 to-purple-700/90",
+            href: "/services/book-printing"
         },
         {
             id: 3,
@@ -28,7 +31,8 @@ export default function AnimatedProductCards() {
             description: "High-quality glossy and matt photo prints in all standard sizes with professional finishing.",
             action: "Print Photos",
             imageUrl: "/images/rows/row3.png",
-            color: "from-amber-900/90 to-amber-700/90"
+            color: "from-amber-900/90 to-amber-700/90",
+            href: "/services/photo-printing"
         },
         {
             id: 4,
@@ -36,7 +40,8 @@ export default function AnimatedProductCards() {
             description: "Large format map printing for architects and businesses with lamination for durability.",
             action: "Print Maps",
             imageUrl: "/images/rows/row4.png",
-            color: "from-emerald-900/90 to-emerald-700/90"
+            color: "from-emerald-900/90 to-emerald-700/90",
+            href: "/services/map-printing"
         }
     ];
 
@@ -51,7 +56,8 @@ export default function AnimatedProductCards() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
                     {products.map((product) => (
-                        <div
+                        <Link
+                            href={product.href}
                             key={product.id}
                             className="relative group h-100 rounded-4xl overflow-hidden cursor-pointer"
                             onMouseEnter={() => setHoveredCard(product.id)}
@@ -93,7 +99,7 @@ export default function AnimatedProductCards() {
                                     </button>
                                 </div>
                             </div>
-                        </div>
+                        </Link>
                     ))}
                 </div>
             </div>

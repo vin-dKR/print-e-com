@@ -38,7 +38,7 @@ export default function ProductCard({
     };
 
     return (
-        <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow overflow-hidden relative group">
+        <div className="bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow overflow-hidden relative group">
             {/* Product Image */}
             <Link href={`/products/${id}`} className="block relative aspect-square bg-gray-100">
                 {image ? (
@@ -78,8 +78,8 @@ export default function ProductCard({
             {/* Product Info */}
             <div className="p-4">
                 <Link href={`/products/${id}`}>
-                    <p className="text-sm text-gray-600 mb-2 line-clamp-2 font-hkgb">{name}</p>
-                    <p className="text-sm text-gray-600 mb-2 line-clamp-2">{category}</p>
+                    <p className="text-sm text-gray-600 mb-1 line-clamp-1 font-hkgb">{name}</p>
+                    <p className="text-sm text-gray-600 mb-1 line-clamp-2">{category}</p>
                     <p className="text-lg font-bold text-gray-900">₹{price.toFixed(2)}</p>
                 </Link>
             </div>

@@ -3,6 +3,7 @@ import "./globals.css";
 import Header from "./components/shared/Header";
 import Footer from "./components/shared/Footer";
 import { AuthProvider } from "../contexts/AuthContext";
+import { ProductConfigProvider } from "@/contexts/ProductConfigContext";
 
 export const metadata: Metadata = {
     title: "PrintEcom - Custom Printing Solutions",
@@ -18,11 +19,13 @@ export default function RootLayout({
         <html lang="en">
             <body className={`flex flex-col min-h-screen font-hkgr`}>
                 <AuthProvider>
-                    <Header />
-                    <main className="flex-1 bg-white">
-                        {children}
-                    </main>
-                    <Footer />
+                    <ProductConfigProvider>
+                        <Header />
+                        <main className="flex-1 bg-white">
+                            {children}
+                        </main>
+                        <Footer />
+                    </ProductConfigProvider>
                 </AuthProvider>
             </body>
         </html>

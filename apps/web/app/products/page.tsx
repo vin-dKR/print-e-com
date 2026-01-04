@@ -188,7 +188,7 @@ function ProductsPageChild() {
 
     return (
         <div className="min-h-screen bg-white py-4 sm:py-8 pb-0 lg:pb-40">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6">
+            <div className="w-full px-4 md:px-40">
                 {/* Mobile Header with Filter Button */}
                 <div className="lg:hidden mb-4">
                     <div className="flex items-center justify-between mb-4">
@@ -289,7 +289,6 @@ function ProductsPageChild() {
                                         onBrandChange={setSelectedBrands}
                                         onCollectionChange={setSelectedCollections}
                                         onTagChange={setSelectedTags}
-                                        isMobile={true}
                                     />
                                 </div>
 
