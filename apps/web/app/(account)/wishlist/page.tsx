@@ -70,8 +70,10 @@ function WishlistPageContent() {
         );
     });
 
-    const formatPrice = (price: number) => {
-        return `₹${price.toFixed(2)}`;
+    const formatPrice = (price: number | string | null | undefined) => {
+        const numPrice = typeof price === 'string' ? parseFloat(price) : (price || 0);
+        if (isNaN(numPrice)) return '₹0.00';
+        return `₹${numPrice.toFixed(2)}`;
     };
 
     return (
@@ -170,8 +172,8 @@ function WishlistPageContent() {
                         {filteredItems.map((item) => {
                             const product = item.product;
                             const primaryImage = product.images?.[0]?.url || '/images/placeholder.png';
-                            const productPrice = product.sellingPrice || product.basePrice || 0;
-                            const originalPrice = product.mrp || productPrice;
+                            const productPrice = Number(product.sellingPrice || product.basePrice || 0);
+                            const originalPrice = Number(product.mrp || productPrice);
 
                             return (
                                 <div

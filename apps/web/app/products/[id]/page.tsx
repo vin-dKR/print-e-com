@@ -1,101 +1,120 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, use, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Breadcrumbs from "../../components/Breadcrumbs";
 import ProductRating from "../../components/ProductRating";
 import PriceDisplay from "../../components/PriceDisplay";
-import UploadDesign from "../../components/UploadDesign";
+import ProductDocumentUpload from "../../components/products/ProductDocumentUpload";
+import ProductWishlistButton from "../../components/products/ProductWishlistButton";
+import ProductShareButton from "../../components/products/ProductShareButton";
+import ProductActions from "../../components/products/ProductActions";
 import SizeSelector from "../../components/SizeSelector";
 import QuantitySelector from "../../components/QuantitySelector";
 import ProductTabs from "../../components/ProductTabs";
 import RelatedProducts from "../../components/RelatedProducts";
 import { BarsSpinner } from "../../components/shared/BarsSpinner";
-import { getProduct, getProducts, type Product } from "../../../lib/api/products";
-import { ShoppingBag, Heart, Share2, Star } from "lucide-react";
+import { useProduct } from "@/hooks/products/useProduct";
+import { Star } from "lucide-react";
 
 export default function ProductDetailsPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
     const router = useRouter();
 
-    // State
-    const [product, setProduct] = useState<Product | null>(null);
-    const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    // Use the product hook for all data management
+    const {
+        product,
+        relatedProducts,
+        loading,
+        error,
+        isWishlisted,
+        wishlistLoading,
+        cartLoading,
+        buyNowLoading,
+        toggleWishlist,
+        handleAddToCart,
+        handleBuyNow,
+        shareProduct,
+        copyShareLink,
+        currentPrice,
+        originalPrice,
+        discount,
+        breadcrumbs,
+        productImages,
+        sizes,
+    } = useProduct({ productId: id });
+
+    // Local UI state
     const [selectedSize, setSelectedSize] = useState<string | undefined>("");
     const [selectedVariant, setSelectedVariant] = useState<string | undefined>("");
     const [quantity, setQuantity] = useState(1);
-    const [wishlisted, setWishlisted] = useState(false);
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
+    const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+    const [uploadedFileUrl, setUploadedFileUrl] = useState<string | null>(null);
 
-    // Fetch product data
-    useEffect(() => {
-        const fetchProductData = async () => {
-            setLoading(true);
-            setError(null);
+    // Set default variant when product loads
+    useMemo(() => {
+        if (product?.variants && product.variants.length > 0 && !selectedVariant) {
+            setSelectedVariant(product.variants[0]?.id);
+            setSelectedSize(product.variants[0]?.name);
+        }
+    }, [product, selectedVariant]);
 
-            try {
-                // Fetch main product
-                const response = await getProduct(id);
-
-                if (response.success && response.data) {
-                    const productData = response.data;
-                    setProduct(productData);
-
-                    // Set default variant if available
-                    if (productData.variants && productData.variants.length > 0) {
-                        setSelectedVariant(productData.variants[0]?.id);
-                        setSelectedSize(productData.variants[0]?.name)
-                    }
-
-                    // Fetch related products (same category)
-                    if (productData.categoryId) {
-                        const relatedResponse = await getProducts({
-                            category: productData.categoryId,
-                            limit: 4,
-                        });
-
-                        if (relatedResponse.success && relatedResponse.data) {
-                            // Filter out current product
-                            const related = relatedResponse.data.products.filter(
-                                (p) => p.id !== productData.id
-                            );
-                            setRelatedProducts(related);
-                        }
-                    }
-                } else {
-                    setError("Product not found");
-                }
-            } catch (err: any) {
-                console.error("Error fetching product:", err);
-                setError(err.message || "Failed to load product");
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchProductData();
-    }, [id]);
-
-    const handleAddToCart = () => {
-        // Handle add to cart logic (will be implemented in Phase 2)
-        console.log("Add to cart:", {
-            productId: product?.id,
-            variantId: selectedVariant,
-            size: selectedSize,
-            quantity,
-        });
+    // Handle file upload
+    const handleFileSelect = (file: File | null, pageCount?: number) => {
+        setUploadedFile(file);
+        // TODO: Upload file to server and get URL
+        // For now, just store the file reference
+        if (file) {
+            // In a real implementation, you'd upload to server here
+            const objectUrl = URL.createObjectURL(file);
+            setUploadedFileUrl(objectUrl);
+        } else {
+            setUploadedFileUrl(null);
+        }
     };
 
-    const handleBuyNow = () => {
-        // Handle buy now logic
-        console.log("Buy now:", {
-            productId: product?.id,
+    // Handle add to cart
+    const onAddToCart = async () => {
+        if (!product) return;
+
+        const success = await handleAddToCart({
             variantId: selectedVariant,
-            size: selectedSize,
             quantity,
+            customDesignUrl: uploadedFileUrl || undefined,
         });
+
+        if (success) {
+            // Show success message or notification
+            alert("Product added to cart successfully!");
+        } else {
+            alert("Failed to add product to cart. Please try again.");
+        }
+    };
+
+    // Handle buy now
+    const onBuyNow = async () => {
+        if (!product) return;
+
+        const success = await handleBuyNow({
+            variantId: selectedVariant,
+            quantity,
+            customDesignUrl: uploadedFileUrl || undefined,
+        });
+
+        if (!success) {
+            alert("Failed to proceed. Please try again.");
+        }
+        // If success, user will be redirected to checkout
+    };
+
+    // Handle size/variant change
+    const handleSizeChange = (size: string) => {
+        setSelectedSize(size);
+        const variant = product?.variants?.find((v) => v.name === size);
+        if (variant) {
+            setSelectedVariant(variant.id);
+        }
     };
 
     // Loading state
@@ -126,13 +145,13 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                         <div className="flex gap-4 justify-center">
                             <button
                                 onClick={() => router.back()}
-                                className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                                className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors cursor-pointer"
                             >
                                 Go Back
                             </button>
                             <button
                                 onClick={() => router.push("/products")}
-                                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
                             >
                                 Browse Products
                             </button>
@@ -142,29 +161,6 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
             </div>
         );
     }
-
-    // Build breadcrumbs
-    const breadcrumbs = [
-        { label: "Home", href: "/" },
-        { label: "Shop", href: "/products" },
-        ...(product.category
-            ? [{ label: product.category.name, href: `/products?category=${product.category.slug}` }]
-            : []),
-        { label: product.name, href: `/products/${product.id}` },
-    ];
-
-    // Prepare product images
-    const productImages = product.images?.map((img) => img.url) || ["/products/placeholder.jpg"];
-
-    // Prepare sizes from variants
-    const sizes = product.variants?.map((v) => v.name) || [];
-
-    // Calculate price
-    const currentPrice = Number(product.sellingPrice || product.basePrice);
-    const originalPrice = product.mrp ? Number(product.mrp) : undefined;
-    const discount = originalPrice
-        ? Math.round(((originalPrice - currentPrice) / originalPrice) * 100)
-        : undefined;
 
     // Prepare tabs content
     const tabs = [
@@ -249,7 +245,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                         <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
                             <div className="flex items-center gap-3">
                                 <button
-                                    className="p-3 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full transition-all duration-200 hover:shadow-sm flex-shrink-0"
+                                    className="p-3 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full transition-all duration-200 hover:shadow-sm shrink-0 cursor-pointer"
                                     title="Filter by rating"
                                 >
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -282,7 +278,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                                 </div>
                             </div>
 
-                            <button className="px-4 py-3 bg-[#1EADD8] text-white rounded-full font-hkgb hover:from-blue-700 hover:to-blue-800 transition-all duration-300 text-sm font-medium shadow hover:shadow-lg active:scale-[0.98] whitespace-nowrap">
+                            <button className="px-4 py-3 bg-[#1EADD8] text-white rounded-full font-hkgb hover:from-blue-700 hover:to-blue-800 transition-all duration-300 text-sm font-medium shadow hover:shadow-lg active:scale-[0.98] whitespace-nowrap cursor-pointer">
                                 <span className="hidden sm:inline">Write a Review</span>
                                 <span className="sm:hidden">Review</span>
                             </button>
@@ -301,7 +297,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                                         {/* Review Header */}
                                         <div className="flex items-start justify-between mb-4">
                                             <div className="flex items-start gap-3 flex-1">
-                                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center font-semibold text-blue-600 flex-shrink-0">
+                                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center font-semibold text-blue-600 shrink-0">
                                                     {review.user?.name?.charAt(0) || "A"}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
@@ -327,7 +323,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                                                     </div>
                                                 </div>
                                             </div>
-                                            <button className="text-gray-400 hover:text-blue-600 transition-colors p-1 flex-shrink-0 ml-2">
+                                            <button className="text-gray-400 hover:text-blue-600 transition-colors p-1 shrink-0 ml-2 cursor-pointer">
                                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                                     <path d="M12 5v14M5 12h14" />
                                                 </svg>
@@ -359,13 +355,13 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                                             </div>
 
                                             <div className="flex items-center justify-between">
-                                                <button className="flex items-center gap-1.5 text-gray-600 hover:text-blue-600 transition-colors text-sm">
+                                                <button className="flex items-center gap-1.5 text-gray-600 hover:text-blue-600 transition-colors text-sm cursor-pointer">
                                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                                         <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
                                                     </svg>
                                                     <span>Helpful ({review.helpful || 12})</span>
                                                 </button>
-                                                <button className="text-gray-600 hover:text-red-600 transition-colors text-sm">
+                                                <button className="text-gray-600 hover:text-red-600 transition-colors text-sm cursor-pointer">
                                                     Report
                                                 </button>
                                             </div>
@@ -384,7 +380,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                                 <p className="text-gray-500 mb-6 max-w-md mx-auto">
                                     Be the first to share your thoughts about this product!
                                 </p>
-                                <button className="px-5 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-300 text-sm font-medium shadow hover:shadow-lg inline-flex items-center gap-2">
+                                <button className="px-5 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-300 text-sm font-medium shadow hover:shadow-lg inline-flex items-center gap-2 cursor-pointer">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                         <path d="M12 5v14M5 12h14" />
                                     </svg>
@@ -397,7 +393,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                     {/* Load More */}
                     {product.reviews && product.reviews.length > 0 && product.reviews.length > 3 && (
                         <div className="pt-4 border-t border-gray-100">
-                            <button className="w-full py-3.5 text-center text-blue-600 hover:text-blue-700 font-medium rounded-lg border-2 border-blue-200 hover:border-blue-300 transition-all duration-200 hover:bg-blue-50 active:scale-[0.98] group">
+                            <button className="w-full py-3.5 text-center text-blue-600 hover:text-blue-700 font-medium rounded-lg border-2 border-blue-200 hover:border-blue-300 transition-all duration-200 hover:bg-blue-50 active:scale-[0.98] group cursor-pointer">
                                 <span className="inline-flex items-center gap-2">
                                     Load More Reviews
                                     <svg
@@ -454,7 +450,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                 <div className="sm:hidden mb-4 text-sm text-gray-600">
                     <button
                         onClick={() => router.back()}
-                        className="flex items-center gap-1 hover:text-blue-600"
+                        className="flex items-center gap-1 hover:text-blue-600 cursor-pointer"
                     >
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                             <path d="M19 12H5M12 19l-7-7 7-7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -477,7 +473,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                                             <button
                                                 key={index}
                                                 onClick={() => setCurrentImageIndex(index)}
-                                                className={`flex-shrink-0 w-20 h-20 rounded-lg border-2 overflow-hidden transition-all ${currentImageIndex === index
+                                                className={`shrink-0 w-20 h-20 rounded-lg border-2 overflow-hidden transition-all cursor-pointer ${currentImageIndex === index
                                                     ? "border-blue-600 scale-105 shadow-md"
                                                     : "border-gray-200 hover:border-gray-300"
                                                     }`}
@@ -490,7 +486,6 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                                             </button>
                                         ))}
                                     </div>
-
                                 </div>
                             )}
 
@@ -508,7 +503,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
 
                                             {/* Zoom Indicator (optional) */}
                                             <button
-                                                className="absolute top-3 right-3 p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-lg hover:bg-white transition-colors"
+                                                className="absolute top-3 right-3 p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-lg hover:bg-white transition-colors cursor-pointer"
                                                 onClick={() => {
                                                     // Implement zoom/modal view here
                                                     console.log("Open image zoom");
@@ -529,7 +524,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                                                     onClick={() => setCurrentImageIndex(prev =>
                                                         prev === 0 ? productImages.length - 1 : prev - 1
                                                     )}
-                                                    className="hidden lg:block absolute left-0 top-1/2 -translate-y-1/2 p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-lg hover:bg-white transition-colors"
+                                                    className="hidden lg:block absolute left-0 top-1/2 -translate-y-1/2 p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-lg hover:bg-white transition-colors cursor-pointer"
                                                 >
                                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                                         <path d="M15 18l-6-6 6-6" />
@@ -541,7 +536,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                                                     onClick={() => setCurrentImageIndex(prev =>
                                                         prev === productImages.length - 1 ? 0 : prev + 1
                                                     )}
-                                                    className="hidden lg:block absolute right-0 top-1/2 -translate-y-1/2 p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-lg hover:bg-white transition-colors"
+                                                    className="hidden lg:block absolute right-0 top-1/2 -translate-y-1/2 p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-lg hover:bg-white transition-colors cursor-pointer"
                                                 >
                                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                                         <path d="M9 18l6-6-6-6" />
@@ -554,7 +549,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                                                         <button
                                                             key={index}
                                                             onClick={() => setCurrentImageIndex(index)}
-                                                            className={`w-2 h-2 rounded-full ${currentImageIndex === index
+                                                            className={`w-2 h-2 rounded-full cursor-pointer ${currentImageIndex === index
                                                                 ? "bg-blue-600"
                                                                 : "bg-gray-300"
                                                                 }`}
@@ -576,13 +571,12 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                                 {/* View All Images Button */}
                                 {productImages.length > 4 && (
                                     <div className="mt-4 text-center">
-                                        <button className="text-blue-600 text-sm font-medium hover:underline">
+                                        <button className="text-blue-600 text-sm font-medium hover:underline cursor-pointer">
                                             View all {productImages.length} images
                                         </button>
                                     </div>
                                 )}
                             </div>
-
                         </div>
                     </div>
 
@@ -592,7 +586,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                             <button
                                 key={index}
                                 onClick={() => setCurrentImageIndex(index)}
-                                className={`flex-shrink-0 w-16 h-16 rounded-lg border-2 overflow-hidden ${currentImageIndex === index
+                                className={`shrink-0 w-16 h-16 rounded-lg border-2 overflow-hidden cursor-pointer ${currentImageIndex === index
                                     ? "border-blue-600"
                                     : "border-gray-200"
                                     }`}
@@ -605,6 +599,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                             </button>
                         ))}
                     </div>
+
                     {/* Right Column - Product Info (7/12 on desktop) */}
                     <div className="lg:col-span-7">
                         <div className="space-y-6">
@@ -622,34 +617,28 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                                             reviewCount={product.totalReviews || 0}
                                         />
                                         <div className="hidden sm:flex items-center gap-4">
-                                            <button
-                                                onClick={() => setWishlisted(!wishlisted)}
-                                                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${wishlisted
-                                                    ? "bg-red-50 text-red-600"
-                                                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                                                    }`}
-                                            >
-                                                <Heart size={18} fill={wishlisted ? "currentColor" : "none"} />
-                                                <span className="text-sm font-medium">Wishlist</span>
-                                            </button>
-                                            <button className="flex items-center gap-2 px-3 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors">
-                                                <Share2 size={18} />
-                                                <span className="text-sm font-medium">Share</span>
-                                            </button>
+                                            <ProductWishlistButton
+                                                isWishlisted={isWishlisted}
+                                                isLoading={wishlistLoading}
+                                                onToggle={toggleWishlist}
+                                                showLabel
+                                            />
+                                            <ProductShareButton
+                                                onShare={shareProduct}
+                                                onCopy={copyShareLink}
+                                                showLabel
+                                            />
                                         </div>
                                     </div>
 
                                     {/* Mobile Wishlist Button */}
-                                    <button
-                                        onClick={() => setWishlisted(!wishlisted)}
-                                        className="sm:hidden p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
-                                    >
-                                        <Heart
-                                            size={20}
-                                            fill={wishlisted ? "currentColor" : "none"}
-                                            className={wishlisted ? "text-red-600" : "text-gray-600"}
+                                    <div className="sm:hidden">
+                                        <ProductWishlistButton
+                                            isWishlisted={isWishlisted}
+                                            isLoading={wishlistLoading}
+                                            onToggle={toggleWishlist}
                                         />
-                                    </button>
+                                    </div>
                                 </div>
                             </div>
 
@@ -665,17 +654,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                                 <div className="mt-2 text-sm text-green-600 font-medium">
                                     Inclusive of all taxes
                                 </div>
-
-                                {/* EMI Option */}
-                                <div className="mt-3 text-sm text-gray-600">
-                                    <span className="font-medium">EMI</span> starting from ₹{Math.round(currentPrice / 6)}/month.
-                                    <button className="ml-2 text-blue-600 hover:underline">
-                                        View Plans
-                                    </button>
-                                </div>
                             </div>
-
-                            {/* Highlights */}
 
                             {/* Short Description */}
                             {product.shortDescription && (
@@ -687,19 +666,17 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
 
                             {/* Customization Options */}
                             <div className="space-y-6 border-t border-gray-300 pt-6">
-                                {/* Upload Design */}
-                                <UploadDesign />
+                                {/* Upload Document */}
+                                <ProductDocumentUpload
+                                    onFileSelect={handleFileSelect}
+                                />
 
                                 {/* Size/Variant Selector */}
                                 {sizes.length > 0 && (
                                     <SizeSelector
                                         sizes={sizes}
                                         selectedSize={selectedSize}
-                                        onSizeChange={(size) => {
-                                            setSelectedSize(size);
-                                            const variant = product.variants?.find((v) => v.name === size);
-                                            if (variant) setSelectedVariant(variant.id);
-                                        }}
+                                        onSizeChange={handleSizeChange}
                                     />
                                 )}
 
@@ -716,28 +693,20 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
 
                             {/* Action Buttons - Desktop */}
                             <div className="hidden sm:flex gap-4 pt-6 border-t border-gray-300">
-                                <button
-                                    onClick={handleAddToCart}
-                                    disabled={product.stock === 0}
-                                    className="flex-1 px-8 py-4 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-3"
-                                >
-                                    <ShoppingBag size={20} />
-                                    {product.stock === 0 ? "Out of Stock" : "Add to Cart"}
-                                </button>
-                                <button
-                                    onClick={handleBuyNow}
-                                    disabled={product.stock === 0}
-                                    className="flex-1 px-8 py-4 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-                                >
-                                    Buy Now
-                                </button>
+                                <ProductActions
+                                    stock={product.stock}
+                                    onAddToCart={onAddToCart}
+                                    onBuyNow={onBuyNow}
+                                    addToCartLoading={cartLoading}
+                                    buyNowLoading={buyNowLoading}
+                                />
                             </div>
 
                             {/* Seller Info */}
                             <div className="bg-gray-50 p-4 rounded-lg">
                                 <div className="flex items-center justify-between mb-3">
                                     <div className="font-medium text-gray-900">Seller</div>
-                                    <button className="text-blue-600 text-sm hover:underline">
+                                    <button className="text-blue-600 text-sm hover:underline cursor-pointer">
                                         View Details
                                     </button>
                                 </div>
@@ -776,20 +745,14 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                 {/* Fixed Mobile Action Bar */}
                 <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-300 shadow-lg sm:hidden z-50">
                     <div className="flex p-4 gap-3">
-                        <button
-                            onClick={handleAddToCart}
-                            disabled={product.stock === 0}
-                            className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-                        >
-                            {product.stock === 0 ? "Out of Stock" : "Add to Cart"}
-                        </button>
-                        <button
-                            onClick={handleBuyNow}
-                            disabled={product.stock === 0}
-                            className="flex-1 px-4 py-3 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-                        >
-                            Buy Now
-                        </button>
+                        <ProductActions
+                            stock={product.stock}
+                            onAddToCart={onAddToCart}
+                            onBuyNow={onBuyNow}
+                            addToCartLoading={cartLoading}
+                            buyNowLoading={buyNowLoading}
+                            isMobile
+                        />
                     </div>
                 </div>
             </div>

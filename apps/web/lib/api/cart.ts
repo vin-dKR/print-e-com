@@ -36,6 +36,12 @@ export interface Cart {
   items: CartItem[];
 }
 
+export interface CartResponse {
+  cart: Cart;
+  subtotal: number;
+  itemCount: number;
+}
+
 export interface AddToCartData {
   productId: string;
   variantId?: string;
@@ -53,8 +59,8 @@ export interface UpdateCartItemData {
 /**
  * Get user's cart
  */
-export async function getCart(): Promise<ApiResponse<Cart>> {
-  return get<Cart>('/cart');
+export async function getCart(): Promise<ApiResponse<CartResponse>> {
+  return get<CartResponse>('/cart');
 }
 
 /**
