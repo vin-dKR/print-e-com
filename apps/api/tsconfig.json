@@ -6,11 +6,11 @@
     "target": "ES2023",
     "moduleResolution": "node",
     "lib": ["ESNext"],
-    "types": ["bun-types", "node", "@cloudflare/workers-types"],
+    "types": ["bun-types", "node"],
     "esModuleInterop": true
   },
   "type": "module",
-  "include": ["src/**/*", "api/**/*", "prisma/**/*", "generated/**/*", "src/cloudflare.d.ts"],
+  "include": ["src/**/*", "api/**/*", "prisma/**/*", "generated/**/*"],
   "exclude": ["node_modules", "dist"]
 }
 

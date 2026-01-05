@@ -7,9 +7,6 @@
     "dev": "bun --watch src/index.ts",
     "build": "bun build src/index.ts --outdir dist --target bun",
     "start": "bun run dist/index.js",
-    "dev:cloudflare": "wrangler dev",
-    "deploy:cloudflare": "wrangler deploy",
-    "deploy:cloudflare:staging": "wrangler deploy --env staging",
     "lint": "eslint . --max-warnings 0",
     "check-types": "tsc --noEmit",
     "openapi:generate": "bun scripts/generate-openapi.ts",
@@ -53,7 +50,6 @@
     "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20260103.0",
     "@repo/eslint-config": "*",
     "@repo/typescript-config": "*",
     "@types/bcryptjs": "^3.0.0",
@@ -68,7 +64,6 @@
     "eslint": "^9.39.1",
     "prisma": "^7.1.0",
     "swagger-jsdoc": "^6.2.8",
-    "typescript": "5.9.2",
-    "wrangler": "^4.54.0"
+    "typescript": "5.9.2"
   }
 }
