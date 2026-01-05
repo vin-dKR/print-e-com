@@ -1,7 +1,7 @@
 [build]
-  command = "bun run db:generate && bun run build"
+  command = "cd apps/api && bun run db:generate && bun run build"
   functions = "netlify/functions"
-  publish = "dist"
+  publish = "apps/api/dist"
 
 [functions]
   node_bundler = "esbuild"
