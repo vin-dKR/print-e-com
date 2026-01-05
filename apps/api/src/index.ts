@@ -21,8 +21,9 @@ import couponRoutes from "./routes/coupons";
 import webhookRoutes from "./routes/webhook";
 
 import { errorHandler } from "./middleware/errorHandler";
+import type { Express } from "express";
 
-const app = express();
+const app: Express = express();
 const PORT = process.env.PORT || 3002;
 
 // CORS configuration
@@ -61,9 +62,17 @@ app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 // Serve OpenAPI YAML spec (for Redoc UI)
 app.get("/api/openapi.yaml", (_req, res) => {
-    const specPath = path.join(process.cwd(), "openapi.yaml");
-    const yaml = fs.readFileSync(specPath, "utf8");
-    res.type("text/yaml").send(yaml);
+    try {
+        const specPath = path.join(process.cwd(), "openapi.yaml");
+        if (fs.existsSync(specPath)) {
+            const yamlContent = fs.readFileSync(specPath, "utf8");
+            res.type("text/yaml").send(yamlContent);
+        } else {
+            res.status(404).json({ error: "OpenAPI spec not found" });
+        }
+    } catch (error) {
+        res.status(500).json({ error: "Failed to load OpenAPI spec" });
+    }
 });
 
 // Serve API documentation UI at /api/docs using Redoc
@@ -75,12 +84,25 @@ app.get(
     })
 );
 
-// Load OpenAPI spec once for Swagger UI
-const openapiSpecPath = path.join(process.cwd(), "openapi.yaml");
-const openapiDocument = yaml.load(fs.readFileSync(openapiSpecPath, "utf8")) as object;
+// Load OpenAPI spec once for Swagger UI (with error handling)
+let openapiDocument: object | null = null;
+try {
+    const openapiSpecPath = path.join(process.cwd(), "openapi.yaml");
+    if (fs.existsSync(openapiSpecPath)) {
+        openapiDocument = yaml.load(fs.readFileSync(openapiSpecPath, "utf8")) as object;
+    }
+} catch (error) {
+    console.warn("Failed to load OpenAPI spec for Swagger UI:", error);
+}
 
 // Interactive API playground using Swagger UI
-app.use("/api/playground", swaggerUi.serve, swaggerUi.setup(openapiDocument));
+if (openapiDocument) {
+    app.use("/api/playground", swaggerUi.serve, swaggerUi.setup(openapiDocument));
+} else {
+    app.get("/api/playground", (_req, res) => {
+        res.status(503).json({ error: "OpenAPI spec not available" });
+    });
+}
 
 app.get("/", (_req, res) => {
     res.json({
@@ -109,6 +131,14 @@ app.use("/api/v1/customer", customerRoutes);
 
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-    console.log(`🚀 Server running on http://localhost:${PORT}`);
-});
+// Export for Vercel serverless functions
+export default app;
+
+// Only start server in development or when not running as serverless
+// Vercel sets VERCEL=1 environment variable
+if (!process.env.VERCEL) {
+    const PORT = process.env.PORT || 3002;
+    app.listen(PORT, () => {
+        console.log(`🚀 Server running on http://localhost:${PORT}`);
+    });
+}
