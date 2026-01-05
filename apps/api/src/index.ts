@@ -9,18 +9,18 @@ import yaml from "js-yaml";
 
 dotenv.config();
 
-import authRoutes from "./routes/auth";
-import publicRoutes from "./routes/public";
-import customerRoutes from "./routes/customer";
-import adminRoutes from "./routes/admin";
-import paymentRoutes from "./routes/payment";
-import cartRoutes from "./routes/cart";
-import wishlistRoutes from "./routes/wishlist";
-import reviewRoutes from "./routes/reviews";
-import couponRoutes from "./routes/coupons";
-import webhookRoutes from "./routes/webhook";
+import authRoutes from "./routes/auth.js";
+import publicRoutes from "./routes/public.js";
+import customerRoutes from "./routes/customer.js";
+import adminRoutes from "./routes/admin.js";
+import paymentRoutes from "./routes/payment.js";
+import cartRoutes from "./routes/cart.js";
+import wishlistRoutes from "./routes/wishlist.js";
+import reviewRoutes from "./routes/reviews.js";
+import couponRoutes from "./routes/coupons.js";
+import webhookRoutes from "./routes/webhook.js";
 
-import { errorHandler } from "./middleware/errorHandler";
+import { errorHandler } from "./middleware/errorHandler.js";
 import type { Express } from "express";
 
 const app: Express = express();
@@ -63,7 +63,7 @@ app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 // Serve OpenAPI YAML spec (for Redoc UI)
 app.get("/api/openapi.yaml", (_req, res) => {
     try {
-        const specPath = path.join(process.cwd(), "openapi.yaml");
+    const specPath = path.join(process.cwd(), "openapi.yaml");
         if (fs.existsSync(specPath)) {
             const yamlContent = fs.readFileSync(specPath, "utf8");
             res.type("text/yaml").send(yamlContent);
@@ -87,7 +87,7 @@ app.get(
 // Load OpenAPI spec once for Swagger UI (with error handling)
 let openapiDocument: object | null = null;
 try {
-    const openapiSpecPath = path.join(process.cwd(), "openapi.yaml");
+const openapiSpecPath = path.join(process.cwd(), "openapi.yaml");
     if (fs.existsSync(openapiSpecPath)) {
         openapiDocument = yaml.load(fs.readFileSync(openapiSpecPath, "utf8")) as object;
     }
@@ -97,7 +97,7 @@ try {
 
 // Interactive API playground using Swagger UI
 if (openapiDocument) {
-    app.use("/api/playground", swaggerUi.serve, swaggerUi.setup(openapiDocument));
+app.use("/api/playground", swaggerUi.serve, swaggerUi.setup(openapiDocument));
 } else {
     app.get("/api/playground", (_req, res) => {
         res.status(503).json({ error: "OpenAPI spec not available" });
