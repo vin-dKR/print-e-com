@@ -242,7 +242,7 @@ export default function PhotoPrintingPage() {
                         // Reset size to first available for new type
                         const availableSizes = getAvailableSizes();
                         if (availableSizes.length > 0 && !availableSizes.includes(selectedPhotoSize)) {
-                            setSelectedPhotoSize(availableSizes[0]);
+                            setSelectedPhotoSize(availableSizes[0]!);
                         }
                     }}
                     layout="inline"

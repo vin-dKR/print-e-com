@@ -38,8 +38,8 @@ export const ProductGallery: React.FC<ProductGalleryProps> = ({
                 {images.length > 0 ? (
                     <>
                         <Image
-                            src={images[selectedImageIndex].src}
-                            alt={images[selectedImageIndex].alt}
+                            src={images[selectedImageIndex]?.src || ''}
+                            alt={images[selectedImageIndex]?.alt || ''}
                             fill
                             className="object-cover"
                             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"

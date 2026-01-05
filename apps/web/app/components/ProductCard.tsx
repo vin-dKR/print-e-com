@@ -188,8 +188,7 @@ export default function ProductCard({
                 onMouseDown={(e) => e.stopPropagation()}
                 onMouseUp={(e) => e.stopPropagation()}
                 disabled={isAddingToCart}
-                className="absolute bottom-4 right-4 w-10 h-10 bg-orange-500 hover:bg-orange-600 active:bg-orange-700 rounded-lg flex items-center justify-center text-white shadow-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed z-50 cursor-pointer"
-                style={{ zIndex: 50 }}
+                className="absolute bottom-4 right-4 w-10 h-10 bg-orange-500 hover:bg-orange-600 active:bg-orange-700 rounded-lg flex items-center justify-center text-white shadow-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 aria-label="Add to cart"
                 type="button"
             >

@@ -259,7 +259,7 @@ export default function BookPrintingPage() {
                                     {binding.type}
                                 </div>
                                 <div className="text-sm text-gray-600">
-                                    From ₹{binding.prices[0].price.toFixed(2)}
+                                    From ₹{Number(binding.prices[0]?.price || 0).toFixed(2)}
                                 </div>
                             </button>
                         ))}
