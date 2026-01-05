@@ -13,6 +13,8 @@ interface BillingSummaryProps {
     grandTotal: number;
     itemCount: number;
     showCheckoutActions?: boolean;
+    onPay?: () => Promise<void> | void;
+    isPaying?: boolean;
 }
 
 export default function BillingSummary({
@@ -25,6 +27,8 @@ export default function BillingSummary({
     grandTotal,
     itemCount,
     showCheckoutActions = true,
+    onPay,
+    isPaying = false,
 }: BillingSummaryProps) {
     const [orderComment, setOrderComment] = useState("");
     const [agreedToTerms, setAgreedToTerms] = useState(false);
@@ -114,13 +118,17 @@ export default function BillingSummary({
 
                     {/* Pay Button */}
                     <button
-                        disabled={!agreedToTerms}
+                        disabled={!agreedToTerms || isPaying || !onPay}
+                        onClick={() => {
+                            if (!onPay || !agreedToTerms) return;
+                            void onPay();
+                        }}
                         className={`w-full font-hkgb font-bold px-6 py-4 rounded-lg text-white transition-colors ${agreedToTerms
                             ? "bg-[#008ECC] hover:bg-[#007CB2]"
                             : "bg-gray-400 cursor-not-allowed"
                             }`}
                     >
-                        Pay ₹{grandTotal.toFixed(2)}
+                        {isPaying ? "Processing..." : `Pay ₹${grandTotal.toFixed(2)}`}
                     </button>
 
                     {/* Security Badge */}

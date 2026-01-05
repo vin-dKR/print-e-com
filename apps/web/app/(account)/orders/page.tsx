@@ -199,7 +199,7 @@ function OrdersPageContent() {
                                             </div>
                                             <div className="text-right">
                                                 <p className="text-lg sm:text-xl font-hkgb text-gray-900">
-                                                    ₹{order.total.toFixed(2)}
+                                                    ₹{(Number(order.total)).toFixed(2)}
                                                 </p>
                                                 <p className="text-xs text-gray-500 mt-1">
                                                     Total Amount
@@ -238,7 +238,7 @@ function OrdersPageContent() {
                                                             </p>
                                                             <span className="text-gray-300">•</span>
                                                             <p className="text-xs text-gray-600">
-                                                                ₹{item.price.toFixed(2)} each
+                                                                ₹{(Number(item.price)).toFixed(2)} each
                                                             </p>
                                                         </div>
                                                     </div>
@@ -246,7 +246,7 @@ function OrdersPageContent() {
                                                     {/* Item Price */}
                                                     <div className="text-right">
                                                         <p className="text-sm font-hkgb text-gray-900">
-                                                            ₹{(item.price * item.quantity).toFixed(2)}
+                                                            ₹{(Number(item.price) * Number(item.quantity)).toFixed(2)}
                                                         </p>
                                                         <p className="text-xs text-gray-500 mt-1">
                                                             Subtotal

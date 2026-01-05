@@ -18,6 +18,7 @@ import cartRoutes from "./routes/cart";
 import wishlistRoutes from "./routes/wishlist";
 import reviewRoutes from "./routes/reviews";
 import couponRoutes from "./routes/coupons";
+import webhookRoutes from "./routes/webhook";
 
 import { errorHandler } from "./middleware/errorHandler";
 
@@ -72,6 +73,8 @@ app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1", publicRoutes);
 app.use("/api/v1/admin", adminRoutes);
 app.use("/api/v1/payment", paymentRoutes);
+// Webhooks (public endpoints called by Razorpay, etc.)
+app.use("/api/webhooks", webhookRoutes);
 app.use("/api/v1/cart", cartRoutes);
 app.use("/api/v1/wishlist", wishlistRoutes);
 app.use("/api/v1/reviews", reviewRoutes);

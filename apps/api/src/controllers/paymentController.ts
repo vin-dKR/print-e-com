@@ -42,10 +42,13 @@ export const createRazorpayOrder = async (req: Request, res: Response, next: Nex
 
         // Create Razorpay order
         const amountInPaise = Math.round(Number(amount) * 100); // Convert to paise
+        // Razorpay receipt has a max length of 40 chars – keep it short and deterministic
+        const shortOrderId = String(order.id).slice(0, 30);
+        const receipt = `ord_${shortOrderId}`;
         const razorpayOrder = await razorpay.orders.create({
             amount: amountInPaise,
             currency: "INR",
-            receipt: `order_${orderId}`,
+            receipt,
             notes: {
                 orderId: order.id,
                 userId: req.user.id,
@@ -210,36 +213,75 @@ export const razorpayWebhook = async (req: Request, res: Response, next: NextFun
 
 // Helper functions for webhook handlers
 async function handlePaymentCaptured(payload: any) {
-    const { payment, order } = payload.payment.entity;
+    const paymentEntity = payload?.payment?.entity;
+
+    if (!paymentEntity) {
+        console.warn("Razorpay webhook: missing payment entity in payload for payment.captured");
+        return;
+    }
+
+    const razorpayPaymentId = paymentEntity.id;
+    const razorpayOrderId = paymentEntity.order_id;
+
+    if (!razorpayPaymentId) {
+        console.warn("Razorpay webhook: missing payment id in payment.captured payload");
+        return;
+    }
 
     await prisma.payment.updateMany({
-        where: { razorpayPaymentId: payment.id },
+        where: { razorpayPaymentId },
         data: {
             status: "SUCCESS",
-            razorpayPaymentId: payment.id,
+            razorpayPaymentId,
         },
     });
 
-    await prisma.order.updateMany({
-        where: { razorpayOrderId: order.id },
-        data: { paymentStatus: "SUCCESS" },
-    });
+    if (razorpayOrderId) {
+        await prisma.order.updateMany({
+            where: { razorpayOrderId },
+            data: { paymentStatus: "SUCCESS" },
+        });
+    }
 }
 
 async function handlePaymentFailed(payload: any) {
-    const { payment } = payload.payment.entity;
+    const paymentEntity = payload?.payment?.entity;
+
+    if (!paymentEntity) {
+        console.warn("Razorpay webhook: missing payment entity in payload for payment.failed");
+        return;
+    }
+
+    const razorpayPaymentId = paymentEntity.id;
+
+    if (!razorpayPaymentId) {
+        console.warn("Razorpay webhook: missing payment id in payment.failed payload");
+        return;
+    }
 
     await prisma.payment.updateMany({
-        where: { razorpayPaymentId: payment.id },
+        where: { razorpayPaymentId },
         data: { status: "FAILED" },
     });
 }
 
 async function handleOrderPaid(payload: any) {
-    const { order } = payload.order.entity;
+    const orderEntity = payload?.order?.entity;
+
+    if (!orderEntity) {
+        console.warn("Razorpay webhook: missing order entity in payload for order.paid");
+        return;
+    }
+
+    const razorpayOrderId = orderEntity.id;
+
+    if (!razorpayOrderId) {
+        console.warn("Razorpay webhook: missing order id in order.paid payload");
+        return;
+    }
 
     await prisma.order.updateMany({
-        where: { razorpayOrderId: order.id },
+        where: { razorpayOrderId },
         data: { paymentStatus: "SUCCESS" },
     });
 }

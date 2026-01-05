@@ -12,6 +12,8 @@ import DiscountCodeSection from "../components/DiscountCodeSection";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { useCheckout } from "@/hooks/checkout/useCheckout";
 import { BarsSpinner } from "@/app/components/shared/BarsSpinner";
+import { createOrder } from "@/lib/api/orders";
+import { createRazorpayOrder, verifyRazorpayPayment } from "@/lib/api/payments";
 
 function CheckoutPageContent() {
     const {
@@ -36,6 +38,8 @@ function CheckoutPageContent() {
         loading,
         error,
     } = useCheckout();
+
+    const [isPaying, setIsPaying] = useState(false);
 
     // Track selected shipping method
     const [selectedShippingId, setSelectedShippingId] = useState<string>("standard");
@@ -82,6 +86,116 @@ function CheckoutPageContent() {
     const calculatedTotal = useMemo(() => {
         return (subtotal || 0) - discountAmount + selectedShippingFee + calculatedTax;
     }, [subtotal, discountAmount, selectedShippingFee, calculatedTax]);
+
+    async function loadRazorpayScript(): Promise<boolean> {
+        if (typeof window === "undefined") return false;
+        if ((window as any).Razorpay) return true;
+
+        return new Promise((resolve) => {
+            const script = document.createElement("script");
+            script.src = "https://checkout.razorpay.com/v1/checkout.js";
+            script.onload = () => resolve(true);
+            script.onerror = () => resolve(false);
+            document.body.appendChild(script);
+        });
+    }
+
+    const handlePay = async () => {
+        if (!selectedAddressId) {
+            alert("Please select a delivery address before proceeding to payment.");
+            return;
+        }
+
+        if (cartItems.length === 0) {
+            alert("Your cart is empty.");
+            return;
+        }
+
+        try {
+            setIsPaying(true);
+
+            // 1) Create backend order with ONLINE payment
+            const createOrderResp = await createOrder({
+                items: cartItems.map((item: any) => ({
+                    productId: item.productId,
+                    variantId: item.variantId,
+                    quantity: item.quantity,
+                    customDesignUrl: item.customDesignUrl,
+                    customText: item.customText,
+                })),
+                addressId: selectedAddressId,
+                paymentMethod: "ONLINE",
+                couponCode: appliedCoupon?.coupon?.code,
+            });
+
+            if (!createOrderResp.success || !createOrderResp.data) {
+                throw new Error(createOrderResp.error || "Failed to create order");
+            }
+
+            const order = createOrderResp.data;
+
+            // 2) Create Razorpay order on backend
+            const rpOrderResp = await createRazorpayOrder({
+                orderId: order.id,
+                amount: Number(order.total),
+            });
+
+            if (!rpOrderResp.success || !rpOrderResp.data) {
+                throw new Error(rpOrderResp.error || "Failed to create Razorpay order");
+            }
+
+            const rpData = rpOrderResp.data;
+
+            // 3) Load Razorpay checkout
+            const scriptLoaded = await loadRazorpayScript();
+            if (!scriptLoaded) {
+                throw new Error("Failed to load Razorpay checkout script");
+            }
+
+            const options: any = {
+                key: rpData.key,
+                amount: Math.round(rpData.amount * 100), // in paise
+                currency: rpData.currency,
+                name: "Custom Printing Store",
+                description: `Order #${order.id}`,
+                order_id: rpData.razorpayOrderId,
+                handler: async (response: any) => {
+                    try {
+                        const verifyResp = await verifyRazorpayPayment({
+                            razorpay_order_id: response.razorpay_order_id,
+                            razorpay_payment_id: response.razorpay_payment_id,
+                            razorpay_signature: response.razorpay_signature,
+                        });
+
+                        if (!verifyResp.success || !verifyResp.data || !verifyResp.data.verified) {
+                            alert("Payment verification failed. If amount was deducted, please contact support.");
+                            return;
+                        }
+
+                        window.location.href = `/account/orders/${order.id}`;
+                    } catch (err) {
+                        console.error("Failed to verify payment", err);
+                        alert("Payment verification failed. If amount was deducted, please contact support.");
+                    }
+                },
+                theme: {
+                    color: "#008ECC",
+                },
+            };
+
+            console.log("options", options);
+
+
+            const rz = new (window as any).Razorpay(options);
+            rz.open();
+        } catch (err) {
+            console.error("Payment error", err);
+            const message = err instanceof Error ? err.message : "Payment failed. Please try again.";
+            alert(message);
+        } finally {
+            setIsPaying(false);
+        }
+    };
 
     const breadcrumbs = [
         { label: "Home", href: "/" },
@@ -194,6 +308,8 @@ function CheckoutPageContent() {
                             tax={calculatedTax || 0}
                             grandTotal={calculatedTotal || 0}
                             itemCount={itemCount}
+                            onPay={handlePay}
+                            isPaying={isPaying}
                         />
                     </div>
                 </div>
