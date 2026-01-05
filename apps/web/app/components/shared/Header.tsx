@@ -1,16 +1,40 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams, usePathname } from "next/navigation";
 import { useAuth } from "../../../contexts/AuthContext";
 import { BadgePercent, MapPin, ShoppingCart, Truck, User, Menu, X, ChevronDown } from "lucide-react";
 import Image from "next/image";
 
-export default function Header() {
-    const { user, isAuthenticated, logout, loading } = useAuth();
+// Component that uses useSearchParams - must be wrapped in Suspense
+function SearchParamsSync({
+    searchQuery,
+    setSearchQuery
+}: {
+    searchQuery: string;
+    setSearchQuery: (query: string) => void;
+}) {
     const searchParams = useSearchParams();
     const pathname = usePathname();
+
+    // Sync search query with URL params when on products page
+    useEffect(() => {
+        if (pathname === '/products') {
+            const urlSearch = searchParams.get('search') || '';
+            if (urlSearch === "All") {
+                setSearchQuery("");
+            } else {
+                setSearchQuery(urlSearch);
+            }
+        }
+    }, [searchParams, pathname, setSearchQuery]);
+
+    return null;
+}
+
+export default function Header() {
+    const { user, isAuthenticated, logout, loading } = useAuth();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
@@ -23,18 +47,6 @@ export default function Header() {
     const categoryRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
     const headerRef = useRef<HTMLElement>(null);
     const categoryBarRef = useRef<HTMLDivElement>(null);
-
-    // Sync search query with URL params when on products page
-    useEffect(() => {
-        if (pathname === '/products') {
-            const urlSearch = searchParams.get('search') || '';
-            if (urlSearch === "All") {
-                setSearchQuery("");
-            } else {
-                setSearchQuery(urlSearch);
-            }
-        }
-    }, [searchParams, pathname]);
 
     const categories = [
         "All",
@@ -100,6 +112,9 @@ export default function Header() {
 
     return (
         <header className="sticky top-0 z-50" ref={headerRef}>
+            <Suspense fallback={null}>
+                <SearchParamsSync searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
+            </Suspense>
             {/* Top Bar - Hide on mobile */}
             <div className="hidden lg:block bg-gray-100">
                 <div className="w-full mx-auto px-4 sm:px-6 lg:px-30 py-4">

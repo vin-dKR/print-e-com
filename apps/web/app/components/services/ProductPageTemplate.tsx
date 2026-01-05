@@ -71,7 +71,7 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
                                 <ProductHeader
                                     title={productData.title || ''}
                                     subtitle={productData.description}
-
+                                    breadcrumbItems={breadcrumbItems}
                                 />
                                 <ProductFeatures features={productData.features || []} />
                             </div>

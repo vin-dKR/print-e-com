@@ -13,6 +13,12 @@ type PrintType = 'B/W' | 'Color';
 type PricingType = 'Standard Sheet' | 'Per Meter';
 type LaminationType = '50 Micron';
 
+type PrintOption = {
+    printType: string;
+    price: number;
+    pricingType?: PricingType;
+};
+
 export default function MapPrintingPage() {
     const [uploadedFile, setUploadedFile] = useState<File | null>(null);
     const [selectedMapSize, setSelectedMapSize] = useState<MapSize>('A2');
@@ -34,10 +40,10 @@ export default function MapPrintingPage() {
 
     // Get available pricing types for current selection
     const getAvailablePricingTypes = (): PricingType[] => {
-        const currentOptions = getAvailablePrintOptions();
+        const currentOptions = getAvailablePrintOptions() as PrintOption[];
         const pricingTypes = currentOptions
             .filter(option => option.printType === selectedPrintType && option.pricingType)
-            .map(option => option.pricingType as PricingType);
+            .map(option => option.pricingType!);
 
         return Array.from(new Set(pricingTypes));
     };
@@ -60,7 +66,7 @@ export default function MapPrintingPage() {
         if (!selectedMapData) return;
 
         // 1. Calculate map printing price
-        const printOption = selectedMapData.options.find(option =>
+        const printOption = (selectedMapData.options as PrintOption[]).find(option =>
             option.printType === selectedPrintType &&
             (option.pricingType === selectedPricingType || !option.pricingType)
         );
@@ -187,7 +193,7 @@ export default function MapPrintingPage() {
     useEffect(() => {
         const pricingTypes = getAvailablePricingTypes();
         if (pricingTypes.length > 0 && !pricingTypes.includes(selectedPricingType)) {
-            setSelectedPricingType(pricingTypes[0]);
+            setSelectedPricingType(pricingTypes[0]!);
         }
     }, [selectedMapSize, selectedPrintType]);
 

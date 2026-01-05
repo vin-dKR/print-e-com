@@ -62,6 +62,11 @@ Required variables:
 - `JWT_SECRET`: Secret key for JWT tokens
 - `RAZORPAY_KEY_ID` & `RAZORPAY_KEY_SECRET`: Razorpay credentials
 - `SUPABASE_URL` & `SUPABASE_ANON_KEY`: (Optional) Supabase credentials
+- `CORS_ORIGINS`: (Optional) Comma-separated list of additional allowed origins for CORS. Default includes:
+  - `http://localhost:3000` (Next.js dev server)
+  - `http://localhost:3001`
+  - `http://localhost:3002`
+  - `https://print-e-com-web.vercel.app` (Production frontend)
 
 ### 3. Setup Database
 
