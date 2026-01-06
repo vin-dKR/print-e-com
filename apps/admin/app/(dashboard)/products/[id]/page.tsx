@@ -5,7 +5,8 @@
 
 import { ProductDetail } from '@/app/components/features/products/product-detail';
 
-export default function ProductDetailPage({ params }: { params: { id: string } }) {
-  return <ProductDetail productId={params.id} />;
+export default async function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  return <ProductDetail productId={id} />;
 }
 
