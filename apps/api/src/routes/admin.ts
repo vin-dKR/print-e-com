@@ -11,8 +11,8 @@ import {
     getAdminOrders,
     getAdminOrder,
     updateOrderStatus,
-} from "../controllers/orderController";
-import { adminAuth } from "../middleware/auth";
+} from "../controllers/orderController.js";
+import { adminAuth } from "../middleware/auth.js";
 import { deleteAdminUser, getAdminUser, getAdminUsers, updateAdminUser } from "../controllers/userController.js";
 import { getAdminCoupon, getAdminCoupons } from "../controllers/couponController.js";
 import { createAdminCoupon } from "../controllers/couponController.js";
