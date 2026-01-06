@@ -1170,6 +1170,121 @@ paths:
           description: Unauthorized - Admin authentication required
         '404':
           description: Coupon not found
+  /api/v1/admin/orders:
+    get:
+      summary: Get all orders (admin)
+      description: >
+        Returns a paginated list of orders for admin users. Supports filtering
+        by status and free-text search over order ID, customer email, and
+        customer name.
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - PENDING_REVIEW
+              - PROCESSING
+              - SHIPPED
+              - DELIVERED
+              - CANCELLED
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+          description: >-
+            Search by order ID, customer email, or customer name
+            (case-insensitive).
+      responses:
+        '200':
+          description: List of orders retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - data
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    required:
+                      - orders
+                      - pagination
+                    properties:
+                      orders:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                            total:
+                              type: number
+                            status:
+                              type: string
+                            createdAt:
+                              type: string
+                              format: date-time
+                            updatedAt:
+                              type: string
+                              format: date-time
+                            user:
+                              type: object
+                              properties:
+                                id:
+                                  type: string
+                                email:
+                                  type: string
+                                  format: email
+                                name:
+                                  type: string
+                                  nullable: true
+                            address:
+                              type: object
+                            items:
+                              type: array
+                              items:
+                                type: object
+                      pagination:
+                        type: object
+                        properties:
+                          page:
+                            type: integer
+                          limit:
+                            type: integer
+                          total:
+                            type: integer
+                          totalPages:
+                            type: integer
+        '401':
+          description: Unauthorized - admin authentication required.
+        '403':
+          description: Forbidden - user is not an admin.
   /api/v1/admin/payments:
     get:
       summary: Get all payments
@@ -1360,11 +1475,45 @@ paths:
   /api/v1/admin/reviews:
     get:
       summary: Get all reviews
-      description: Admin can view all product reviews for moderation
+      description: >-
+        Admin can view all product reviews for moderation with pagination and
+        search.
       tags:
         - Admin
       security:
         - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Page number for pagination
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+          description: Number of items per page
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: >-
+            Search term for review title, comment, product name, or user
+            email/name
+        - in: query
+          name: rating
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 5
+          description: Filter reviews by rating
+        - in: query
+          name: isApproved
+          schema:
+            type: boolean
+          description: Filter reviews by approval status
       responses:
         '200':
           description: List of reviews retrieved successfully
@@ -1380,58 +1529,72 @@ paths:
                     type: boolean
                     example: true
                   data:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        id:
-                          type: string
-                        productId:
-                          type: string
-                        userId:
-                          type: string
-                        rating:
-                          type: integer
-                          minimum: 1
-                          maximum: 5
-                        title:
-                          type: string
-                          nullable: true
-                        comment:
-                          type: string
-                          nullable: true
-                        images:
-                          type: array
-                          items:
-                            type: string
-                        isVerifiedPurchase:
-                          type: boolean
-                        isHelpful:
-                          type: integer
-                        isApproved:
-                          type: boolean
-                        createdAt:
-                          type: string
-                          format: date-time
-                        updatedAt:
-                          type: string
-                          format: date-time
-                        product:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
                           type: object
                           properties:
                             id:
                               type: string
-                            name:
+                            productId:
                               type: string
-                        user:
-                          type: object
-                          properties:
-                            id:
+                            userId:
                               type: string
-                            name:
+                            rating:
+                              type: integer
+                              minimum: 1
+                              maximum: 5
+                            title:
                               type: string
-                            email:
+                              nullable: true
+                            comment:
                               type: string
+                              nullable: true
+                            images:
+                              type: array
+                              items:
+                                type: string
+                            isVerifiedPurchase:
+                              type: boolean
+                            isHelpful:
+                              type: integer
+                            isApproved:
+                              type: boolean
+                            createdAt:
+                              type: string
+                              format: date-time
+                            updatedAt:
+                              type: string
+                              format: date-time
+                            product:
+                              type: object
+                              properties:
+                                id:
+                                  type: string
+                                name:
+                                  type: string
+                            user:
+                              type: object
+                              properties:
+                                id:
+                                  type: string
+                                name:
+                                  type: string
+                                email:
+                                  type: string
+                      pagination:
+                        type: object
+                        properties:
+                          page:
+                            type: integer
+                          limit:
+                            type: integer
+                          total:
+                            type: integer
+                          totalPages:
+                            type: integer
         '401':
           description: Unauthorized - Admin authentication required
   /api/v1/admin/reviews/{id}:
@@ -1614,11 +1777,35 @@ paths:
   /api/v1/admin/users:
     get:
       summary: Get all customer users
-      description: Admin can view and manage all customer users (non-admin users only)
+      description: >-
+        Admin can view and manage all customer users (non-admin users only) with
+        pagination and search.
       tags:
         - Admin
       security:
         - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Search by name, email, or phone
       responses:
         '200':
           description: List of customer users retrieved successfully
@@ -1634,37 +1821,58 @@ paths:
                     type: boolean
                     example: true
                   data:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        id:
-                          type: string
-                          example: 123e4567-e89b-12d3-a456-426614174000
-                        email:
-                          type: string
-                          format: email
-                          example: customer@example.com
-                        name:
-                          type: string
-                          nullable: true
-                          example: John Doe
-                        phone:
-                          type: string
-                          nullable: true
-                          example: '+1234567890'
-                        isAdmin:
-                          type: boolean
-                          example: false
-                        isSuperAdmin:
-                          type: boolean
-                          example: false
-                        createdAt:
-                          type: string
-                          format: date-time
-                        updatedAt:
-                          type: string
-                          format: date-time
+                    type: object
+                    required:
+                      - items
+                      - pagination
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                              example: 123e4567-e89b-12d3-a456-426614174000
+                            email:
+                              type: string
+                              format: email
+                              example: customer@example.com
+                            name:
+                              type: string
+                              nullable: true
+                              example: John Doe
+                            phone:
+                              type: string
+                              nullable: true
+                              example: '+1234567890'
+                            isAdmin:
+                              type: boolean
+                              example: false
+                            isSuperAdmin:
+                              type: boolean
+                              example: false
+                            createdAt:
+                              type: string
+                              format: date-time
+                            updatedAt:
+                              type: string
+                              format: date-time
+                      pagination:
+                        type: object
+                        properties:
+                          page:
+                            type: integer
+                            example: 1
+                          limit:
+                            type: integer
+                            example: 20
+                          total:
+                            type: integer
+                            example: 100
+                          totalPages:
+                            type: integer
+                            example: 5
         '401':
           description: Unauthorized - Admin authentication required
           content:

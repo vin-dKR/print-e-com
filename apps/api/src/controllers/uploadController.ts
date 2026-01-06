@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { sendSuccess, sendError } from "../utils/response.js";
 import { ValidationError } from "../utils/errors.js";
-import path from "path";
 
 // Upload design image
 export const uploadDesign = async (req: Request, res: Response, next: NextFunction) => {

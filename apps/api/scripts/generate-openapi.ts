@@ -3,7 +3,7 @@ import path from "path";
 import swaggerJSDoc from "swagger-jsdoc";
 import yaml from "js-yaml";
 
-const options: swaggerJSDoc.Options = {
+const options = {
   definition: {
     openapi: "3.0.3",
     info: {
@@ -34,7 +34,7 @@ const options: swaggerJSDoc.Options = {
   ],
 };
 
-const swaggerSpec = swaggerJSDoc(options);
+const swaggerSpec = swaggerJSDoc(options as any);
 
 const outputPath = path.join(process.cwd(), "openapi.yaml");
 const yamlString = yaml.dump(swaggerSpec, { noRefs: true });

@@ -1,46 +1,52 @@
 {
-  "files.exclude": {
-    // "**/.git": true,
-    "**/.DS_Store": true,
-    "**/node_modules": true,
-    "**/.next": true,
-    "**/dist": true,
-    "**/build": true,
-    "**/.turbo": true,
-    "**/coverage": true,
-    "**/*.log": true,
-    "**/.env.local": true,
-    "**/.env.*.local": true,
-    "**/apps/api/uploads": true,
-    "**/apps/api/generated": true,
-    "**/bun.lockb": true,
-    "**/*.tsbuildinfo": true,
-    "**/next-env.d.ts": true,
-    "**/apps/docs": true
-  },
-  "search.exclude": {
-    "**/node_modules": true,
-    "**/.next": true,
-    "**/dist": true,
-    "**/build": true,
-    "**/.turbo": true,
-    "**/coverage": true,
-    "**/*.log": true,
-    "**/apps/api/generated": true,
-    "**/bun.lockb": true,
-    "**/package-lock.json": true,
-    "**/yarn.lock": true,
-    "**/pnpm-lock.yaml": true,
-    "**/apps/docs": true
-  },
-  "files.watcherExclude": {
-    "**/node_modules/**": true,
-    "**/.next/**": true,
-    "**/dist/**": true,
-    "**/build/**": true,
-    "**/.turbo/**": true,
-    "**/coverage/**": true,
-    "**/apps/api/generated/**": true,
-    "**/apps/docs/**": true
-  }
+    // Editor settings
+    "editor.tabSize": 4,
+    "editor.insertSpaces": true,
+    "editor.detectIndentation": false,
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+
+    // Language-specific settings
+    "[typescript]": {
+        "editor.tabSize": 4,
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[javascript]": {
+        "editor.tabSize": 4,
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[typescriptreact]": {
+        "editor.tabSize": 4,
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[javascriptreact]": {
+        "editor.tabSize": 4,
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[json]": {
+        "editor.tabSize": 4,
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[jsonc]": {
+        "editor.tabSize": 4
+    },
+    "[yaml]": {
+        "editor.tabSize": 2
+    },
+    "[markdown]": {
+        "editor.tabSize": 4
+    },
+
+    // TypeScript/JavaScript specific
+    "typescript.preferences.indentStyle": "space",
+    "typescript.preferences.indentSize": 4,
+    "javascript.preferences.indentStyle": "space",
+    "javascript.preferences.indentSize": 4,
+
+    // Prettier settings
+    "prettier.tabWidth": 4,
+    "prettier.useTabs": false,
+
+    // EditorConfig
+    "editorconfig.generateAuto": false
 }
