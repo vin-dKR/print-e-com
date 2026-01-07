@@ -206,20 +206,6 @@ export default function Header() {
                                 className="pr-2 pl-2 lg:pr-4 lg:pl-2 text-blue-600 hover:text-blue-700 transition-colors"
                                 aria-label="Categories"
                             >
-                                <svg
-                                    width="20"
-                                    height="20"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                >
-                                    <line x1="3" y1="12" x2="21" y2="12"></line>
-                                    <line x1="3" y1="6" x2="21" y2="6"></line>
-                                    <line x1="3" y1="18" x2="21" y2="18"></line>
-                                </svg>
                             </button>
                         </div>
                     </form>

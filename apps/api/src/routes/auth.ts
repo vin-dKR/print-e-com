@@ -7,6 +7,7 @@ import {
     updatePassword,
     updateNotificationPreferences,
     deleteAccount,
+    refreshToken,
 } from "../controllers/authController.js";
 import { customerAuth } from "../middleware/auth.js";
 
@@ -167,6 +168,45 @@ router.post("/register", register);
  *                 error: Invalid email or password format or others
  */
 router.post("/login", login);
+
+/**
+ * @openapi
+ * /api/v1/auth/refresh:
+ *   post:
+ *     summary: Refresh authentication token
+ *     tags:
+ *       - Auth
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       '200':
+ *         description: Token refreshed successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required:
+ *                 - success
+ *                 - data
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   required:
+ *                     - user
+ *                     - token
+ *                   properties:
+ *                     token:
+ *                       type: string
+ *                     user:
+ *                       type: object
+ *       '401':
+ *         description: Unauthorized - invalid or expired token.
+ */
+router.post("/refresh", customerAuth, refreshToken);
 
 /**
  * @openapi

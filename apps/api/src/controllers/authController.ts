@@ -48,10 +48,10 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
                 return sendSuccess(
                     res,
                     {
-                    user: {
-                        id: user.id,
-                        email: user.email,
-                        name: user.name,
+                        user: {
+                            id: user.id,
+                            email: user.email,
+                            name: user.name,
                             phone: user.phone,
                             isAdmin: user.isAdmin,
                         },
@@ -111,10 +111,10 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
         return sendSuccess(
             res,
             {
-            user: {
-                id: user.id,
-                email: user.email,
-                name: user.name,
+                user: {
+                    id: user.id,
+                    email: user.email,
+                    name: user.name,
                     phone: user.phone,
                     isAdmin: user.isAdmin,
                 },
@@ -196,10 +196,10 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
         return sendSuccess(
             res,
             {
-            user: {
-                id: user.id,
-                email: user.email,
-                name: user.name,
+                user: {
+                    id: user.id,
+                    email: user.email,
+                    name: user.name,
                     phone: user.phone,
                     isAdmin: user.isAdmin,
                 },
@@ -425,6 +425,96 @@ export const deleteAccount = async (req: Request, res: Response, next: NextFunct
         });
 
         return sendSuccess(res, null, "Account deleted successfully");
+    } catch (error) {
+        next(error);
+    }
+};
+
+// Refresh Token
+export const refreshToken = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { refreshToken } = req.body;
+
+        // Try Supabase refresh first if configured
+        if (supabase && refreshToken) {
+            const { data, error } = await supabase.auth.refreshSession({
+                refresh_token: refreshToken,
+            });
+
+            if (error) {
+                throw new UnauthorizedError("Invalid refresh token");
+            }
+
+            if (data.session && data.user) {
+                // Get user from database
+                const user = await prisma.user.findUnique({
+                    where: { supabaseId: data.user.id },
+                    select: {
+                        id: true,
+                        email: true,
+                        name: true,
+                        phone: true,
+                        isAdmin: true,
+                        isSuperAdmin: true,
+                    },
+                });
+
+                if (!user) {
+                    throw new NotFoundError("User not found");
+                }
+
+                return sendSuccess(
+                    res,
+                    {
+                        user,
+                        token: data.session.access_token,
+                        refreshToken: data.session.refresh_token,
+                        expiresAt: data.session.expires_at,
+                    },
+                    "Token refreshed successfully"
+                );
+            }
+        }
+
+        // Fallback: Use JWT-based refresh (for non-Supabase users)
+        const userId = req.user?.id;
+
+        if (!userId) {
+            throw new UnauthorizedError("User not authenticated");
+        }
+
+        // Fetch fresh user data
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: {
+                id: true,
+                email: true,
+                name: true,
+                phone: true,
+                isAdmin: true,
+                isSuperAdmin: true,
+            },
+        });
+
+        if (!user) {
+            throw new NotFoundError("User not found");
+        }
+
+        // Generate new JWT token
+        const token = jwt.sign(
+            { id: user.id, email: user.email },
+            JWT_SECRET,
+            { expiresIn: "7d" }
+        );
+
+        return sendSuccess(
+            res,
+            {
+                user,
+                token,
+            },
+            "Token refreshed successfully"
+        );
     } catch (error) {
         next(error);
     }
