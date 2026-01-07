@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { prisma } from "../services/prisma.js"; 
+import { prisma } from "../services/prisma.js";
 import { sendSuccess } from "../utils/response.js";
 import { ValidationError, NotFoundError, UnauthorizedError } from "../utils/errors.js";
 
@@ -22,7 +22,6 @@ export const getWishlist = async (req: Request, res: Response, next: NextFunctio
                         include: {
                             category: true,
                             images: true,
-                            brand: true,
                             variants: {
                                 where: { available: true },
                             },
@@ -98,7 +97,6 @@ export const addToWishlist = async (req: Request, res: Response, next: NextFunct
                     include: {
                         category: true,
                         images: true,
-                        brand: true,
                     },
                 },
             },

@@ -21,6 +21,7 @@ import couponRoutes from "./routes/coupons.js";
 import webhookRoutes from "./routes/webhook.js";
 
 import { errorHandler } from "./middleware/errorHandler.js";
+import { checkDatabaseConnection } from "./services/prisma.js";
 import type { Express } from "express";
 
 const app: Express = express();
@@ -114,8 +115,13 @@ app.get("/", (_req, res) => {
     });
 });
 
-app.get("/health", (_req, res) => {
-    res.json({ status: "ok", timestamp: new Date().toISOString() });
+app.get("/health", async (_req, res) => {
+    const dbConnected = await checkDatabaseConnection();
+    res.json({
+        status: dbConnected ? "ok" : "degraded",
+        timestamp: new Date().toISOString(),
+        database: dbConnected ? "connected" : "disconnected",
+    });
 });
 
 // API routes - Order matters! More specific routes before broader ones

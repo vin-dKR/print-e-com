@@ -12,29 +12,29 @@ import { DashboardLayout } from '@/app/components/layouts/dashboard-layout';
 import { PageLoading } from '@/app/components/ui/loading';
 
 export default function Layout({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isChecking, setIsChecking] = useState(true);
+    const router = useRouter();
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [isChecking, setIsChecking] = useState(true);
 
-  useEffect(() => {
-    const token = getAuthToken();
+    useEffect(() => {
+        const token = getAuthToken();
 
-    if (!token) {
-      router.replace('/login');
-    } else {
-      setIsAuthenticated(true);
-      setIsChecking(false);
+        if (!token) {
+            router.replace('/login');
+        } else {
+            setIsAuthenticated(true);
+            setIsChecking(false);
+        }
+    }, [router]);
+
+    if (isChecking) {
+        return <PageLoading />;
     }
-  }, [router]);
 
-  if (isChecking) {
-    return <PageLoading />;
-  }
+    if (!isAuthenticated) {
+        return null;
+    }
 
-  if (!isAuthenticated) {
-    return null;
-  }
-
-  return <DashboardLayout>{children}</DashboardLayout>;
+    return <DashboardLayout>{children}</DashboardLayout>;
 }
 

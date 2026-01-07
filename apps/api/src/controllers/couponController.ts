@@ -231,7 +231,7 @@ export const getMyCoupons = async (req: Request, res: Response, next: NextFuncti
  *                         type: boolean
  *                       applicableTo:
  *                         type: string
- *                         enum: [ALL, CATEGORY, PRODUCT, BRAND]
+ *                         enum: [ALL, CATEGORY, PRODUCT]
  *                       createdAt:
  *                         type: string
  *                         format: date-time
@@ -468,7 +468,7 @@ export const getAdminCoupon = async (req: Request, res: Response, next: NextFunc
  *                 example: true
  *               applicableTo:
  *                 type: string
- *                 enum: [ALL, CATEGORY, PRODUCT, BRAND]
+ *                 enum: [ALL, CATEGORY, PRODUCT]
  *                 example: "ALL"
  *     responses:
  *       200:
@@ -604,7 +604,7 @@ export const createAdminCoupon = async (req: Request, res: Response, next: NextF
  *                 type: boolean
  *               applicableTo:
  *                 type: string
- *                 enum: [ALL, CATEGORY, PRODUCT, BRAND]
+ *                 enum: [ALL, CATEGORY, PRODUCT]
  *     responses:
  *       200:
  *         description: Coupon updated successfully

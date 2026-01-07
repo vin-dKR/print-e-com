@@ -66,7 +66,7 @@ function WishlistPageContent() {
             searchQuery === "" ||
             product.name.toLowerCase().includes(searchLower) ||
             product.category?.name.toLowerCase().includes(searchLower) ||
-            product.brand?.name.toLowerCase().includes(searchLower)
+            false
         );
     });
 
@@ -225,12 +225,6 @@ function WishlistPageContent() {
 
                                     {/* Product Info */}
                                     <div className="p-4">
-                                        {/* Brand */}
-                                        {product.brand && (
-                                            <p className="text-xs text-gray-500 mb-1 truncate">
-                                                {product.brand.name}
-                                            </p>
-                                        )}
 
                                         {/* Product Name */}
                                         <Link href={`/products/${product.id}`}>

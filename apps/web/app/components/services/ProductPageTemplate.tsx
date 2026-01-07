@@ -25,7 +25,12 @@ interface ProductPageTemplateProps {
     onBuyNow: () => void;
     addToCartLoading?: boolean;
     buyNowLoading?: boolean;
+    isInCart?: boolean;
     children: React.ReactNode;
+    stock?: number | null;
+    isOutOfStock?: boolean;
+    productId?: string | null;
+    images?: Array<{ id: string; src: string; alt: string; thumbnailSrc?: string }>;
 }
 
 export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
@@ -40,7 +45,12 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
     onBuyNow,
     addToCartLoading = false,
     buyNowLoading = false,
+    isInCart = false,
     children,
+    stock,
+    isOutOfStock = false,
+    productId,
+    images = [],
 }) => {
     const router = useRouter();
 
@@ -51,6 +61,7 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
         isActive: item.isActive
     }));
 
+    const outOfStock = isOutOfStock || (stock !== null && stock !== undefined && stock <= 0);
     return (
         <div className="min-h-screen bg-white py-8">
             <div className="w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-30">
@@ -80,7 +91,7 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
                             {/* Product Gallery */}
                             <div className="bg-white p-2 rounded-xl border border-gray-200">
                                 <ProductGallery
-                                    images={[]} // Pass actual images here
+                                    images={images}
                                     fallbackIcon={<ShoppingCart className="w-24 h-24 text-[#008ECC]" />}
                                 />
                             </div>
@@ -126,6 +137,30 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
                                     total={totalPrice}
                                     currency="₹"
                                 />
+
+                                {/* Stock Status */}
+                                {productId && (
+                                    <div className="mt-4">
+                                        {outOfStock ? (
+                                            <div className="rounded-lg bg-red-50 border border-red-200 p-3">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-sm font-medium text-red-800">Out of Stock</span>
+                                                </div>
+                                                <p className="mt-1 text-xs text-red-600">
+                                                    This product is currently unavailable. Please check back later or contact us for availability.
+                                                </p>
+                                            </div>
+                                        ) : stock !== null && stock !== undefined ? (
+                                            <div className="rounded-lg bg-green-50 border border-green-200 p-3">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-sm font-medium text-green-800">
+                                                        {stock > 0 ? `In Stock (${stock} available)` : 'In Stock'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        ) : null}
+                                    </div>
+                                )}
                                 {/* Tax Info */}
                                 <div className="mt-2 text-sm text-green-600 font-medium">
                                     Inclusive of all taxes
@@ -140,72 +175,67 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
                                 </div>
                             )}
 
-                            {/* Action Buttons - Desktop */}
-                            <div className="hidden sm:flex gap-4 pt-6 border-t border-gray-300">
-                                <button
-                                    onClick={onAddToCart}
-                                    disabled={!uploadedFile || addToCartLoading}
-                                    className="flex-1 px-8 py-4 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-3 cursor-pointer"
+                            {/* Action Buttons */}
+                            <div className="mt-6 space-y-3">
+                                <Button
+                                    variant="primary"
+                                    size="lg"
+                                    icon={ShoppingCart}
+                                    fullWidth
+                                    disabled={!uploadedFile || outOfStock}
+                                    onClick={isInCart ? () => router.push('/cart') : onAddToCart}
+                                    className="text-base"
                                 >
-                                    <ShoppingCart size={20} />
-                                    {!uploadedFile 
-                                        ? 'Upload File to Continue'
-                                        : addToCartLoading 
-                                        ? 'Adding...' 
-                                        : 'Add to Cart'
+                                    {outOfStock
+                                        ? 'Out of Stock'
+                                        : !uploadedFile
+                                            ? 'Upload File to Continue'
+                                            : isInCart
+                                                ? 'Go to Cart'
+                                                : `Add to Cart - ₹${totalPrice.toFixed(2)}`
                                     }
-                                </button>
-                                <button
-                                    onClick={onBuyNow}
-                                    disabled={!uploadedFile || buyNowLoading}
-                                    className="flex-1 px-8 py-4 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed cursor-pointer"
-                                >
-                                    {buyNowLoading ? 'Processing...' : 'Buy Now'}
-                                </button>
-                            </div>
+                                </Button>
 
-                            {/* Seller Info */}
-                            <div className="bg-gray-50 p-4 rounded-lg">
-                                <div className="flex items-center justify-between mb-3">
-                                    <div className="font-medium text-gray-900">Service Provider</div>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                                        <span className="font-bold text-blue-600">P</span>
-                                    </div>
-                                    <div>
-                                        <div className="font-medium text-gray-900">PAGZ Store</div>
-                                        <div className="text-sm text-gray-500">Professional Printing Services</div>
-                                    </div>
-                                </div>
+                                <Button
+                                    variant="primary"
+                                    size="lg"
+                                    fullWidth
+                                    disabled={!uploadedFile || outOfStock}
+                                    onClick={onBuyNow}
+                                    className='font-hkgb'
+                                >
+                                    {outOfStock ? 'Out of Stock' : 'Buy Now'}
+                                </Button>
                             </div>
                         </div>
                     </div>
                 </div>
+            </div>
 
-                {/* Fixed Mobile Action Bar */}
-                <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-300 shadow-lg sm:hidden z-50">
-                    <div className="flex p-4 gap-3">
-                        <button
-                            onClick={onAddToCart}
-                            disabled={!uploadedFile || addToCartLoading}
-                            className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2"
-                        >
-                            {!uploadedFile 
-                                ? 'Upload File'
-                                : addToCartLoading 
-                                ? 'Adding...' 
-                                : 'Add to Cart'
-                            }
-                        </button>
-                        <button
-                            onClick={onBuyNow}
-                            disabled={!uploadedFile || buyNowLoading}
-                            className="flex-1 px-4 py-3 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed cursor-pointer"
-                        >
-                            {buyNowLoading ? 'Processing...' : 'Buy Now'}
-                        </button>
-                    </div>
+            {/* Fixed Mobile Action Bar */}
+            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-300 shadow-lg sm:hidden z-50">
+                <div className="flex p-4 gap-3">
+                    <button
+                        onClick={isInCart ? () => router.push('/cart') : onAddToCart}
+                        disabled={!uploadedFile || (isInCart ? false : addToCartLoading)}
+                        className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2"
+                    >
+                        {!uploadedFile
+                            ? 'Upload File'
+                            : isInCart
+                                ? 'Go to Cart'
+                                : addToCartLoading
+                                    ? 'Adding...'
+                                    : 'Add to Cart'
+                        }
+                    </button>
+                    <button
+                        onClick={onBuyNow}
+                        disabled={!uploadedFile || buyNowLoading}
+                        className="flex-1 px-4 py-3 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed cursor-pointer"
+                    >
+                        {buyNowLoading ? 'Processing...' : 'Buy Now'}
+                    </button>
                 </div>
             </div>
         </div>

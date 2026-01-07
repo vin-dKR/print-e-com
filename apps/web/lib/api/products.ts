@@ -41,7 +41,6 @@ export interface Product {
     sellingPrice?: number;
     mrp?: number;
     categoryId: string;
-    brandId?: string;
     sku?: string;
     stock: number;
     minOrderQuantity: number;
@@ -61,14 +60,11 @@ export interface Product {
     createdAt: string;
     updatedAt: string;
     category?: Category;
-    brand?: {
-        id: string;
-        name: string;
-        slug: string;
-    };
     images?: ProductImage[];
     variants?: ProductVariant[];
-    specifications: ProductSpecification[]
+    specifications: ProductSpecification[];
+    attributes?: ProductAttribute[];
+    tags?: ProductTag[];
 }
 
 export interface Review {
@@ -90,11 +86,23 @@ export interface ProductSpecification {
     value: string
 }
 
+export interface ProductAttribute {
+    id: string;
+    productId: string;
+    attributeType: string;
+    attributeValue: string;
+}
+
+export interface ProductTag {
+    id: string;
+    productId: string;
+    tag: string;
+}
+
 export interface ProductListParams {
     page?: number;
     limit?: number;
     category?: string;
-    brand?: string;
     minPrice?: number;
     maxPrice?: number;
     sortBy?: 'price' | 'rating' | 'createdAt' | 'totalSold';

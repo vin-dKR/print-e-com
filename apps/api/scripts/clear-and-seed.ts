@@ -110,10 +110,6 @@ async function clearAllData() {
         await prisma.category.deleteMany({});
         console.log("  ✅ Categories deleted");
 
-        console.log("  📝 Deleting brands...");
-        await prisma.brand.deleteMany({});
-        console.log("  ✅ Brands deleted");
-
         console.log("\n✅ All data cleared successfully!\n");
     } catch (error) {
         console.error("❌ Error clearing data:", error);

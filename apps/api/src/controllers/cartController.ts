@@ -19,7 +19,6 @@ export const getCart = async (req: Request, res: Response, next: NextFunction) =
                             include: {
                                 category: true,
                                 images: true,
-                                brand: true,
                             },
                         },
                         variant: true,
@@ -39,7 +38,6 @@ export const getCart = async (req: Request, res: Response, next: NextFunction) =
                                 include: {
                                     category: true,
                                     images: true,
-                                    brand: true,
                                 },
                             },
                             variant: true,
@@ -148,7 +146,6 @@ export const addToCart = async (req: Request, res: Response, next: NextFunction)
                         include: {
                             category: true,
                             images: true,
-                            brand: true,
                         },
                     },
                     variant: true,
@@ -170,7 +167,6 @@ export const addToCart = async (req: Request, res: Response, next: NextFunction)
                         include: {
                             category: true,
                             images: true,
-                            brand: true,
                         },
                     },
                     variant: true,
@@ -234,7 +230,6 @@ export const updateCartItem = async (req: Request, res: Response, next: NextFunc
                     include: {
                         category: true,
                         images: true,
-                        brand: true,
                     },
                 },
                 variant: true,

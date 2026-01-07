@@ -863,7 +863,6 @@ paths:
                             - ALL
                             - CATEGORY
                             - PRODUCT
-                            - BRAND
                         createdAt:
                           type: string
                           format: date-time
@@ -948,7 +947,6 @@ paths:
                     - ALL
                     - CATEGORY
                     - PRODUCT
-                    - BRAND
                   example: ALL
       responses:
         '200':
@@ -1109,7 +1107,6 @@ paths:
                     - ALL
                     - CATEGORY
                     - PRODUCT
-                    - BRAND
       responses:
         '200':
           description: Coupon updated successfully
