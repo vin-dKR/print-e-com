@@ -4,15 +4,27 @@ import { sendSuccess } from "../utils/response.js";
 import { ValidationError, NotFoundError } from "../utils/errors.js";
 import { prisma } from "../services/prisma.js";
 
-// Get all categories (public)
+// Get all categories (public) - Optimized with select to reduce data transfer
 export const getCategories = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const categories = await prisma.category.findMany({
             where: { isActive: true },
-            include: {
+            select: {
+                id: true,
+                name: true,
+                slug: true,
+                description: true,
+                image: true,
+                parentId: true,
+                isActive: true,
+                // Only get primary image URL, not full image object
                 images: {
                     where: { isPrimary: true },
                     take: 1,
+                    select: {
+                        url: true,
+                        alt: true,
+                    },
                     orderBy: { displayOrder: "asc" },
                 },
             },
@@ -142,10 +154,20 @@ export const getAdminCategories = async (req: Request, res: Response, next: Next
             ];
         }
 
+        // Optimize: Use select to reduce data transfer and improve performance
         const [categories, total] = await Promise.all([
             prisma.category.findMany({
                 where,
-                include: {
+                select: {
+                    id: true,
+                    name: true,
+                    slug: true,
+                    description: true,
+                    image: true,
+                    parentId: true,
+                    isActive: true,
+                    createdAt: true,
+                    updatedAt: true,
                     parent: {
                         select: {
                             id: true,
@@ -311,19 +333,64 @@ export const getProducts = async (req: Request, res: Response, next: NextFunctio
             orderBy.createdAt = sortOrder;
         }
 
+        // Optimize: Use select instead of include to reduce data transfer
         const [products, total] = await Promise.all([
             prisma.product.findMany({
                 where,
-                include: {
-                    category: true,
+                select: {
+                    id: true,
+                    name: true,
+                    slug: true,
+                    shortDescription: true,
+                    basePrice: true,
+                    sellingPrice: true,
+                    mrp: true,
+                    stock: true,
+                    isFeatured: true,
+                    isNewArrival: true,
+                    isBestSeller: true,
+                    rating: true,
+                    totalSold: true,
+                    createdAt: true,
+                    category: {
+                        select: {
+                            id: true,
+                            name: true,
+                            slug: true,
+                        },
+                    },
+                    brand: {
+                        select: {
+                            id: true,
+                            name: true,
+                            slug: true,
+                        },
+                    },
                     variants: {
                         where: { available: true },
+                        select: {
+                            id: true,
+                            name: true,
+                            priceModifier: true,
+                        },
                     },
                     images: {
+                        select: {
+                            id: true,
+                            url: true,
+                            alt: true,
+                            isPrimary: true,
+                        },
                         orderBy: { displayOrder: "asc" },
+                        take: 5, // Limit images to reduce payload
                     },
                     specifications: {
+                        select: {
+                            key: true,
+                            value: true,
+                        },
                         orderBy: { displayOrder: "asc" },
+                        take: 10, // Limit specs to reduce payload
                     },
                 },
                 skip,

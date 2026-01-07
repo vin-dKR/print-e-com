@@ -13,6 +13,17 @@ import {
     getAdminOrders,
     getAdminOrder,
     updateOrderStatus,
+    updateOrder,
+    cancelOrder,
+    getOrderStatistics,
+    markPaymentAsPaid,
+    processRefund,
+    getPaymentDetails,
+    updateTracking,
+    markAsShipped,
+    markAsDelivered,
+    getOrderInvoice,
+    exportOrders,
 } from "../controllers/orderController.js";
 import { adminAuth } from "../middleware/auth.js";
 import { deleteAdminUser, getAdminUser, getAdminUsers, updateAdminUser } from "../controllers/userController.js";
@@ -71,8 +82,23 @@ router.post("/products/:id/variants", addVariant);
 
 // Order Management (admin only)
 router.get("/orders", getAdminOrders);
+router.get("/orders/statistics", getOrderStatistics);
+router.get("/orders/export", exportOrders);
 router.get("/orders/:id", getAdminOrder);
+router.put("/orders/:id", updateOrder);
 router.patch("/orders/:id/status", updateOrderStatus);
+router.post("/orders/:id/cancel", cancelOrder);
+router.get("/orders/:id/invoice", getOrderInvoice);
+
+// Payment Management (admin only)
+router.get("/orders/:id/payment", getPaymentDetails);
+router.post("/orders/:id/payment/mark-paid", markPaymentAsPaid);
+router.post("/orders/:id/payment/refund", processRefund);
+
+// Shipping Management (admin only)
+router.patch("/orders/:id/tracking", updateTracking);
+router.post("/orders/:id/ship", markAsShipped);
+router.post("/orders/:id/deliver", markAsDelivered);
 
 // Customer User Management (admin only - manages customer users only)
 router.get("/users", getAdminUsers);
