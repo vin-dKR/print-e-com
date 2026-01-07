@@ -80,20 +80,153 @@ model Category {
   name        String   @unique
   slug        String   @unique
   description String?
-  image       String?
+  image       String? // Keep for backward compatibility
   parentId    String? // For subcategories
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  parent   Category?  @relation("CategoryToCategory", fields: [parentId], references: [id])
-  children Category[] @relation("CategoryToCategory")
-  products Product[]
+  parent                Category?                  @relation("CategoryToCategory", fields: [parentId], references: [id])
+  children              Category[]                 @relation("CategoryToCategory")
+  products              Product[]
+  specifications        CategorySpecification[]
+  pricingRules          CategoryPricingRule[]
+  configuration         CategoryConfiguration?
+  images                CategoryImage[]
 
   @@index([parentId])
   @@index([isActive])
   @@index([slug])
   @@map("categories")
+}
+
+// Category Specification model (Defines what specifications a category has)
+model CategorySpecification {
+  id          String   @id @default(uuid())
+  categoryId  String
+  name        String   // e.g., "Paper Size", "Paper Type", "Print Color"
+  slug        String   // e.g., "paper-size", "paper-type"
+  type        SpecificationType
+  isRequired  Boolean  @default(false)
+  displayOrder Int     @default(0)
+  dependsOn   Json?    // For conditional specifications, e.g., paper type depends on paper size
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  category Category                  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  options  CategorySpecificationOption[]
+
+  @@unique([categoryId, slug])
+  @@index([categoryId])
+  @@index([categoryId, displayOrder])
+  @@map("category_specifications")
+}
+
+// Category Specification Option model (Options for SELECT-type specifications)
+model CategorySpecificationOption {
+  id             String   @id @default(uuid())
+  specificationId String
+  label          String   // e.g., "A4", "70 Gsm", "Black & White"
+  value          String   // e.g., "a4", "70-gsm", "bw"
+  displayOrder   Int      @default(0)
+  isActive       Boolean  @default(true)
+  metadata       Json?    // For additional data like icons, descriptions
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  specification CategorySpecification @relation(fields: [specificationId], references: [id], onDelete: Cascade)
+
+  @@unique([specificationId, value])
+  @@index([specificationId])
+  @@index([specificationId, displayOrder])
+  @@index([isActive])
+  @@map("category_specification_options")
+}
+
+// Category Pricing Rule model (Pricing rules based on specification combinations)
+model CategoryPricingRule {
+  id                  String   @id @default(uuid())
+  categoryId          String
+  ruleType            PricingRuleType
+  specificationValues  Json     // Maps specification slugs to selected values
+  basePrice            Decimal? @db.Decimal(10, 2)
+  priceModifier        Decimal? @db.Decimal(10, 2) // For addons like binding, lamination
+  quantityMultiplier   Boolean  @default(false) // Whether price multiplies by quantity
+  minQuantity          Int?     // For quantity tiers
+  maxQuantity          Int?     // For quantity tiers
+  isActive             Boolean  @default(true)
+  priority             Int      @default(0) // For rule precedence (higher = evaluated first)
+  productId            String?  @unique // Link to Product when published
+  isPublished          Boolean  @default(false) // Whether this rule is published as a product
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  product  Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([categoryId])
+  @@index([categoryId, isActive])
+  @@index([categoryId, priority])
+  @@index([categoryId, isPublished])
+  @@index([isActive])
+  @@index([isPublished])
+  @@index([productId])
+  @@map("category_pricing_rules")
+}
+
+// Category Configuration model (Category-specific UI and behavior settings)
+model CategoryConfiguration {
+  id                String   @id @default(uuid())
+  categoryId        String   @unique
+  pageTitle         String?
+  pageDescription   String?
+  features          Json?    // JSON Array (list of feature strings)
+  breadcrumbConfig  Json?    // Breadcrumb structure
+  layoutConfig      Json?    // UI layout preferences
+  fileUploadRequired Boolean @default(false)
+  fileUploadConfig  Json?    // Allowed types, max size, etc.
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([categoryId])
+  @@map("category_configurations")
+}
+
+// Category Image model (Multiple images for categories)
+model CategoryImage {
+  id           String   @id @default(uuid())
+  categoryId   String
+  url          String
+  alt          String?
+  isPrimary    Boolean  @default(false)
+  displayOrder Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([categoryId])
+  @@index([categoryId, displayOrder])
+  @@index([isPrimary])
+  @@map("category_images")
+}
+
+// Enums for Category Specifications
+enum SpecificationType {
+  SELECT       // Single selection dropdown
+  MULTI_SELECT // Multiple selection
+  TEXT         // Text input
+  NUMBER       // Number input
+  BOOLEAN      // Checkbox
+}
+
+// Enums for Pricing Rules
+enum PricingRuleType {
+  BASE_PRICE              // Base price for the category
+  SPECIFICATION_COMBINATION // Price based on specific specification combinations
+  QUANTITY_TIER           // Quantity-based pricing tiers
+  ADDON                   // Addon pricing (binding, lamination, etc.)
 }
 
 // Product model
@@ -123,11 +256,13 @@ model Product {
   totalSold        Int      @default(0)
   returnPolicy     String? // Return policy text
   warranty         String? // Warranty information
+  generatedFromPricingRule Boolean @default(false) // Track if product was generated from category
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
   category       Category                @relation(fields: [categoryId], references: [id])
   brand          Brand?                  @relation(fields: [brandId], references: [id])
+  pricingRule    CategoryPricingRule?    // One-to-one relation to pricing rule
   variants       ProductVariant[]
   images         ProductImage[]
   specifications ProductSpecification[]
@@ -156,6 +291,7 @@ model Product {
   @@index([isActive, isNewArrival])
   @@index([isActive, isBestSeller])
   @@index([slug])
+  @@index([generatedFromPricingRule])
   @@map("products")
 }
 

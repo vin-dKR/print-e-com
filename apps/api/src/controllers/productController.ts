@@ -9,6 +9,13 @@ export const getCategories = async (req: Request, res: Response, next: NextFunct
     try {
         const categories = await prisma.category.findMany({
             where: { isActive: true },
+            include: {
+                images: {
+                    where: { isPrimary: true },
+                    take: 1,
+                    orderBy: { displayOrder: "asc" },
+                },
+            },
             orderBy: { name: "asc" },
         });
 
@@ -146,9 +153,21 @@ export const getAdminCategories = async (req: Request, res: Response, next: Next
                             slug: true,
                         },
                     },
+                    images: {
+                        where: { isPrimary: true },
+                        take: 1,
+                        select: {
+                            id: true,
+                            url: true,
+                            alt: true,
+                        },
+                    },
                     _count: {
                         select: {
                             products: true,
+                            specifications: true,
+                            pricingRules: true,
+                            images: true,
                         },
                     },
                 },
@@ -159,8 +178,28 @@ export const getAdminCategories = async (req: Request, res: Response, next: Next
             prisma.category.count({ where }),
         ]);
 
+        // Add count of published pricing rules for each category
+        const categoriesWithPublishedCount = await Promise.all(
+            categories.map(async (category) => {
+                const publishedCount = await prisma.categoryPricingRule.count({
+                    where: {
+                        categoryId: category.id,
+                        isPublished: true,
+                    },
+                });
+                return {
+                    ...category,
+                    _count: {
+                        ...category._count,
+                        publishedPricingRules: publishedCount,
+                    },
+                    primaryImage: category.images[0] || null,
+                };
+            })
+        );
+
         return sendSuccess(res, {
-            categories,
+            categories: categoriesWithPublishedCount,
             pagination: {
                 page,
                 limit,
@@ -193,7 +232,7 @@ export const createCategoties = async (req: Request, res: Response, next: NextFu
     }
 }
 
-// Get all products with pagination and filters
+// Get all products with pagination and filters (public catalog)
 export const getProducts = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const page = parseInt(req.query.page as string) || 1;
@@ -326,7 +365,155 @@ export const getProducts = async (req: Request, res: Response, next: NextFunctio
     }
 };
 
-// Get single product
+// Get all products for admin with pagination and filters
+// This endpoint is similar to getProducts but:
+// - does not force isActive = true
+// - allows filtering by isActive and merchandising flags
+export const getAdminProducts = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 20;
+        const category = req.query.category as string;
+        const search = req.query.search as string;
+        const isFeatured = req.query.isFeatured as string;
+        const isBestSeller = req.query.isBestSeller as string;
+        const isNewArrival = req.query.isNewArrival as string;
+        const isActive = req.query.isActive as string;
+        const brand = req.query.brand as string;
+        const minPrice = req.query.minPrice as string;
+        const maxPrice = req.query.maxPrice as string;
+        const sortBy = (req.query.sortBy as string) || "createdAt";
+        const sortOrder = (req.query.sortOrder as string) || "desc";
+        const skip = (page - 1) * limit;
+
+        const where: Prisma.ProductWhereInput = {};
+
+        // Active/inactive filter (if not provided, include all)
+        if (isActive === "true") {
+            where.isActive = true;
+        } else if (isActive === "false") {
+            where.isActive = false;
+        }
+
+        // Category filter (by id, slug, or name)
+        if (category) {
+            const categoryRecord = await prisma.category.findFirst({
+                where: {
+                    OR: [
+                        { id: category },
+                        { slug: category.toLowerCase() || category },
+                        { name: { contains: category, mode: "insensitive" } },
+                    ],
+                },
+            });
+
+            if (categoryRecord) {
+                where.categoryId = categoryRecord.id;
+            }
+        }
+
+        // Search filter
+        if (search) {
+            where.OR = [
+                { name: { contains: search, mode: "insensitive" } },
+                { slug: { contains: search, mode: "insensitive" } },
+                { description: { contains: search, mode: "insensitive" } },
+                { shortDescription: { contains: search, mode: "insensitive" } },
+                { sku: { contains: search, mode: "insensitive" } },
+            ];
+        }
+
+        // Feature flags filters
+        if (isFeatured === "true") {
+            where.isFeatured = true;
+        }
+        if (isBestSeller === "true") {
+            where.isBestSeller = true;
+        }
+        if (isNewArrival === "true") {
+            where.isNewArrival = true;
+        }
+
+        // Brand filter
+        if (brand) {
+            const brandRecord = await prisma.brand.findFirst({
+                where: {
+                    OR: [
+                        { id: brand },
+                        { slug: brand.toLowerCase() },
+                        { name: { contains: brand, mode: "insensitive" } },
+                    ],
+                },
+            });
+
+            if (brandRecord) {
+                where.brandId = brandRecord.id;
+            }
+        }
+
+        // Price range filter (on basePrice)
+        if (minPrice || maxPrice) {
+            where.basePrice = {};
+            if (minPrice) {
+                (where.basePrice as any).gte = parseFloat(minPrice);
+            }
+            if (maxPrice) {
+                (where.basePrice as any).lte = parseFloat(maxPrice);
+            }
+        }
+
+        // Sort configuration
+        const orderBy: any = {};
+        if (sortBy === "price") {
+            orderBy.basePrice = sortOrder;
+        } else if (sortBy === "rating") {
+            orderBy.rating = sortOrder;
+        } else if (sortBy === "totalSold") {
+            orderBy.totalSold = sortOrder;
+        } else if (sortBy === "name") {
+            orderBy.name = sortOrder;
+        } else {
+            orderBy.createdAt = sortOrder;
+        }
+
+        const [products, total] = await Promise.all([
+            prisma.product.findMany({
+                where,
+                include: {
+                    category: true,
+                    brand: true,
+                    variants: true,
+                    images: {
+                        orderBy: { displayOrder: "asc" },
+                    },
+                    specifications: {
+                        orderBy: { displayOrder: "asc" },
+                    },
+                    attributes: true,
+                    tags: true,
+                },
+                skip,
+                take: limit,
+                orderBy,
+            }),
+            prisma.product.count({ where }),
+        ]);
+
+        return sendSuccess(res, {
+            products,
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages: Math.ceil(total / limit) || 1,
+            },
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// Get single product (public)
 export const getProduct = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { id } = req.params;
@@ -392,6 +579,38 @@ export const getProduct = async (req: Request, res: Response, next: NextFunction
     }
 };
 
+// Get single product for admin (includes inactive products and all relations)
+export const getAdminProduct = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params;
+
+        const product = await prisma.product.findUnique({
+            where: { id },
+            include: {
+                category: true,
+                brand: true,
+                variants: true,
+                images: {
+                    orderBy: { displayOrder: "asc" },
+                },
+                specifications: {
+                    orderBy: { displayOrder: "asc" },
+                },
+                attributes: true,
+                tags: true,
+            },
+        });
+
+        if (!product) {
+            throw new NotFoundError("Product not found");
+        }
+
+        return sendSuccess(res, product);
+    } catch (error) {
+        next(error);
+    }
+};
+
 // Helper function to generate slug from name
 function generateSlug(name: string): string {
     return name
@@ -431,6 +650,7 @@ export const createProduct = async (req: Request, res: Response, next: NextFunct
             specifications,
             attributes,
             tags,
+            variants,
         } = req.body;
 
         if (!name || !basePrice || !categoryId) {
@@ -481,37 +701,54 @@ export const createProduct = async (req: Request, res: Response, next: NextFunct
                 isBestSeller: isBestSeller || false,
                 images: images
                     ? {
-                          create: images.map((img: any, index: number) => ({
-                              url: typeof img === 'string' ? img : img.url,
-                              alt: typeof img === 'string' ? null : img.alt,
-                              isPrimary: index === 0,
-                              displayOrder: index,
-                          })),
-                      }
+                        create: images.map((img: any, index: number) => ({
+                            url: typeof img === 'string' ? img : img.url,
+                            alt: typeof img === 'string' ? null : img.alt,
+                            isPrimary: index === 0,
+                            displayOrder: index,
+                        })),
+                    }
                     : undefined,
                 specifications: specifications
                     ? {
-                          create: specifications.map((spec: any, index: number) => ({
-                              key: spec.key,
-                              value: spec.value,
-                              displayOrder: index,
-                          })),
-                      }
+                        create: specifications.map((spec: any, index: number) => ({
+                            key: spec.key,
+                            value: spec.value,
+                            displayOrder: index,
+                        })),
+                    }
                     : undefined,
                 attributes: attributes
                     ? {
-                          create: attributes.map((attr: any) => ({
-                              attributeType: attr.type,
-                              attributeValue: attr.value,
-                          })),
-                      }
+                        create: attributes.map((attr: any) => ({
+                            attributeType: attr.type,
+                            attributeValue: attr.value,
+                        })),
+                    }
                     : undefined,
                 tags: tags
                     ? {
-                          create: tags.map((tag: string) => ({
-                              tag,
-                          })),
-                      }
+                        create: tags.map((tag: string) => ({
+                            tag,
+                        })),
+                    }
+                    : undefined,
+                variants: variants
+                    ? {
+                        create: variants.map((variant: any) => ({
+                            name: variant.name,
+                            sku: variant.sku || null,
+                            stock: variant.stock ?? 0,
+                            priceModifier:
+                                typeof variant.priceModifier === "string"
+                                    ? parseFloat(variant.priceModifier)
+                                    : variant.priceModifier || 0,
+                            available:
+                                typeof variant.available === "boolean"
+                                    ? variant.available
+                                    : true,
+                        })),
+                    }
                     : undefined,
             },
             include: {
@@ -563,7 +800,7 @@ export const updateProduct = async (req: Request, res: Response, next: NextFunct
             tags,
         } = req.body;
 
-        if(!id) {
+        if (!id) {
             throw new ValidationError("Pprovide the id to update")
         }
         const product = await prisma.product.findUnique({

@@ -5,6 +5,11 @@ import {
     getProduct,
     searchProducts,
 } from "../controllers/productController.js";
+import {
+    getCategoryBySlug,
+    calculateCategoryPricePublic,
+    getProductsBySpecifications,
+} from "../controllers/categoryController.js";
 
 const router: IRouter = Router();
 
@@ -14,6 +19,9 @@ const router: IRouter = Router();
  * Used for browsing products and categories
  */
 router.get("/categories", getCategories);
+router.get("/categories/:slug", getCategoryBySlug);
+router.get("/categories/:slug/products", getProductsBySpecifications);
+router.post("/categories/:slug/calculate-price", calculateCategoryPricePublic);
 router.get("/products", getProducts);
 router.get("/products/:id", getProduct);
 router.get("/search", searchProducts);

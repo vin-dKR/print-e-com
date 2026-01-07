@@ -9,7 +9,7 @@
     // Language-specific settings
     "[typescript]": {
         "editor.tabSize": 4,
-        "editor.defaultFormatter": "esbenp.prettier-vscode"
+        "editor.defaultFormatter": "vscode.typescript-language-features"
     },
     "[javascript]": {
         "editor.tabSize": 4,
@@ -17,7 +17,7 @@
     },
     "[typescriptreact]": {
         "editor.tabSize": 4,
-        "editor.defaultFormatter": "esbenp.prettier-vscode"
+        "editor.defaultFormatter": "vscode.typescript-language-features"
     },
     "[javascriptreact]": {
         "editor.tabSize": 4,

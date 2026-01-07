@@ -68,7 +68,9 @@ export interface Product {
     };
     images?: ProductImage[];
     variants?: ProductVariant[];
-    specifications: ProductSpecification[]
+    specifications: ProductSpecification[];
+    attributes?: ProductAttribute[];
+    tags?: ProductTag[];
 }
 
 export interface Review {
@@ -88,6 +90,19 @@ export interface ProductSpecification {
     productId: string
     key: string
     value: string
+}
+
+export interface ProductAttribute {
+    id: string;
+    productId: string;
+    attributeType: string;
+    attributeValue: string;
+}
+
+export interface ProductTag {
+    id: string;
+    productId: string;
+    tag: string;
 }
 
 export interface ProductListParams {

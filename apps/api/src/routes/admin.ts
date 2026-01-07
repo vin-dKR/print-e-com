@@ -6,6 +6,8 @@ import {
     addVariant,
     createCategoties,
     getAdminCategories,
+    getAdminProducts,
+    getAdminProduct,
 } from "../controllers/productController.js";
 import {
     getAdminOrders,
@@ -26,6 +28,29 @@ import { deleteAdminBrand, getAdminBrands } from "../controllers/brandController
 import { getAdminBrand } from "../controllers/brandController.js";
 import { createAdminBrand } from "../controllers/brandController.js";
 import { updateAdminBrand } from "../controllers/brandController.js";
+import {
+    getCategorySpecifications,
+    createCategorySpecification,
+    updateCategorySpecification,
+    deleteCategorySpecification,
+    getSpecificationOptions,
+    createSpecificationOption,
+    updateSpecificationOption,
+    deleteSpecificationOption,
+    getCategoryPricingRules,
+    createCategoryPricingRule,
+    updateCategoryPricingRule,
+    deleteCategoryPricingRule,
+    calculateCategoryPrice,
+    getCategoryConfiguration,
+    upsertCategoryConfiguration,
+    getCategoryImages,
+    createCategoryImage,
+    updateCategoryImage,
+    deleteCategoryImage,
+    previewProductFromPricingRule,
+    publishPricingRuleAsProduct,
+} from "../controllers/categoryController.js";
 
 const router: IRouter = Router();
 
@@ -39,6 +64,10 @@ router.use(adminAuth);
 // Product & Category Management (admin only)
 router.get("/categories", getAdminCategories);
 router.post("/categories", createCategoties);
+
+// Admin Products
+router.get("/products", getAdminProducts);
+router.get("/products/:id", getAdminProduct);
 router.post("/products", createProduct);
 router.put("/products/:id", updateProduct);
 router.delete("/products/:id", deleteProduct);
@@ -78,5 +107,38 @@ router.get("/brands/:id", getAdminBrand);
 router.post("/brands", createAdminBrand);
 router.put("/brands/:id", updateAdminBrand);
 router.delete("/brands/:id", deleteAdminBrand);
+
+// Category Specifications Management (admin only)
+router.get("/categories/:id/specifications", getCategorySpecifications);
+router.post("/categories/:id/specifications", createCategorySpecification);
+router.put("/categories/:id/specifications/:specId", updateCategorySpecification);
+router.delete("/categories/:id/specifications/:specId", deleteCategorySpecification);
+
+// Specification Options Management (admin only)
+router.get("/categories/:id/specifications/:specId/options", getSpecificationOptions);
+router.post("/categories/:id/specifications/:specId/options", createSpecificationOption);
+router.put("/categories/:id/specifications/:specId/options/:optionId", updateSpecificationOption);
+router.delete("/categories/:id/specifications/:specId/options/:optionId", deleteSpecificationOption);
+
+// Category Pricing Rules Management (admin only)
+router.get("/categories/:id/pricing", getCategoryPricingRules);
+router.post("/categories/:id/pricing", createCategoryPricingRule);
+router.put("/categories/:id/pricing/:ruleId", updateCategoryPricingRule);
+router.delete("/categories/:id/pricing/:ruleId", deleteCategoryPricingRule);
+router.post("/categories/:id/pricing/calculate", calculateCategoryPrice);
+
+// Category Configuration Management (admin only)
+router.get("/categories/:id/configuration", getCategoryConfiguration);
+router.put("/categories/:id/configuration", upsertCategoryConfiguration);
+
+// Category Images Management (admin only)
+router.get("/categories/:id/images", getCategoryImages);
+router.post("/categories/:id/images", createCategoryImage);
+router.put("/categories/:id/images/:imageId", updateCategoryImage);
+router.delete("/categories/:id/images/:imageId", deleteCategoryImage);
+
+// Publish Pricing Rule as Product (admin only)
+router.get("/categories/:categoryId/pricing-rules/:ruleId/preview-product", previewProductFromPricingRule);
+router.post("/categories/:categoryId/pricing-rules/:ruleId/publish", publishPricingRuleAsProduct);
 
 export default router;

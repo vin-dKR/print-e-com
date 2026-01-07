@@ -9,7 +9,6 @@ import { addToWishlist, removeFromWishlist, checkWishlist } from "@/lib/api/wish
 
 interface ProductCardProps {
     id: string;
-    brand: string;
     name: string;
     category: string;
     price: number;
@@ -145,9 +144,8 @@ export default function ProductCard({
                 <button
                     onClick={toggleFavorite}
                     disabled={isLoadingWishlist}
-                    className={`absolute top-3 right-3 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-md hover:bg-gray-50 transition-colors z-10 disabled:opacity-50 ${
-                        isFavorite ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-                    }`}
+                    className={`absolute top-3 right-3 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-md hover:bg-gray-50 transition-colors z-10 disabled:opacity-50 ${isFavorite ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                        }`}
                     aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
                 >
                     {isLoadingWishlist ? (

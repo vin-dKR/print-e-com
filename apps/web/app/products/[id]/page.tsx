@@ -69,9 +69,9 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
             // In a real implementation, you'd upload to server here
             const objectUrl = URL.createObjectURL(file);
             setUploadedFileUrl(objectUrl);
-                } else {
+        } else {
             setUploadedFileUrl(null);
-                }
+        }
     };
 
     // Handle add to cart
@@ -191,10 +191,50 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                         </div>
                     )}
 
+                    {/* Attributes & Tags */}
+                    {(product.attributes && product.attributes.length > 0) ||
+                        (product.tags && product.tags.length > 0) ? (
+                        <div className="space-y-4">
+                            {product.attributes && product.attributes.length > 0 && (
+                                <div>
+                                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                                        Attributes
+                                    </h3>
+                                    <div className="flex flex-wrap gap-2">
+                                        {product.attributes.map((attr) => (
+                                            <span
+                                                key={attr.id}
+                                                className="inline-flex items-center rounded-full border border-gray-200 px-3 py-1 text-xs text-gray-700"
+                                            >
+                                                {attr.attributeType}: {attr.attributeValue}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                            {product.tags && product.tags.length > 0 && (
+                                <div>
+                                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                                        Tags
+                                    </h3>
+                                    <div className="flex flex-wrap gap-2">
+                                        {product.tags.map((tag) => (
+                                            <span
+                                                key={tag.id}
+                                                className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-700"
+                                            >
+                                                {tag.tag}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    ) : null}
+
                     {/* Additional Info */}
                     <div className="space-y-2 text-sm text-gray-600">
                         {product.sku && <p>SKU: {product.sku}</p>}
-                        {product.brand && <p>Brand: {product.brand.name}</p>}
                         {product.weight && <p>Weight: {product.weight} kg</p>}
                         {product.dimensions && <p>Dimensions: {product.dimensions}</p>}
                         {product.returnPolicy && (
@@ -650,6 +690,32 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                                     discount={discount}
                                 />
 
+                                {/* Stock Status */}
+                                {product.stock <= 0 ? (
+                                    <div className="mt-4 rounded-lg bg-red-50 border border-red-200 p-3">
+                                        <div className="flex items-center gap-2">
+                                            <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                            </svg>
+                                            <span className="text-sm font-medium text-red-800">Out of Stock</span>
+                                        </div>
+                                        <p className="mt-1 text-xs text-red-600">
+                                            This product is currently unavailable. Please check back later or contact us for availability.
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div className="mt-4 rounded-lg bg-green-50 border border-green-200 p-3">
+                                        <div className="flex items-center gap-2">
+                                            <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                            <span className="text-sm font-medium text-green-800">
+                                                {product.stock > 0 ? `In Stock (${product.stock} available)` : 'In Stock'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
+
                                 {/* Tax Info */}
                                 <div className="mt-2 text-sm text-green-600 font-medium">
                                     Inclusive of all taxes
@@ -686,8 +752,19 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                                     <QuantitySelector
                                         quantity={quantity}
                                         onQuantityChange={setQuantity}
-                                        max={product.stock}
+                                        min={product.minOrderQuantity || 1}
+                                        max={
+                                            product.maxOrderQuantity && product.maxOrderQuantity > 0
+                                                ? Math.min(product.maxOrderQuantity, product.stock)
+                                                : product.stock
+                                        }
                                     />
+                                    <p className="mt-1 text-xs text-gray-500">
+                                        Min order: {product.minOrderQuantity || 1}
+                                        {product.maxOrderQuantity
+                                            ? ` • Max per order: ${product.maxOrderQuantity}`
+                                            : ''}
+                                    </p>
                                 </div>
                             </div>
 
