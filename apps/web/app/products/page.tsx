@@ -19,7 +19,7 @@ function ProductsPageChild() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
-    const [isFilterOpen, setIsFilterOpen] = useState(false);3
+    const [isFilterOpen, setIsFilterOpen] = useState(false); 3
     const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
     const [sortBy, setSortBy] = useState<string>("featured");
 
@@ -27,7 +27,6 @@ function ProductsPageChild() {
     const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
     const [selectedColors, setSelectedColors] = useState<string[]>([]);
     const [selectedPriceRanges, setSelectedPriceRanges] = useState<string[]>([]);
-    const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
     const [selectedCollections, setSelectedCollections] = useState<string[]>([]);
     const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
@@ -58,9 +57,6 @@ function ProductsPageChild() {
                     params.category = categoryParam;
                 }
 
-                // Add brand filter - API might support multiple, but for now we'll filter client-side if multiple
-                // Note: API currently supports single brand, so we filter client-side for multiple brands
-
                 // Add price range filter
                 if (selectedPriceRanges.length > 0) {
                     // Parse price ranges - handle multiple ranges by taking the union
@@ -90,7 +86,7 @@ function ProductsPageChild() {
                     if (maxPrice !== undefined) params.maxPrice = maxPrice;
                 }
 
-                // Don't apply category/brand/collection filters at API level when doing client-side filtering
+                // Don't apply category/collection filters at API level when doing client-side filtering
                 // This allows multiple selections to work properly with OR logic
                 // Only apply if single selection (for optimization)
                 if (selectedTags.length === 1) {
@@ -138,13 +134,6 @@ function ProductsPageChild() {
     const filteredProducts = useMemo(() => {
         let products = [...allProducts];
 
-        // Filter by multiple brands (OR logic - product matches ANY selected brand)
-        if (selectedBrands.length > 0) {
-            products = products.filter((product) =>
-                product.brand?.name && selectedBrands.includes(product.brand.name)
-            );
-        }
-
         // Filter by multiple categories (OR logic - product matches ANY selected category)
         if (selectedTags.length > 0) {
             products = products.filter((product) =>
@@ -166,8 +155,8 @@ function ProductsPageChild() {
                         const sizeLower = size.toLowerCase();
                         // Check if size appears in key (e.g., "Size: A4") or value (e.g., "A4")
                         return (specKey.includes("size") && specValue.includes(sizeLower)) ||
-                               specValue === sizeLower ||
-                               specValue.includes(sizeLower);
+                            specValue === sizeLower ||
+                            specValue.includes(sizeLower);
                     });
                 });
             });
@@ -186,7 +175,7 @@ function ProductsPageChild() {
         }
 
         return products;
-    }, [allProducts, categoryParam, selectedBrands, selectedTags, selectedSizes, selectedCollections]);
+    }, [allProducts, categoryParam, selectedTags, selectedSizes, selectedCollections]);
 
     // Memoized sorted products
     const sortedProducts = useMemo(() => {
@@ -245,7 +234,6 @@ function ProductsPageChild() {
         categoryParam,
         selectedSizes,
         selectedPriceRanges,
-        selectedBrands,
         selectedCollections,
         selectedTags,
     ]);
@@ -285,7 +273,6 @@ function ProductsPageChild() {
         setSelectedSizes([]);
         setSelectedColors([]);
         setSelectedPriceRanges([]);
-        setSelectedBrands([]);
         setSelectedCollections([]);
         setSelectedTags([]);
     };
@@ -342,10 +329,10 @@ function ProductsPageChild() {
                             <Filter size={18} />
                             <span>Filters</span>
                             {(selectedSizes.length > 0 || selectedColors.length > 0 ||
-                                selectedPriceRanges.length > 0 || selectedBrands.length > 0) && (
+                                selectedPriceRanges.length > 0) && (
                                     <span className="ml-1 bg-white text-blue-600 text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
                                         {selectedSizes.length + selectedColors.length +
-                                            selectedPriceRanges.length + selectedBrands.length}
+                                            selectedPriceRanges.length}
                                     </span>
                                 )}
                         </button>
@@ -417,13 +404,11 @@ function ProductsPageChild() {
                                         selectedSizes={selectedSizes}
                                         selectedColors={selectedColors}
                                         selectedPriceRanges={selectedPriceRanges}
-                                        selectedBrands={selectedBrands}
                                         selectedCollections={selectedCollections}
                                         selectedTags={selectedTags}
                                         onSizeChange={setSelectedSizes}
                                         onColorChange={setSelectedColors}
                                         onPriceRangeChange={setSelectedPriceRanges}
-                                        onBrandChange={setSelectedBrands}
                                         onCollectionChange={setSelectedCollections}
                                         onTagChange={setSelectedTags}
                                     />
@@ -438,7 +423,7 @@ function ProductsPageChild() {
                                         Apply Filters
                                         <span className="ml-2 text-sm bg-white/30 px-2 py-0.5 rounded">
                                             {selectedSizes.length + selectedColors.length +
-                                                selectedPriceRanges.length + selectedBrands.length} selected
+                                                selectedPriceRanges.length} selected
                                         </span>
                                     </button>
                                 </div>
@@ -455,13 +440,11 @@ function ProductsPageChild() {
                                 selectedSizes={selectedSizes}
                                 selectedColors={selectedColors}
                                 selectedPriceRanges={selectedPriceRanges}
-                                selectedBrands={selectedBrands}
                                 selectedCollections={selectedCollections}
                                 selectedTags={selectedTags}
                                 onSizeChange={setSelectedSizes}
                                 onColorChange={setSelectedColors}
                                 onPriceRangeChange={setSelectedPriceRanges}
-                                onBrandChange={setSelectedBrands}
                                 onCollectionChange={setSelectedCollections}
                                 onTagChange={setSelectedTags}
                             />
@@ -523,7 +506,7 @@ function ProductsPageChild() {
 
                                 {/* Active Filters Count - Mobile */}
                                 {(selectedSizes.length > 0 || selectedPriceRanges.length > 0 ||
-                                    selectedBrands.length > 0 || selectedTags.length > 0 ||
+                                    selectedTags.length > 0 ||
                                     selectedCollections.length > 0) && (
                                         <button
                                             onClick={handleClearAllFilters}
@@ -570,7 +553,7 @@ function ProductsPageChild() {
 
                         {/* Active Filters - Desktop */}
                         {(selectedSizes.length > 0 || selectedPriceRanges.length > 0 ||
-                            selectedBrands.length > 0 || selectedTags.length > 0 ||
+                            selectedTags.length > 0 ||
                             selectedCollections.length > 0 || categoryParam) && (
                                 <div className="hidden lg:flex flex-wrap gap-2 mb-4">
                                     {/* Show category from URL param */}
@@ -611,17 +594,6 @@ function ProductsPageChild() {
                                             </button>
                                         </span>
                                     ))}
-                                    {selectedBrands.map(brand => (
-                                        <span key={brand} className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-700 text-sm rounded-full border border-blue-200">
-                                            Brand: {brand}
-                                            <button
-                                                onClick={() => setSelectedBrands(prev => prev.filter(b => b !== brand))}
-                                                className="ml-1 hover:text-blue-900"
-                                            >
-                                                <X size={14} />
-                                            </button>
-                                        </span>
-                                    ))}
                                     {selectedTags.map(tag => (
                                         <span key={tag} className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-700 text-sm rounded-full border border-blue-200">
                                             Category: {tag}
@@ -645,16 +617,16 @@ function ProductsPageChild() {
                                         </span>
                                     ))}
                                     {(selectedSizes.length > 0 || selectedPriceRanges.length > 0 ||
-                                        selectedBrands.length > 0 || selectedTags.length > 0 ||
+                                        selectedTags.length > 0 ||
                                         selectedCollections.length > 0 || categoryParam) && (
-                                        <button
-                                            onClick={handleClearAllFilters}
-                                            className="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full border border-gray-300"
-                                        >
-                                            <X size={14} />
-                                            Clear All
-                                        </button>
-                                    )}
+                                            <button
+                                                onClick={handleClearAllFilters}
+                                                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full border border-gray-300"
+                                            >
+                                                <X size={14} />
+                                                Clear All
+                                            </button>
+                                        )}
                                 </div>
                             )}
 
@@ -669,7 +641,6 @@ function ProductsPageChild() {
                                         <ProductCard
                                             key={product.id}
                                             id={product.id}
-                                            brand={product.brand?.name || "Unknown Brand"}
                                             name={product.name}
                                             category={product.category?.name || "Unknown Category"}
                                             price={Number(product.sellingPrice || product.basePrice)}

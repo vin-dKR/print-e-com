@@ -9,6 +9,13 @@ export const getCategories = async (req: Request, res: Response, next: NextFunct
     try {
         const categories = await prisma.category.findMany({
             where: { isActive: true },
+            include: {
+                images: {
+                    where: { isPrimary: true },
+                    take: 1,
+                    orderBy: { displayOrder: "asc" },
+                },
+            },
             orderBy: { name: "asc" },
         });
 

@@ -22,6 +22,10 @@ interface ProductPageTemplateProps {
     onAddToCart: () => void;
     onBuyNow: () => void;
     children: React.ReactNode;
+    stock?: number | null;
+    isOutOfStock?: boolean;
+    productId?: string | null;
+    images?: Array<{ id: string; src: string; alt: string; thumbnailSrc?: string }>;
 }
 
 export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
@@ -35,7 +39,12 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
     onAddToCart,
     onBuyNow,
     children,
+    stock,
+    isOutOfStock = false,
+    productId,
+    images = [],
 }) => {
+    const outOfStock = isOutOfStock || (stock !== null && stock !== undefined && stock <= 0);
     return (
         <div>
             <div className="h-full mb-6 lg:mb-40 bg-gray-50">
@@ -52,7 +61,7 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
                             {/* Product Card */}
                             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-6">
                                 <ProductGallery
-                                    images={[]} // Pass actual images here
+                                    images={images}
                                     fallbackIcon={<ShoppingCart className="w-24 h-24 text-[#008ECC]" />}
                                 />
 
@@ -82,6 +91,30 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
                                     currency="₹"
                                 />
 
+                                {/* Stock Status */}
+                                {productId && (
+                                    <div className="mt-4">
+                                        {outOfStock ? (
+                                            <div className="rounded-lg bg-red-50 border border-red-200 p-3">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-sm font-medium text-red-800">Out of Stock</span>
+                                                </div>
+                                                <p className="mt-1 text-xs text-red-600">
+                                                    This product is currently unavailable. Please check back later or contact us for availability.
+                                                </p>
+                                            </div>
+                                        ) : stock !== null && stock !== undefined ? (
+                                            <div className="rounded-lg bg-green-50 border border-green-200 p-3">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-sm font-medium text-green-800">
+                                                        {stock > 0 ? `In Stock (${stock} available)` : 'In Stock'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        ) : null}
+                                    </div>
+                                )}
+
                                 <div className="mt-6">
                                     <ProductFileUpload
                                         onFileSelect={onFileSelect}
@@ -99,13 +132,15 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
                                         size="lg"
                                         icon={ShoppingCart}
                                         fullWidth
-                                        disabled={!uploadedFile}
+                                        disabled={!uploadedFile || outOfStock}
                                         onClick={onAddToCart}
                                         className="text-base"
                                     >
-                                        {uploadedFile
-                                            ? `Add to Cart - ₹${totalPrice.toFixed(2)}`
-                                            : 'Upload File to Continue'
+                                        {outOfStock
+                                            ? 'Out of Stock'
+                                            : uploadedFile
+                                                ? `Add to Cart - ₹${totalPrice.toFixed(2)}`
+                                                : 'Upload File to Continue'
                                         }
                                     </Button>
 
@@ -113,11 +148,11 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
                                         variant="primary"
                                         size="lg"
                                         fullWidth
-                                        disabled={!uploadedFile}
+                                        disabled={!uploadedFile || outOfStock}
                                         onClick={onBuyNow}
                                         className='font-hkgb'
                                     >
-                                        Buy Now
+                                        {outOfStock ? 'Out of Stock' : 'Buy Now'}
                                     </Button>
                                 </div>
                             </div>

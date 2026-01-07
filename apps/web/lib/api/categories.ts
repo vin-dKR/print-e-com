@@ -47,6 +47,16 @@ export interface CategoryConfiguration {
     fileUploadConfig?: any;
 }
 
+export interface CategoryImage {
+    id: string;
+    categoryId: string;
+    url: string;
+    alt?: string | null;
+    isPrimary: boolean;
+    displayOrder: number;
+    createdAt: string;
+}
+
 export interface Category {
     id: string;
     name: string;
@@ -57,6 +67,7 @@ export interface Category {
     specifications: CategorySpecification[];
     pricingRules: CategoryPricingRule[];
     configuration?: CategoryConfiguration;
+    images?: CategoryImage[];
 }
 
 export interface PriceCalculationRequest {
@@ -96,5 +107,26 @@ export async function calculateCategoryPrice(
         throw new Error('Price calculation failed');
     }
     return response.data;
+}
+
+/**
+ * Get products matching a category and specification combination
+ */
+export async function getProductsBySpecifications(
+    slug: string,
+    specifications: Record<string, any>
+): Promise<any[]> {
+    const searchParams = new URLSearchParams();
+    searchParams.set('specifications', JSON.stringify(specifications));
+    const response = await get<any[]>(`/categories/${slug}/products?${searchParams.toString()}`);
+    return response.data || [];
+}
+
+/**
+ * Get all active categories (public)
+ */
+export async function getAllCategories(): Promise<Category[]> {
+    const response = await get<Category[]>('/categories');
+    return response.data || [];
 }
 

@@ -690,6 +690,32 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                                     discount={discount}
                                 />
 
+                                {/* Stock Status */}
+                                {product.stock <= 0 ? (
+                                    <div className="mt-4 rounded-lg bg-red-50 border border-red-200 p-3">
+                                        <div className="flex items-center gap-2">
+                                            <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                            </svg>
+                                            <span className="text-sm font-medium text-red-800">Out of Stock</span>
+                                        </div>
+                                        <p className="mt-1 text-xs text-red-600">
+                                            This product is currently unavailable. Please check back later or contact us for availability.
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div className="mt-4 rounded-lg bg-green-50 border border-green-200 p-3">
+                                        <div className="flex items-center gap-2">
+                                            <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                            <span className="text-sm font-medium text-green-800">
+                                                {product.stock > 0 ? `In Stock (${product.stock} available)` : 'In Stock'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
+
                                 {/* Tax Info */}
                                 <div className="mt-2 text-sm text-green-600 font-medium">
                                     Inclusive of all taxes

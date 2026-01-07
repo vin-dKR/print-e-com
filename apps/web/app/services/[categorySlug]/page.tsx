@@ -5,7 +5,7 @@ import { use } from 'react';
 import { ProductPageTemplate } from '@/app/components/services/ProductPageTemplate';
 import { OptionSelector } from '@/app/components/services/print/OptionSelector';
 import { QuantitySelector } from '@/app/components/services/QuantitySelector';
-import { getCategoryBySlug, calculateCategoryPrice, type Category, type CategorySpecification } from '@/lib/api/categories';
+import { getCategoryBySlug, calculateCategoryPrice, getProductsBySpecifications, type Category, type CategorySpecification } from '@/lib/api/categories';
 import { ProductData, BreadcrumbItem } from '@/types';
 import { Option } from '@/types';
 
@@ -24,6 +24,8 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
     const [priceBreakdown, setPriceBreakdown] = useState<Array<{ label: string; value: number }>>([]);
     const [totalPrice, setTotalPrice] = useState<number>(0);
     const [calculatingPrice, setCalculatingPrice] = useState(false);
+    const [matchingProduct, setMatchingProduct] = useState<any | null>(null);
+    const [checkingProduct, setCheckingProduct] = useState(false);
 
     // Fetch category data on mount
     useEffect(() => {
@@ -52,12 +54,15 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
         fetchCategory();
     }, [categorySlug]);
 
-    // Calculate price whenever selections or quantity change
+    // Calculate price and check for products whenever selections or quantity change
     useEffect(() => {
         if (category && Object.keys(selectedSpecifications).length > 0) {
             calculatePrice();
+            checkForProduct();
+        } else {
+            setMatchingProduct(null);
         }
-    }, [selectedSpecifications, quantity, category]);
+    }, [selectedSpecifications, quantity, category, categorySlug]);
 
     const calculatePrice = async () => {
         if (!category) return;
@@ -76,6 +81,22 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
             setTotalPrice(0);
         } finally {
             setCalculatingPrice(false);
+        }
+    };
+
+    const checkForProduct = async () => {
+        if (!category) return;
+
+        try {
+            setCheckingProduct(true);
+            const products = await getProductsBySpecifications(categorySlug, selectedSpecifications);
+            // Find the first matching product (should be only one if published correctly)
+            setMatchingProduct(products.length > 0 ? products[0] : null);
+        } catch (err: any) {
+            console.error('Product check error:', err);
+            setMatchingProduct(null);
+        } finally {
+            setCheckingProduct(false);
         }
     };
 
@@ -181,6 +202,28 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
         };
     }, [category, categorySlug, totalPrice]);
 
+    // Prepare category images for ProductGallery
+    const categoryImages = useMemo(() => {
+        if (!category?.images || category.images.length === 0) {
+            // Fallback to legacy image field if no images array
+            if (category?.image) {
+                return [{
+                    id: 'legacy-image',
+                    src: category.image,
+                    alt: category.name || 'Category image',
+                }];
+            }
+            return [];
+        }
+
+        return category.images.map((img) => ({
+            id: img.id,
+            src: img.url,
+            alt: img.alt || category.name || 'Category image',
+            thumbnailSrc: img.url, // Use same URL for thumbnail
+        }));
+    }, [category]);
+
     // Prepare breadcrumb items
     const breadcrumbItems: BreadcrumbItem[] = useMemo(() => {
         if (!category?.configuration?.breadcrumbConfig) {
@@ -207,12 +250,19 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
     }, [category, categorySlug]);
 
     const handleAddToCart = () => {
+        // Check if product is out of stock
+        if (matchingProduct && matchingProduct.stock <= 0) {
+            alert('This product is out of stock. Please select a different combination or contact us.');
+            return;
+        }
+
         const orderData = {
             categorySlug,
             specifications: selectedSpecifications,
             quantity,
             totalPrice,
             uploadedFile: uploadedFile?.name,
+            productId: matchingProduct?.id,
         };
 
         console.log('Adding to cart:', orderData);
@@ -220,12 +270,19 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
     };
 
     const handleBuyNow = () => {
+        // Check if product is out of stock
+        if (matchingProduct && matchingProduct.stock <= 0) {
+            alert('This product is out of stock. Please select a different combination or contact us.');
+            return;
+        }
+
         const orderData = {
             categorySlug,
             specifications: selectedSpecifications,
             quantity,
             totalPrice,
             uploadedFile: uploadedFile?.name,
+            productId: matchingProduct?.id,
         };
 
         console.log('Buying now:', orderData);
@@ -270,6 +327,10 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
             totalPrice={totalPrice}
             onAddToCart={handleAddToCart}
             onBuyNow={handleBuyNow}
+            stock={matchingProduct?.stock ?? null}
+            isOutOfStock={matchingProduct ? matchingProduct.stock <= 0 : false}
+            productId={matchingProduct?.id ?? null}
+            images={categoryImages}
         >
             {/* Dynamic Configuration Options */}
             <div className="space-y-8">

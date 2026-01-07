@@ -847,6 +847,12 @@ export const getCategoryBySlug = async (
                     ],
                 },
                 configuration: true,
+                images: {
+                    orderBy: [
+                        { displayOrder: "asc" },
+                        { createdAt: "asc" },
+                    ],
+                },
             },
         });
 
