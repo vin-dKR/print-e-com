@@ -5,30 +5,59 @@ import { Pool } from 'pg'
 
 // For serverless environments (like Vercel), use connection pooling
 // This prevents connection exhaustion in serverless functions
-const connectionString = `${process.env.DATABASE_URL}`
+let connectionString = `${process.env.DATABASE_URL}`
 
 // Determine if we're in a serverless environment
 // Only use serverless settings when actually in a serverless platform
 const isServerless = process.env.VERCEL === '1' || !!process.env.AWS_LAMBDA_FUNCTION_NAME || !!process.env.SERVERLESS
 
-// Create a connection pool with environment-aware settings
+// Optimize connection string for Neon DB
+// Neon requires specific parameters for optimal pooling in serverless
+const isNeon = connectionString.includes('neon.tech') || connectionString.includes('neon')
+if (isNeon && isServerless) {
+    try {
+        const url = new URL(connectionString)
+
+        // Ensure we're using Neon's pooler (add -pooler to hostname if not present)
+        if (!url.hostname.includes('-pooler')) {
+            url.hostname = url.hostname.replace(/\.neon\.tech/, '-pooler.neon.tech')
+        }
+
+        // Add Neon-optimized connection parameters
+        url.searchParams.set('sslmode', 'require')
+        url.searchParams.set('connect_timeout', '15') // Neon recommends 15s for serverless
+        url.searchParams.set('pool_timeout', '10')
+
+        connectionString = url.toString()
+
+        if (process.env.NODE_ENV === 'development') {
+            console.log('✅ Neon connection string optimized for serverless')
+        }
+    } catch (error) {
+        // If URL parsing fails, use original connection string
+        console.warn('Could not optimize Neon connection string:', error)
+    }
+}
+
+// Create a connection pool with environment-aware settings optimized for Neon
 // For local development: more connections and longer timeouts
 // For serverless: minimal connections to prevent exhaustion
 const pool = new Pool({
     connectionString,
-    // Connection pool settings
-    max: isServerless ? 1 : 20, // More connections for local dev, limit for serverless
-    idleTimeoutMillis: isServerless ? 30000 : 120000, // Longer timeout for local dev (2 minutes)
-    connectionTimeoutMillis: isServerless ? 2000 : 30000, // Much longer timeout for local dev (30s)
+    // Connection pool settings optimized for Neon/Vercel
+    max: isServerless ? 1 : 20, // Single connection per serverless function (Neon pooler handles the rest)
+    min: 0, // Don't maintain idle connections in serverless
+    idleTimeoutMillis: isServerless ? 10000 : 120000, // Shorter for serverless (10s)
+    connectionTimeoutMillis: isServerless ? 15000 : 30000, // 15s for Neon serverless (was 2s - too short!)
     // Additional settings for better connection management
-    allowExitOnIdle: false,
-    keepAlive: true,
-    keepAliveInitialDelayMillis: 10000,
+    allowExitOnIdle: isServerless, // Allow exit on idle for serverless
+    keepAlive: !isServerless, // Only keep alive for non-serverless
+    keepAliveInitialDelayMillis: isServerless ? 0 : 10000,
     // Retry configuration
-    maxUses: 7500, // Reuse connections for many queries before recycling
-    // Better error handling
-    statement_timeout: 30000, // 30 second query timeout
-    query_timeout: 30000,
+    maxUses: isServerless ? 1 : 7500, // Single use per connection in serverless
+    // Better error handling - Neon can have cold start delays
+    statement_timeout: isServerless ? 25000 : 30000, // 25s for serverless
+    query_timeout: isServerless ? 25000 : 30000,
 })
 
 // Handle pool errors gracefully
@@ -50,12 +79,21 @@ pool.on('remove', () => {
 
 const adapter = new PrismaPg(pool)
 
-// Configure Prisma Client with better error handling
+// Configure Prisma Client with optimized settings for Neon
 const prisma = new PrismaClient({
     adapter,
-    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+    log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'], // Removed 'query' to reduce overhead
     errorFormat: 'pretty',
 })
+
+// Enable connection caching for better performance with Neon
+// This helps reuse connections across requests in serverless
+if (isServerless && isNeon) {
+    // Warm up the connection on first use (helps with Neon cold starts)
+    prisma.$connect().catch(() => {
+        // Ignore initial connection errors, will retry on first query
+    })
+}
 
 // Connection health check function with retry logic
 export const checkDatabaseConnection = async (retries = 3): Promise<boolean> => {

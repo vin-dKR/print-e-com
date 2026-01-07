@@ -390,29 +390,165 @@ export const getAdminOrders = async (req: Request, res: Response, next: NextFunc
     try {
         const page = parseInt(req.query.page as string) || 1;
         const limit = parseInt(req.query.limit as string) || 20;
-        const status = req.query.status as string;
-        const search = req.query.search as string;
         const skip = (page - 1) * limit;
+
+        const status = req.query.status as string | string[];
+        const paymentStatus = req.query.paymentStatus as string | string[];
+        const paymentMethod = req.query.paymentMethod as string;
+        const search = req.query.search as string;
+        const dateFrom = req.query.dateFrom as string;
+        const dateTo = req.query.dateTo as string;
+        const updatedFrom = req.query.updatedFrom as string;
+        const updatedTo = req.query.updatedTo as string;
+        const minAmount = req.query.minAmount as string;
+        const maxAmount = req.query.maxAmount as string;
+        const customerId = req.query.customerId as string;
+        const productId = req.query.productId as string;
+        const couponId = req.query.couponId as string;
+        const sortBy = (req.query.sortBy as string) || 'createdAt';
+        const sortOrder = (req.query.sortOrder as string) || 'desc';
 
         const where: any = {};
 
+        // Status filter (supports array for multi-select)
         if (status) {
-            where.status = status;
+            if (Array.isArray(status)) {
+                where.status = { in: status };
+            } else {
+                where.status = status;
+            }
         }
 
-        // Search functionality - search by order ID, user email, user name
+        // Payment status filter (supports array)
+        if (paymentStatus) {
+            if (Array.isArray(paymentStatus)) {
+                where.paymentStatus = { in: paymentStatus };
+            } else {
+                where.paymentStatus = paymentStatus;
+            }
+        }
+
+        // Payment method filter
+        if (paymentMethod) {
+            where.paymentMethod = paymentMethod;
+        }
+
+        // Date range filters
+        if (dateFrom || dateTo) {
+            where.createdAt = {};
+            if (dateFrom) {
+                where.createdAt.gte = new Date(dateFrom);
+            }
+            if (dateTo) {
+                where.createdAt.lte = new Date(dateTo);
+            }
+        }
+
+        // Updated date range filters
+        if (updatedFrom || updatedTo) {
+            where.updatedAt = {};
+            if (updatedFrom) {
+                where.updatedAt.gte = new Date(updatedFrom);
+            }
+            if (updatedTo) {
+                where.updatedAt.lte = new Date(updatedTo);
+            }
+        }
+
+        // Amount range filters
+        if (minAmount || maxAmount) {
+            where.total = {};
+            if (minAmount) {
+                where.total.gte = parseFloat(minAmount);
+            }
+            if (maxAmount) {
+                where.total.lte = parseFloat(maxAmount);
+            }
+        }
+
+        // Customer filter
+        if (customerId) {
+            where.userId = customerId;
+        }
+
+        // Product filter (orders containing specific product)
+        if (productId) {
+            where.items = {
+                some: {
+                    productId: productId,
+                },
+            };
+        }
+
+        // Coupon filter
+        if (couponId) {
+            if (couponId === 'null' || couponId === 'none') {
+                where.couponId = null;
+            } else {
+                where.couponId = couponId;
+            }
+        }
+
+        // Search functionality - search by order ID, user email, user name, phone, product name, address, razorpay IDs
         if (search) {
-            where.OR = [
+            const searchConditions: any[] = [
                 { id: { contains: search, mode: "insensitive" } },
+                { razorpayOrderId: { contains: search, mode: "insensitive" } },
                 {
                     user: {
                         OR: [
                             { email: { contains: search, mode: "insensitive" } },
                             { name: { contains: search, mode: "insensitive" } },
+                            { phone: { contains: search, mode: "insensitive" } },
                         ],
                     },
                 },
+                {
+                    address: {
+                        OR: [
+                            { city: { contains: search, mode: "insensitive" } },
+                            { state: { contains: search, mode: "insensitive" } },
+                            { zipCode: { contains: search, mode: "insensitive" } },
+                        ],
+                    },
+                },
+                {
+                    items: {
+                        some: {
+                            product: {
+                                name: { contains: search, mode: "insensitive" },
+                            },
+                        },
+                    },
+                },
+                {
+                    payments: {
+                        some: {
+                            razorpayPaymentId: { contains: search, mode: "insensitive" },
+                        },
+                    },
+                },
             ];
+
+            where.OR = searchConditions;
+        }
+
+        // Sorting
+        const orderBy: any = {};
+        if (sortBy === 'total') {
+            orderBy.total = sortOrder;
+        } else if (sortBy === 'status') {
+            orderBy.status = sortOrder;
+        } else if (sortBy === 'paymentStatus') {
+            orderBy.paymentStatus = sortOrder;
+        } else if (sortBy === 'customerName') {
+            orderBy.user = {
+                name: sortOrder,
+            };
+        } else if (sortBy === 'updatedAt') {
+            orderBy.updatedAt = sortOrder;
+        } else {
+            orderBy.createdAt = sortOrder;
         }
 
         const [orders, total] = await Promise.all([
@@ -424,19 +560,35 @@ export const getAdminOrders = async (req: Request, res: Response, next: NextFunc
                             id: true,
                             email: true,
                             name: true,
+                            phone: true,
                         },
                     },
                     items: {
                         include: {
-                            product: true,
+                            product: {
+                                include: {
+                                    images: {
+                                        where: { isPrimary: true },
+                                        take: 1,
+                                    },
+                                },
+                            },
                             variant: true,
                         },
                     },
                     address: true,
+                    payments: {
+                        take: 1,
+                        orderBy: { createdAt: "desc" },
+                    },
+                    statusHistory: {
+                        take: 1,
+                        orderBy: { createdAt: "desc" },
+                    },
                 },
                 skip,
                 take: limit,
-                orderBy: { createdAt: "desc" },
+                orderBy,
             }),
             prisma.order.count({ where }),
         ]);
@@ -607,6 +759,1048 @@ export const trackOrder = async (req: Request, res: Response, next: NextFunction
             status: order.status,
             timeline: order.statusHistory,
         });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// Admin: Update order
+export const updateOrder = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params;
+        const { addressId, shippingCharges, discountAmount, items } = req.body;
+
+        const order = await prisma.order.findUnique({
+            where: { id },
+        });
+
+        if (!order) {
+            throw new NotFoundError("Order not found");
+        }
+
+        // Cannot edit if order is shipped or delivered
+        if (order.status === "SHIPPED" || order.status === "DELIVERED") {
+            throw new ValidationError("Cannot edit order that is already shipped or delivered");
+        }
+
+        const updateData: any = {};
+
+        if (addressId) {
+            updateData.addressId = addressId;
+        }
+
+        if (shippingCharges !== undefined) {
+            updateData.shippingCharges = parseFloat(shippingCharges);
+        }
+
+        if (discountAmount !== undefined) {
+            updateData.discountAmount = parseFloat(discountAmount);
+        }
+
+        // Recalculate total if amounts changed
+        if (updateData.shippingCharges !== undefined || updateData.discountAmount !== undefined) {
+            const subtotal = Number(order.subtotal || 0);
+            const finalShipping = updateData.shippingCharges !== undefined
+                ? updateData.shippingCharges
+                : Number(order.shippingCharges || 0);
+            const finalDiscount = updateData.discountAmount !== undefined
+                ? updateData.discountAmount
+                : Number(order.discountAmount || 0);
+            updateData.total = subtotal - finalDiscount + finalShipping;
+        }
+
+        // Update items if provided
+        if (items && Array.isArray(items) && id) {
+            // Delete existing items and create new ones
+            await prisma.orderItem.deleteMany({
+                where: { orderId: id },
+            });
+
+            const orderItems = [];
+            for (const item of items) {
+                const { productId, variantId, quantity, customDesignUrl, customText } = item;
+
+                const product = await prisma.product.findUnique({
+                    where: { id: productId },
+                    include: { variants: true },
+                });
+
+                if (!product) {
+                    throw new NotFoundError(`Product ${productId} not found`);
+                }
+
+                let itemPrice = Number(product.sellingPrice || product.basePrice);
+                if (variantId) {
+                    const variant = product.variants.find((v: { id: string }) => v.id === variantId);
+                    if (variant) {
+                        itemPrice += Number(variant.priceModifier);
+                    }
+                }
+
+                orderItems.push({
+                    orderId: id,
+                    productId,
+                    variantId: variantId || null,
+                    quantity,
+                    price: itemPrice,
+                    customDesignUrl: customDesignUrl || null,
+                    customText: customText || null,
+                });
+            }
+
+            await prisma.orderItem.createMany({
+                data: orderItems,
+            });
+
+            // Recalculate subtotal from items
+            const subtotal = orderItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+            updateData.subtotal = subtotal;
+
+            // Recalculate total
+            const finalShipping = updateData.shippingCharges !== undefined
+                ? updateData.shippingCharges
+                : Number(order.shippingCharges || 0);
+            const finalDiscount = updateData.discountAmount !== undefined
+                ? updateData.discountAmount
+                : Number(order.discountAmount || 0);
+            updateData.total = subtotal - finalDiscount + finalShipping;
+        }
+
+        const updatedOrder = await prisma.order.update({
+            where: { id },
+            data: updateData,
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        email: true,
+                        name: true,
+                        phone: true,
+                    },
+                },
+                items: {
+                    include: {
+                        product: {
+                            include: {
+                                category: true,
+                                images: true,
+                            },
+                        },
+                        variant: true,
+                    },
+                },
+                address: true,
+                statusHistory: {
+                    orderBy: { createdAt: "asc" },
+                },
+                payments: true,
+            },
+        });
+
+        return sendSuccess(res, updatedOrder, "Order updated successfully");
+    } catch (error) {
+        next(error);
+    }
+};
+
+// Admin: Cancel order
+export const cancelOrder = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params;
+        const { reason, refund } = req.body;
+
+        if (!reason) {
+            throw new ValidationError("Cancellation reason is required");
+        }
+
+        const order = await prisma.order.findUnique({
+            where: { id },
+            include: {
+                payments: {
+                    where: { status: "SUCCESS" },
+                },
+            },
+        });
+
+        if (!order) {
+            throw new NotFoundError("Order not found");
+        }
+
+        if (order.status === "CANCELLED") {
+            throw new ValidationError("Order is already cancelled");
+        }
+
+        // Update order status
+        const updatedOrder = await prisma.order.update({
+            where: { id },
+            data: { status: "CANCELLED" },
+            include: {
+                user: true,
+                items: {
+                    include: {
+                        product: true,
+                        variant: true,
+                    },
+                },
+                address: true,
+                statusHistory: true,
+                payments: true,
+            },
+        });
+
+        // Create status history entry
+        if (id) {
+            await prisma.orderStatusHistory.create({
+                data: {
+                    orderId: id,
+                    status: "CANCELLED",
+                    comment: reason || "Order cancelled",
+                },
+            });
+        }
+
+        // Handle refund if requested and payment was successful
+        if (refund && order.payments && order.payments.length > 0) {
+            const payment = order.payments[0];
+            if (payment && payment.status === "SUCCESS") {
+                await prisma.payment.update({
+                    where: { id: payment.id },
+                    data: { status: "REFUNDED" },
+                });
+
+                if (id) {
+                    await prisma.order.update({
+                        where: { id },
+                        data: { paymentStatus: "REFUNDED" },
+                    });
+                }
+            }
+        }
+
+        return sendSuccess(res, updatedOrder, "Order cancelled successfully");
+    } catch (error) {
+        next(error);
+    }
+};
+
+// Admin: Get order statistics
+export const getOrderStatistics = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const dateFrom = req.query.dateFrom as string;
+        const dateTo = req.query.dateTo as string;
+
+        const where: any = {};
+        if (dateFrom || dateTo) {
+            where.createdAt = {};
+            if (dateFrom) {
+                where.createdAt.gte = new Date(dateFrom);
+            }
+            if (dateTo) {
+                where.createdAt.lte = new Date(dateTo);
+            }
+        }
+
+        const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const weekStart = new Date(now);
+        weekStart.setDate(now.getDate() - now.getDay());
+        weekStart.setHours(0, 0, 0, 0);
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+        // Total orders
+        const [totalOrders, todayOrders, weekOrders, monthOrders] = await Promise.all([
+            prisma.order.count({ where }),
+            prisma.order.count({ where: { ...where, createdAt: { gte: todayStart } } }),
+            prisma.order.count({ where: { ...where, createdAt: { gte: weekStart } } }),
+            prisma.order.count({ where: { ...where, createdAt: { gte: monthStart } } }),
+        ]);
+
+        // Total revenue
+        const [totalRevenue, todayRevenue, weekRevenue, monthRevenue] = await Promise.all([
+            prisma.order.aggregate({
+                where: { ...where, paymentStatus: "SUCCESS" },
+                _sum: { total: true },
+            }),
+            prisma.order.aggregate({
+                where: { ...where, paymentStatus: "SUCCESS", createdAt: { gte: todayStart } },
+                _sum: { total: true },
+            }),
+            prisma.order.aggregate({
+                where: { ...where, paymentStatus: "SUCCESS", createdAt: { gte: weekStart } },
+                _sum: { total: true },
+            }),
+            prisma.order.aggregate({
+                where: { ...where, paymentStatus: "SUCCESS", createdAt: { gte: monthStart } },
+                _sum: { total: true },
+            }),
+        ]);
+
+        // Orders by status
+        const ordersByStatus = await prisma.order.groupBy({
+            by: ["status"],
+            where,
+            _count: { status: true },
+        });
+
+        // Pending payments count
+        const pendingPaymentsCount = await prisma.order.count({
+            where: { ...where, paymentStatus: "PENDING" },
+        });
+
+        // Average order value
+        const avgOrderValue = await prisma.order.aggregate({
+            where: { ...where, paymentStatus: "SUCCESS" },
+            _avg: { total: true },
+        });
+
+        // Orders requiring attention
+        const ordersRequiringAttention = await prisma.order.count({
+            where: {
+                ...where,
+                OR: [
+                    { status: "PENDING_REVIEW" },
+                    { paymentStatus: "FAILED" },
+                ],
+            },
+        });
+
+        return sendSuccess(res, {
+            totalOrders,
+            orders: {
+                today: todayOrders,
+                week: weekOrders,
+                month: monthOrders,
+            },
+            totalRevenue: Number(totalRevenue._sum.total || 0),
+            revenue: {
+                today: Number(todayRevenue._sum.total || 0),
+                week: Number(weekRevenue._sum.total || 0),
+                month: Number(monthRevenue._sum.total || 0),
+            },
+            ordersByStatus: ordersByStatus.map((item) => ({
+                status: item.status,
+                count: item._count.status,
+            })),
+            pendingPaymentsCount,
+            averageOrderValue: Number(avgOrderValue._avg.total || 0),
+            ordersRequiringAttention,
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// Admin: Mark payment as paid
+export const markPaymentAsPaid = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params;
+        const { amount, reference, date } = req.body;
+
+        const order = await prisma.order.findUnique({
+            where: { id },
+            include: {
+                payments: true,
+            },
+        });
+
+        if (!order) {
+            throw new NotFoundError("Order not found");
+        }
+
+        if (order.paymentMethod !== "OFFLINE") {
+            throw new ValidationError("Can only mark offline payments as paid");
+        }
+
+        const paymentAmount = amount ? parseFloat(amount) : Number(order.total);
+
+        // Create or update payment
+        let payment;
+        const existingPayment = order.payments?.find((p) => p.method === "OFFLINE");
+
+        if (existingPayment) {
+            payment = await prisma.payment.update({
+                where: { id: existingPayment.id },
+                data: {
+                    amount: paymentAmount,
+                    status: "SUCCESS",
+                    updatedAt: date ? new Date(date) : new Date(),
+                },
+            });
+        } else {
+            if (!id) {
+                throw new ValidationError("Order ID is required");
+            }
+            payment = await prisma.payment.create({
+                data: {
+                    orderId: id,
+                    userId: order.userId,
+                    amount: paymentAmount,
+                    method: "OFFLINE",
+                    status: "SUCCESS",
+                    createdAt: date ? new Date(date) : new Date(),
+                },
+            });
+        }
+
+        // Update order payment status
+        const updatedOrder = await prisma.order.update({
+            where: { id },
+            data: { paymentStatus: "SUCCESS" },
+            include: {
+                user: true,
+                items: {
+                    include: {
+                        product: true,
+                        variant: true,
+                    },
+                },
+                address: true,
+                payments: true,
+            },
+        });
+
+        return sendSuccess(res, updatedOrder, "Payment marked as paid successfully");
+    } catch (error) {
+        next(error);
+    }
+};
+
+// Admin: Process refund
+export const processRefund = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params;
+        const { amount, reason, method } = req.body;
+
+        if (!reason) {
+            throw new ValidationError("Refund reason is required");
+        }
+
+        const order = await prisma.order.findUnique({
+            where: { id },
+            include: {
+                payments: {
+                    where: { status: "SUCCESS" },
+                },
+            },
+        });
+
+        if (!order) {
+            throw new NotFoundError("Order not found");
+        }
+
+        if (!order.payments || order.payments.length === 0) {
+            throw new ValidationError("No successful payment found for this order");
+        }
+
+        const payment = order.payments[0];
+        if (!payment) {
+            throw new ValidationError("Payment not found");
+        }
+
+        const refundAmount = amount ? parseFloat(amount) : Number(payment.amount);
+
+        if (refundAmount > Number(payment.amount)) {
+            throw new ValidationError("Refund amount cannot exceed payment amount");
+        }
+
+        // Update payment status
+        await prisma.payment.update({
+            where: { id: payment.id },
+            data: { status: "REFUNDED" },
+        });
+
+        // Update order payment status
+        const updatedOrder = await prisma.order.update({
+            where: { id },
+            data: { paymentStatus: "REFUNDED" },
+            include: {
+                user: true,
+                items: {
+                    include: {
+                        product: true,
+                        variant: true,
+                    },
+                },
+                address: true,
+                payments: true,
+            },
+        });
+
+        return sendSuccess(res, updatedOrder, "Refund processed successfully");
+    } catch (error) {
+        next(error);
+    }
+};
+
+// Admin: Get payment details
+export const getPaymentDetails = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params;
+
+        const order = await prisma.order.findUnique({
+            where: { id },
+            include: {
+                payments: {
+                    orderBy: { createdAt: "desc" },
+                },
+            },
+        });
+
+        if (!order) {
+            throw new NotFoundError("Order not found");
+        }
+
+        return sendSuccess(res, {
+            orderId: order.id,
+            paymentMethod: order.paymentMethod,
+            paymentStatus: order.paymentStatus,
+            payments: order.payments,
+            total: order.total,
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// Admin: Update tracking
+export const updateTracking = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params;
+        const { trackingNumber, carrier, shippingDate } = req.body;
+
+        if (!trackingNumber) {
+            throw new ValidationError("Tracking number is required");
+        }
+
+        const order = await prisma.order.findUnique({
+            where: { id },
+        });
+
+        if (!order) {
+            throw new NotFoundError("Order not found");
+        }
+
+        // Store tracking info in order metadata (we'll use a JSON field or extend schema)
+        // For now, we'll just update status to SHIPPED if not already
+        const updateData: any = {};
+
+        if (order.status !== "SHIPPED") {
+            updateData.status = "SHIPPED";
+        }
+
+        const updatedOrder = await prisma.order.update({
+            where: { id },
+            data: updateData,
+            include: {
+                user: true,
+                items: {
+                    include: {
+                        product: true,
+                        variant: true,
+                    },
+                },
+                address: true,
+                statusHistory: true,
+            },
+        });
+
+        // Create status history entry
+        if (id) {
+            await prisma.orderStatusHistory.create({
+                data: {
+                    orderId: id,
+                    status: "SHIPPED",
+                    comment: `Tracking number: ${trackingNumber}${carrier ? `, Carrier: ${carrier}` : ""}`,
+                },
+            });
+        }
+
+        // Note: In production, you'd want to store trackingNumber and carrier in the database
+        // This might require a schema migration to add a Tracking model or JSON field
+
+        return sendSuccess(res, {
+            ...updatedOrder,
+            trackingNumber,
+            carrier,
+        }, "Tracking updated successfully");
+    } catch (error) {
+        next(error);
+    }
+};
+
+// Admin: Mark as shipped
+export const markAsShipped = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params;
+        const { trackingNumber, carrier, shippingDate } = req.body;
+
+        if (!trackingNumber) {
+            throw new ValidationError("Tracking number is required");
+        }
+
+        const order = await prisma.order.findUnique({
+            where: { id },
+        });
+
+        if (!order) {
+            throw new NotFoundError("Order not found");
+        }
+
+        const updatedOrder = await prisma.order.update({
+            where: { id },
+            data: { status: "SHIPPED" },
+            include: {
+                user: true,
+                items: {
+                    include: {
+                        product: true,
+                        variant: true,
+                    },
+                },
+                address: true,
+                statusHistory: true,
+            },
+        });
+
+        if (id) {
+            await prisma.orderStatusHistory.create({
+                data: {
+                    orderId: id,
+                    status: "SHIPPED",
+                    comment: `Order shipped. Tracking: ${trackingNumber}${carrier ? `, Carrier: ${carrier}` : ""}`,
+                },
+            });
+        }
+
+        return sendSuccess(res, {
+            ...updatedOrder,
+            trackingNumber,
+            carrier,
+        }, "Order marked as shipped successfully");
+    } catch (error) {
+        next(error);
+    }
+};
+
+// Admin: Mark as delivered
+export const markAsDelivered = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params;
+        const { deliveryDate, notes } = req.body;
+
+        const order = await prisma.order.findUnique({
+            where: { id },
+        });
+
+        if (!order) {
+            throw new NotFoundError("Order not found");
+        }
+
+        const updatedOrder = await prisma.order.update({
+            where: { id },
+            data: { status: "DELIVERED" },
+            include: {
+                user: true,
+                items: {
+                    include: {
+                        product: true,
+                        variant: true,
+                    },
+                },
+                address: true,
+                statusHistory: true,
+            },
+        });
+
+        if (id) {
+            await prisma.orderStatusHistory.create({
+                data: {
+                    orderId: id,
+                    status: "DELIVERED",
+                    comment: notes || `Order delivered${deliveryDate ? ` on ${deliveryDate}` : ""}`,
+                },
+            });
+        }
+
+        return sendSuccess(res, updatedOrder, "Order marked as delivered successfully");
+    } catch (error) {
+        next(error);
+    }
+};
+
+// Admin: Get order invoice (HTML)
+export const getOrderInvoice = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params;
+
+        const order = await prisma.order.findUnique({
+            where: { id },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                        phone: true,
+                    },
+                },
+                items: {
+                    include: {
+                        product: {
+                            include: {
+                                category: true,
+                                images: {
+                                    where: { isPrimary: true },
+                                    take: 1,
+                                },
+                            },
+                        },
+                        variant: true,
+                    },
+                },
+                address: true,
+                payments: {
+                    where: { status: "SUCCESS" },
+                    take: 1,
+                },
+            },
+        });
+
+        if (!order) {
+            throw new NotFoundError("Order not found");
+        }
+
+        // Generate invoice HTML
+        const month = String(new Date(order.createdAt).getMonth() + 1);
+        const monthPadded = month.length === 1 ? '0' + month : month;
+        const invoiceNumber = `INV-${new Date(order.createdAt).getFullYear()}-${monthPadded}-${order.id.slice(0, 8).toUpperCase()}`;
+
+        const invoiceHTML = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice ${invoiceNumber}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        .invoice-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 20px;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+        }
+        .invoice-number {
+            font-size: 16px;
+            color: #666;
+        }
+        .details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        .detail-section h3 {
+            margin-top: 0;
+            color: #333;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 10px;
+        }
+        .detail-section p {
+            margin: 5px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f5f5f5;
+            font-weight: bold;
+        }
+        .text-right {
+            text-align: right;
+        }
+        .totals {
+            margin-top: 20px;
+            margin-left: auto;
+            width: 300px;
+        }
+        .totals-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+        }
+        .totals-row.total {
+            font-weight: bold;
+            font-size: 18px;
+            border-top: 2px solid #333;
+            padding-top: 10px;
+            margin-top: 10px;
+        }
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            text-align: center;
+            color: #666;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="invoice-container">
+        <div class="header">
+            <div>
+                <h1>Invoice</h1>
+                <p class="invoice-number">${invoiceNumber}</p>
+            </div>
+            <div>
+                <p><strong>Date:</strong> ${new Date(order.createdAt).toLocaleDateString()}</p>
+                <p><strong>Order ID:</strong> ${order.id}</p>
+            </div>
+        </div>
+
+        <div class="details">
+            <div class="detail-section">
+                <h3>Bill To:</h3>
+                <p><strong>${order.user?.name || 'Customer'}</strong></p>
+                <p>${order.user?.email || ''}</p>
+                ${order.user?.phone ? `<p>${order.user.phone}</p>` : ''}
+            </div>
+            <div class="detail-section">
+                <h3>Ship To:</h3>
+                <p>${order.address?.street || ''}</p>
+                <p>${order.address?.city || ''}, ${order.address?.state || ''} ${order.address?.zipCode || ''}</p>
+                <p>${order.address?.country || ''}</p>
+            </div>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Item</th>
+                    <th>Quantity</th>
+                    <th class="text-right">Price</th>
+                    <th class="text-right">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${order.items.map((item: any) => `
+                    <tr>
+                        <td>
+                            <strong>${item.product?.name || 'Product'}</strong>
+                            ${item.variant ? `<br><small>Variant: ${item.variant.name}</small>` : ''}
+                            ${item.customText ? `<br><small>Custom: ${item.customText}</small>` : ''}
+                        </td>
+                        <td>${item.quantity}</td>
+                        <td class="text-right">₹${Number(item.price).toFixed(2)}</td>
+                        <td class="text-right">₹${(Number(item.price) * item.quantity).toFixed(2)}</td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+
+        <div class="totals">
+            <div class="totals-row">
+                <span>Subtotal:</span>
+                <span>₹${Number(order.subtotal || 0).toFixed(2)}</span>
+            </div>
+            ${order.discountAmount ? `
+            <div class="totals-row">
+                <span>Discount:</span>
+                <span>-₹${Number(order.discountAmount).toFixed(2)}</span>
+            </div>
+            ` : ''}
+            ${order.shippingCharges ? `
+            <div class="totals-row">
+                <span>Shipping:</span>
+                <span>₹${Number(order.shippingCharges).toFixed(2)}</span>
+            </div>
+            ` : ''}
+            <div class="totals-row total">
+                <span>Total:</span>
+                <span>₹${Number(order.total).toFixed(2)}</span>
+            </div>
+        </div>
+
+        ${order.payments && order.payments.length > 0 && order.payments[0] ? `
+        <div class="detail-section" style="margin-top: 30px;">
+            <h3>Payment Information</h3>
+            <p><strong>Method:</strong> ${order.paymentMethod}</p>
+            <p><strong>Status:</strong> ${order.paymentStatus}</p>
+            ${order.payments[0].razorpayPaymentId ? `<p><strong>Payment ID:</strong> ${order.payments[0].razorpayPaymentId}</p>` : ''}
+        </div>
+        ` : ''}
+
+        <div class="footer">
+            <p>Thank you for your business!</p>
+        </div>
+    </div>
+</body>
+</html>
+        `;
+
+        res.setHeader('Content-Type', 'text/html');
+        return res.send(invoiceHTML);
+    } catch (error) {
+        next(error);
+    }
+};
+
+// Admin: Export orders
+export const exportOrders = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const format = (req.query.format as string) || 'csv';
+        const status = req.query.status as string | string[];
+        const paymentStatus = req.query.paymentStatus as string | string[];
+        const dateFrom = req.query.dateFrom as string;
+        const dateTo = req.query.dateTo as string;
+
+        const where: any = {};
+
+        // Apply filters similar to getAdminOrders
+        if (status) {
+            if (Array.isArray(status)) {
+                where.status = { in: status };
+            } else {
+                where.status = status;
+            }
+        }
+
+        if (paymentStatus) {
+            if (Array.isArray(paymentStatus)) {
+                where.paymentStatus = { in: paymentStatus };
+            } else {
+                where.paymentStatus = paymentStatus;
+            }
+        }
+
+        if (dateFrom || dateTo) {
+            where.createdAt = {};
+            if (dateFrom) {
+                where.createdAt.gte = new Date(dateFrom);
+            }
+            if (dateTo) {
+                where.createdAt.lte = new Date(dateTo);
+            }
+        }
+
+        // Fetch all matching orders (no pagination for export)
+        const orders = await prisma.order.findMany({
+            where,
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        email: true,
+                        name: true,
+                        phone: true,
+                    },
+                },
+                items: {
+                    include: {
+                        product: true,
+                    },
+                },
+                address: true,
+                payments: {
+                    take: 1,
+                    orderBy: { createdAt: "desc" },
+                },
+            },
+            orderBy: { createdAt: "desc" },
+        });
+
+        if (format === 'csv') {
+            // Generate CSV
+            const headers = [
+                'Order ID',
+                'Date',
+                'Customer Name',
+                'Customer Email',
+                'Customer Phone',
+                'Items Count',
+                'Subtotal',
+                'Discount',
+                'Shipping',
+                'Total',
+                'Status',
+                'Payment Status',
+                'Payment Method',
+                'Street',
+                'City',
+                'State',
+                'Zip Code',
+                'Country',
+                'Razorpay Order ID',
+                'Created At',
+                'Updated At',
+            ];
+
+            const rows = orders.map(order => {
+                const address = order.address;
+                return [
+                    order.id,
+                    new Date(order.createdAt).toISOString(),
+                    order.user?.name || '',
+                    order.user?.email || '',
+                    order.user?.phone || '',
+                    order.items.length.toString(),
+                    order.subtotal?.toString() || '0',
+                    order.discountAmount?.toString() || '0',
+                    order.shippingCharges?.toString() || '0',
+                    order.total.toString(),
+                    order.status,
+                    order.paymentStatus,
+                    order.paymentMethod,
+                    address?.street || '',
+                    address?.city || '',
+                    address?.state || '',
+                    address?.zipCode || '',
+                    address?.country || '',
+                    order.razorpayOrderId || '',
+                    new Date(order.createdAt).toISOString(),
+                    new Date(order.updatedAt).toISOString(),
+                ];
+            });
+
+            const csvContent = [
+                headers.join(','),
+                ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+            ].join('\n');
+
+            res.setHeader('Content-Type', 'text/csv');
+            res.setHeader('Content-Disposition', `attachment; filename=orders-export-${new Date().toISOString().split('T')[0]}.csv`);
+            return res.send(csvContent);
+        } else {
+            // JSON format
+            res.setHeader('Content-Type', 'application/json');
+            res.setHeader('Content-Disposition', `attachment; filename=orders-export-${new Date().toISOString().split('T')[0]}.json`);
+            return sendSuccess(res, { orders, total: orders.length });
+        }
     } catch (error) {
         next(error);
     }
