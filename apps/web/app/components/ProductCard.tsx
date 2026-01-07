@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { addToCart } from "@/lib/api/cart";
 import { addToWishlist, removeFromWishlist, checkWishlist } from "@/lib/api/wishlist";
-import { useCart } from "@/hooks/cart/useCart";
+import { useCart } from "@/contexts/CartContext";
 
 interface ProductCardProps {
     id: string;
@@ -196,8 +196,8 @@ export default function ProductCard({
                 onMouseUp={(e) => e.stopPropagation()}
                 disabled={isAddingToCart}
                 className={`absolute bottom-4 right-4 w-10 h-10 ${isInCart
-                        ? 'bg-green-500 hover:bg-green-600 active:bg-green-700'
-                        : 'bg-orange-500 hover:bg-orange-600 active:bg-orange-700'
+                    ? 'bg-green-500 hover:bg-green-600 active:bg-green-700'
+                    : 'bg-orange-500 hover:bg-orange-600 active:bg-orange-700'
                     } rounded-lg flex items-center justify-center text-white shadow-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer`}
                 aria-label={isInCart ? "Go to cart" : "Add to cart"}
                 type="button"

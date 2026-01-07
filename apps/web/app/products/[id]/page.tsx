@@ -15,7 +15,7 @@ import ProductTabs from "../../components/ProductTabs";
 import RelatedProducts from "../../components/RelatedProducts";
 import { BarsSpinner } from "../../components/shared/BarsSpinner";
 import { useProduct } from "@/hooks/products/useProduct";
-import { useCart } from "@/hooks/cart/useCart";
+import { useCart } from "@/contexts/CartContext";
 import { Star } from "lucide-react";
 
 export default function ProductDetailsPage({ params }: { params: Promise<{ id: string }> }) {

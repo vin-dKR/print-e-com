@@ -60,8 +60,9 @@ export default function Testimonials() {
 
     const scrollLeft = () => {
         if (scrollContainerRef.current) {
+            const cardWidth = 380 + 24; // card width + gap
             scrollContainerRef.current.scrollBy({
-                left: -400,
+                left: -cardWidth,
                 behavior: 'smooth'
             });
         }
@@ -69,8 +70,9 @@ export default function Testimonials() {
 
     const scrollRight = () => {
         if (scrollContainerRef.current) {
+            const cardWidth = 380 + 24; // card width + gap
             scrollContainerRef.current.scrollBy({
-                left: 400,
+                left: cardWidth,
                 behavior: 'smooth'
             });
         }
@@ -137,9 +139,10 @@ export default function Testimonials() {
                 <div className="relative">
                     <div
                         ref={scrollContainerRef}
-                        className="overflow-x-auto scrollbar-hide"
+                        className="overflow-x-auto overflow-y-hidden scrollbar-hide scroll-smooth"
+                        style={{ scrollBehavior: 'smooth' }}
                     >
-                        <div className="flex gap-6 pb-40" style={{ minWidth: "max-content" }}>
+                        <div className="flex gap-6 pb-4" style={{ minWidth: "max-content" }}>
                             {testimonials.map((testimonial) => (
                                 <div
                                     key={testimonial.id}

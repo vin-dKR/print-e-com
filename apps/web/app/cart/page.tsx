@@ -5,7 +5,7 @@ import Breadcrumbs from "../components/Breadcrumbs";
 import CartItem from "../components/CartItem";
 import BillingSummary from "../components/BillingSummary";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
-import { useCart } from "@/hooks/cart/useCart";
+import { useCart } from "@/contexts/CartContext";
 import { BarsSpinner } from "@/app/components/shared/BarsSpinner";
 
 function CartPageContent() {
@@ -108,52 +108,52 @@ function CartPageContent() {
                         <BarsSpinner />
                     </div>
                 ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    {/* Left Column - Cart Items */}
-                    <div className="lg:col-span-2">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        {/* Left Column - Cart Items */}
+                        <div className="lg:col-span-2">
                             {items.length === 0 ? (
-                            <div className="bg-white rounded-lg shadow-md p-12 text-center">
-                                <p className="text-gray-600 text-lg mb-4">Your cart is empty</p>
-                                <a
-                                    href="/products"
+                                <div className="bg-white rounded-lg shadow-md p-12 text-center">
+                                    <p className="text-gray-600 text-lg mb-4">Your cart is empty</p>
+                                    <a
+                                        href="/products"
                                         className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
-                                >
-                                    Continue Shopping
-                                </a>
-                            </div>
-                        ) : (
-                            <div className="space-y-4 border border-gray-100 rounded-2xl p-4 pb-0">
+                                    >
+                                        Continue Shopping
+                                    </a>
+                                </div>
+                            ) : (
+                                <div className="space-y-4 border border-gray-100 rounded-2xl p-4 pb-0">
                                     {items.map((item) => (
-                                    <CartItem
-                                        key={item.id}
+                                        <CartItem
+                                            key={item.id}
                                             item={item}
-                                        onQuantityChange={handleQuantityChange}
-                                        onRemove={handleRemoveItem}
+                                            onQuantityChange={handleQuantityChange}
+                                            onRemove={handleRemoveItem}
                                             isUpdating={updatingItemId === item.id}
                                             isRemoving={removingItemId === item.id}
-                                    />
-                                ))}
+                                        />
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Right Column - Billing Summary */}
+                        {items.length > 0 && (
+                            <div className="lg:col-span-1">
+                                <BillingSummary
+                                    mrp={mrp || 0}
+                                    subtotal={subtotal || 0}
+                                    discount={discount}
+                                    couponApplied={couponApplied}
+                                    shipping={shippingFee}
+                                    tax={tax}
+                                    grandTotal={grandTotal}
+                                    itemCount={items.length}
+                                    showCheckoutActions={false}
+                                />
                             </div>
                         )}
                     </div>
-
-                    {/* Right Column - Billing Summary */}
-                    {items.length > 0 && (
-                        <div className="lg:col-span-1">
-                            <BillingSummary
-                                mrp={mrp || 0}
-                                subtotal={subtotal || 0}
-                                discount={discount}
-                                couponApplied={couponApplied}
-                                shipping={shippingFee}
-                                tax={tax}
-                                grandTotal={grandTotal}
-                                itemCount={items.length}
-                                showCheckoutActions={false}
-                            />
-                        </div>
-                    )}
-                </div>
                 )}
             </div>
         </div>
