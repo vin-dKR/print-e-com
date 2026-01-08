@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams, usePathname } from "next/navigation";
 import { useAuth } from "../../../contexts/AuthContext";
+import { useCart } from "../../../contexts/CartContext";
 import { BadgePercent, MapPin, ShoppingCart, Truck, User, Menu, X, ChevronDown } from "lucide-react";
 import Image from "next/image";
 
@@ -35,11 +36,13 @@ function SearchParamsSync({
 
 export default function Header() {
     const { user, isAuthenticated, logout, loading } = useAuth();
+    const { items: cartItems } = useCart();
+    const pathname = usePathname();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
-    const [activeCategory, setActiveCategory] = useState("Groceries");
-    const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+    const [activeCategory, setActiveCategory] = useState<string | null>(null);
+    const [hoveredCategory, setHoveredCategory] = useState<string | null>(null);
     const [isCategoryVisible, setIsCategoryVisible] = useState(true);
     const [lastScrollY, setLastScrollY] = useState(0);
 
@@ -47,6 +50,9 @@ export default function Header() {
     const categoryRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
     const headerRef = useRef<HTMLElement>(null);
     const categoryBarRef = useRef<HTMLDivElement>(null);
+
+    // Calculate unique product count (number of items, not total quantity)
+    const cartItemCount = cartItems.length;
 
     const categories = [
         "All",
@@ -66,24 +72,23 @@ export default function Header() {
             if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
                 setIsUserMenuOpen(false);
             }
-
-            // Close category dropdowns when clicking outside
-            const clickedInsideCategory = Object.values(categoryRefs.current).some(
-                (ref) => ref && ref.contains(event.target as Node)
-            );
-            if (!clickedInsideCategory) {
-                setOpenDropdown(null);
-            }
         }
 
-        if (isUserMenuOpen || openDropdown) {
+        if (isUserMenuOpen) {
             document.addEventListener("mousedown", handleClickOutside);
         }
 
         return () => {
             document.removeEventListener("mousedown", handleClickOutside);
         };
-    }, [isUserMenuOpen, openDropdown]);
+    }, [isUserMenuOpen]);
+
+    // Reset active category when navigating away from products page
+    useEffect(() => {
+        if (!pathname.includes('/products')) {
+            setActiveCategory(null);
+        }
+    }, [pathname]);
 
     // Hide/show category bar on scroll
     useEffect(() => {
@@ -119,18 +124,11 @@ export default function Header() {
             <div className="hidden lg:block bg-gray-100">
                 <div className="w-full mx-auto px-4 sm:px-6 lg:px-30 py-4">
                     <div className="flex items-center justify-between text-sm">
-                        <div className="text-gray-600 text-sm font-light text-xs font-hkgr">
+                        <div className="text-gray-600 text-sm font-light font-hkgr">
                             Welcome to worldwide Megamart!
                         </div>
                         <div className="flex items-center gap-4 text-xs">
-                            {/* Delivery PIN Code */}
-                            <Link href="/" className="flex items-center gap-1.5 text-gray-600 hover:text-blue-600 transition-colors">
-                                <MapPin strokeWidth={1} color="#008ECC" size={18} />
-                                <span>Deliver to <span className="font-hkgb">423651</span></span>
-                            </Link>
-
-                            {/* Separator */}
-                            <div className="h-4 w-px bg-gray-300"></div>
+                            
                             {/* Track your order */}
                             <Link href="/orders" className="flex items-center gap-1.5 text-gray-600 hover:text-blue-600 transition-colors">
                                 <Truck strokeWidth={1} color="#008ECC" size={18} />
@@ -208,20 +206,6 @@ export default function Header() {
                                 className="pr-2 pl-2 lg:pr-4 lg:pl-2 text-blue-600 hover:text-blue-700 transition-colors"
                                 aria-label="Categories"
                             >
-                                <svg
-                                    width="20"
-                                    height="20"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                >
-                                    <line x1="3" y1="12" x2="21" y2="12"></line>
-                                    <line x1="3" y1="6" x2="21" y2="6"></line>
-                                    <line x1="3" y1="18" x2="21" y2="18"></line>
-                                </svg>
                             </button>
                         </div>
                     </form>
@@ -375,9 +359,11 @@ export default function Header() {
                         >
                             <ShoppingCart size={22} color="#008ECC" strokeWidth={2} />
                             <span className="text-sm font-bold font-hkgb hidden sm:inline">Cart</span>
-                            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-semibold px-1.5 py-0.5 rounded-full min-w-[1.25rem] text-center">
-                                0
-                            </span>
+                            {cartItemCount > 0 && (
+                                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-semibold px-1.5 py-0.5 rounded-full min-w-[1.25rem] text-center">
+                                    {cartItemCount}
+                                </span>
+                            )}
                         </Link>
 
                         {/* Mobile Menu Button */}
@@ -403,15 +389,19 @@ export default function Header() {
                         <div className="flex items-center gap-2 lg:gap-6 min-w-max">
                             {categories.map((category) => {
                                 const isActive = activeCategory === category;
-                                const isOpen = openDropdown === category;
+                                const isHovered = hoveredCategory === category;
 
                                 return (
                                     <div
                                         key={category}
-                                        className={`relative flex items-center gap-1.5 px-4 py-2 lg:px-6 lg:py-3 rounded-2xl font-medium text-sm transition-colors whitespace-nowrap ${isActive
+                                        className={`relative flex items-center gap-1.5 px-4 py-2 lg:px-6 lg:py-3 rounded-2xl font-medium text-sm transition-all duration-200 whitespace-nowrap ${isActive
                                             ? "bg-[#008ECC] text-white"
-                                            : "bg-[#F3F9FB] text-black hover:bg-gray-100"
+                                            : isHovered
+                                                ? "bg-[#008ECC]/80 text-white"
+                                                : "bg-[#F3F9FB] text-black"
                                             }`}
+                                        onMouseEnter={() => setHoveredCategory(category)}
+                                        onMouseLeave={() => setHoveredCategory(null)}
                                         ref={(el) => {
                                             categoryRefs.current[category] = el;
                                         }}
@@ -424,47 +414,52 @@ export default function Header() {
                                             >
                                                 {category}
                                             </Link>
-                                            <button
-                                                onClick={() => {
-                                                    setOpenDropdown(isOpen ? null : category);
-                                                }}
-                                                className="flex-shrink-0"
-                                            >
-                                                <ChevronDown
-                                                    size={16}
-                                                    className={`transition-transform ${isOpen ? "rotate-180" : ""}`}
-                                                />
-                                            </button>
+                                            <ChevronDown
+                                                size={16}
+                                                className={`transition-transform shrink-0 ${isHovered ? "rotate-180" : ""}`}
+                                            />
                                         </div>
 
-                                        {/* Dropdown Menu */}
-                                        {isOpen && (
+                                        {/* Dropdown Menu - Shows on Hover */}
+                                        {isHovered && (
                                             <div className="absolute top-full left-0 mt-1 bg-white border border-gray-100 rounded-lg shadow-lg min-w-[180px] z-50 py-2">
                                                 <Link
                                                     href={`/products?category=${category.toLowerCase().replace(/\s+/g, "-")}`}
                                                     className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-                                                    onClick={() => setOpenDropdown(null)}
+                                                    onClick={() => {
+                                                        setActiveCategory(category);
+                                                        setHoveredCategory(null);
+                                                    }}
                                                 >
                                                     All {category}
                                                 </Link>
                                                 <Link
                                                     href={`/products?category=${category.toLowerCase().replace(/\s+/g, "-")}&subcategory=featured`}
                                                     className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-                                                    onClick={() => setOpenDropdown(null)}
+                                                    onClick={() => {
+                                                        setActiveCategory(category);
+                                                        setHoveredCategory(null);
+                                                    }}
                                                 >
                                                     Featured Items
                                                 </Link>
                                                 <Link
                                                     href={`/products?category=${category.toLowerCase().replace(/\s+/g, "-")}&subcategory=new`}
                                                     className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-                                                    onClick={() => setOpenDropdown(null)}
+                                                    onClick={() => {
+                                                        setActiveCategory(category);
+                                                        setHoveredCategory(null);
+                                                    }}
                                                 >
                                                     New Arrivals
                                                 </Link>
                                                 <Link
                                                     href={`/products?category=${category.toLowerCase().replace(/\s+/g, "-")}&subcategory=on-sale`}
                                                     className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-                                                    onClick={() => setOpenDropdown(null)}
+                                                    onClick={() => {
+                                                        setActiveCategory(category);
+                                                        setHoveredCategory(null);
+                                                    }}
                                                 >
                                                     On Sale
                                                 </Link>
@@ -675,14 +670,6 @@ export default function Header() {
                             {/* Mobile Top Bar Links */}
                             <div className="mt-8 pt-6 border-t border-gray-200">
                                 <div className="space-y-3">
-                                    <Link
-                                        href="/"
-                                        className="flex items-center gap-3 py-2 px-4 text-gray-600 hover:text-blue-600 transition-colors"
-                                        onClick={() => setIsMenuOpen(false)}
-                                    >
-                                        <MapPin strokeWidth={1} color="#008ECC" size={18} />
-                                        <span>Deliver to 423651</span>
-                                    </Link>
                                     <Link
                                         href="/orders"
                                         className="flex items-center gap-3 py-2 px-4 text-gray-600 hover:text-blue-600 transition-colors"

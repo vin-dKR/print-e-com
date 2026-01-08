@@ -28,7 +28,7 @@ export default function AuthLayout({
                     {/* Left Side - Illustration - Hidden on mobile */}
                     <div className="hidden lg:flex lg:w-1/2 p-6 md:p-8 lg:p-12 items-center justify-center">
                         <div className="w-full max-w-lg mx-auto">
-                            <div className="relative w-full aspect-square lg:aspect-[4/3] max-h-[500px] flex items-center justify-center">
+                            <div className="relative w-full aspect-square lg:aspect-4/3 max-h-[500px] flex items-center justify-center">
                                 <Image
                                     src="/images/auth-illustration.svg"
                                     alt="Authentication illustration showing secure login"
@@ -40,7 +40,7 @@ export default function AuthLayout({
                             </div>
                             {/* Optional decorative elements */}
                             <div className="mt-8 text-center">
-                                <h3 className="text-xl font-semibold text-gray-800 mb-2">Welcome to PrintEcom</h3>
+                                <h3 className="text-xl font-semibold text-gray-800 mb-2">Welcome to PAGZ</h3>
                                 <p className="text-gray-600 max-w-md mx-auto">
                                     Create custom designs and bring your imagination to life
                                 </p>

@@ -5,6 +5,7 @@ import { login as apiLogin, register as apiRegister, getProfile, User } from '..
 import { setAuthToken, getAuthToken } from '../lib/api-client';
 import { ApiError } from '../lib/api-client';
 import { setUserCookie, getUserCookie, removeUserCookie } from '../lib/cookies';
+import { supabase } from '../lib/supabase';
 
 interface AuthContextType {
   user: User | null;
@@ -26,6 +27,75 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     checkAuth();
   }, []);
+
+  // Supabase auth state listener - automatically handles token refresh
+  useEffect(() => {
+    if (!supabase) return;
+
+    console.log('[AuthContext] Setting up Supabase auth listener');
+
+    // Listen for auth state changes (including automatic token refresh)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('[AuthContext] Supabase auth event:', event);
+
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          // Update token when signed in or token is refreshed
+          if (session?.access_token) {
+            console.log('[AuthContext] Updating token from Supabase session');
+            setAuthToken(session.access_token);
+            
+            // Fetch user profile with new token
+            try {
+              const response = await getProfile();
+              if (response.success && response.data) {
+                setUser(response.data);
+                setUserCookie(response.data);
+              }
+            } catch (error) {
+              console.error('[AuthContext] Error fetching profile after token refresh:', error);
+            }
+          }
+        } else if (event === 'SIGNED_OUT') {
+          // Clear everything on sign out
+          console.log('[AuthContext] User signed out via Supabase');
+          setAuthToken(undefined);
+          setUser(null);
+          removeUserCookie();
+        }
+      }
+    );
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  // Periodic token refresh - refresh every 50 minutes for Supabase (tokens expire in 1 hour)
+  useEffect(() => {
+    if (!user) return;
+
+    const refreshInterval = setInterval(async () => {
+      console.log('[AuthContext] Periodic token refresh check');
+      
+      // If using Supabase, let it handle refresh automatically
+      if (supabase) {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (session) {
+          console.log('[AuthContext] Supabase session still valid');
+          // Supabase will auto-refresh when needed
+        } else if (error) {
+          console.error('[AuthContext] Error getting Supabase session:', error);
+          await refreshUser();
+        }
+      } else {
+        // Fallback to manual refresh for non-Supabase users
+        await refreshUser();
+      }
+    }, 50 * 60 * 1000); // 50 minutes (refresh before 1-hour expiry)
+
+    return () => clearInterval(refreshInterval);
+  }, [user]);
 
   const checkAuth = async () => {
     const token = getAuthToken();

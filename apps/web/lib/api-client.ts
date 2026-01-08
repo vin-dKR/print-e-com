@@ -19,8 +19,11 @@ export interface ApiResponse<T> {
 }
 
 import { getCookie, setCookie, removeCookie } from './cookies';
+import { supabase } from './supabase';
 
 const AUTH_TOKEN_COOKIE = 'auth_token';
+let isRefreshing = false;
+let refreshPromise: Promise<string | null> | null = null;
 
 /**
  * Get authentication token from cookies
@@ -42,13 +45,126 @@ export function setAuthToken(token: string | undefined): void {
 }
 
 /**
- * Generic fetch wrapper with error handling
+ * Decode JWT token and get expiration time
+ */
+function decodeToken(token: string): { exp: number } | null {
+    try {
+        const base64Url = token.split('.')[1];
+        if (!base64Url) return null;
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(
+            atob(base64)
+                .split('')
+                .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+                .join('')
+        );
+        return JSON.parse(jsonPayload);
+    } catch (error) {
+        return null;
+    }
+}
+
+/**
+ * Check if token is expired or will expire soon
+ * Supabase tokens expire in 1 hour, so we refresh at 10 minutes before expiry
+ */
+function isTokenExpiringSoon(token: string): boolean {
+    const decoded = decodeToken(token);
+    if (!decoded || !decoded.exp) return true;
+
+    const now = Math.floor(Date.now() / 1000);
+    const timeUntilExpiry = decoded.exp - now;
+
+    // Refresh if token expires in less than 10 minutes (600 seconds)
+    // This is more aggressive to handle Supabase's 1-hour expiration
+    return timeUntilExpiry < 600;
+}
+
+/**
+ * Refresh the authentication token
+ * Uses Supabase session refresh if available, otherwise falls back to API refresh
+ */
+async function refreshAuthToken(): Promise<string | null> {
+    // If already refreshing, return the existing promise
+    if (isRefreshing && refreshPromise) {
+        return refreshPromise;
+    }
+
+    isRefreshing = true;
+    refreshPromise = (async () => {
+        try {
+            // Try Supabase refresh first if configured
+            if (supabase) {
+                console.log('[API Client] Attempting Supabase token refresh');
+                const { data, error } = await supabase.auth.refreshSession();
+
+                if (!error && data.session) {
+                    console.log('[API Client] Supabase token refreshed successfully');
+                    setAuthToken(data.session.access_token);
+                    return data.session.access_token;
+                }
+
+                if (error) {
+                    console.error('[API Client] Supabase refresh error:', error);
+                }
+            }
+
+            // Fallback to API-based refresh for non-Supabase users
+            const token = getAuthToken();
+            if (!token) {
+                return null;
+            }
+
+            console.log('[API Client] Attempting API token refresh');
+            const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+
+            if (!response.ok) {
+                return null;
+            }
+
+            const data = await response.json();
+            if (data.success && data.data?.token) {
+                console.log('[API Client] API token refreshed successfully');
+                setAuthToken(data.data.token);
+                return data.data.token;
+            }
+
+            return null;
+        } catch (error) {
+            console.error('[API Client] Token refresh failed:', error);
+            return null;
+        } finally {
+            isRefreshing = false;
+            refreshPromise = null;
+        }
+    })();
+
+    return refreshPromise;
+}
+
+/**
+ * Generic fetch wrapper with error handling and automatic token refresh
  */
 async function fetchAPI<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    retryCount = 0
 ): Promise<ApiResponse<T>> {
-    const token = getAuthToken();
+    let token = getAuthToken();
+
+    // Check if token is expiring soon and refresh it proactively
+    if (token && isTokenExpiringSoon(token) && !endpoint.includes('/auth/refresh')) {
+        const newToken = await refreshAuthToken();
+        if (newToken) {
+            token = newToken;
+        }
+    }
 
     const headers: Record<string, string> = {
         'Content-Type': 'application/json',
@@ -88,21 +204,31 @@ async function fetchAPI<T>(
                 errors: data.errors,
             };
 
-            // Only clear token and redirect on 401 for auth-specific endpoints
-            // This prevents logout when a user lacks permission for a specific resource
+            // Handle 401 Unauthorized errors
             if (response.status === 401) {
-                const authEndpoints = ['/auth/profile', '/auth/me', '/auth/verify', '/auth/refresh'];
-                const isAuthEndpoint = authEndpoints.some(authPath => endpoint.includes(authPath));
-
-                if (isAuthEndpoint) {
-                    // Invalid token on auth endpoint - clear it
+                // Don't retry refresh endpoint or if we've already retried
+                if (endpoint.includes('/auth/refresh') || retryCount > 0) {
+                    // Clear token and redirect to login
                     setAuthToken(undefined);
-                    // Redirect to login if not already there
                     if (typeof window !== 'undefined' && !window.location.pathname.includes('/auth/login')) {
                         window.location.href = '/auth/login';
                     }
+                    throw error;
                 }
-                // For non-auth endpoints, 401 might be a permission issue, not invalid token
+
+                // Try to refresh token and retry the request
+                const newToken = await refreshAuthToken();
+                if (newToken) {
+                    // Retry the request with the new token
+                    return fetchAPI<T>(endpoint, options, retryCount + 1);
+                } else {
+                    // Token refresh failed - clear token and redirect to login
+                    setAuthToken(undefined);
+                    if (typeof window !== 'undefined' && !window.location.pathname.includes('/auth/login')) {
+                        window.location.href = '/auth/login';
+                    }
+                    throw error;
+                }
             }
 
             throw error;

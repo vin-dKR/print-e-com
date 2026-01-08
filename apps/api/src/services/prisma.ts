@@ -114,7 +114,54 @@ export const checkDatabaseConnection = async (retries = 3): Promise<boolean> => 
 }
 
 // Graceful shutdown for serverless environments
+let isShuttingDown = false
+let cleanupRegistered = false
+
 if (typeof process !== 'undefined') {
+  const cleanup = async () => {
+    if (isShuttingDown) return
+    isShuttingDown = true
+    
+    try {
+      // Disconnect Prisma client
+      if (prisma) {
+        await prisma.$disconnect().catch(() => {
+          // Ignore disconnect errors
+        })
+      }
+      
+      // End pool only if it's not already ending/ended
+      if (pool && !pool.ending) {
+        await pool.end().catch(() => {
+          // Ignore pool end errors (might already be closed)
+        })
+      }
+    } catch (error) {
+      // Silently ignore cleanup errors
+    }
+  }
+  
+  // Only register cleanup handlers once
+  if (!cleanupRegistered) {
+    cleanupRegistered = true
+    
+    // Use 'exit' instead of 'beforeExit' to avoid multiple calls
+    process.once('SIGINT', cleanup)
+    process.once('SIGTERM', cleanup)
+    
+    // Handle uncaught exceptions and unhandled rejections
+    process.once('uncaughtException', (err) => {
+      console.error('Uncaught exception:', err)
+      cleanup()
+      process.exit(1)
+    })
+    
+    process.once('unhandledRejection', (reason) => {
+      console.error('Unhandled rejection:', reason)
+      cleanup()
+      process.exit(1)
+    })
+  }
     // Handle uncaught promise rejections related to database
     process.on('unhandledRejection', (error: any) => {
         if (error?.message?.includes('timeout') || error?.message?.includes('Connection')) {

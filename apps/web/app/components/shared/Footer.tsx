@@ -230,7 +230,7 @@ export default function Footer() {
                     <div className="w-full px-6 lg:px-30 py-6">
                         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                             <p className="text-sm text-gray-600 text-center md:text-left">
-                                PrintPro © 2000-{currentYear}, All Rights Reserved
+                                Pagz © 2000-{currentYear}, All Rights Reserved
                             </p>
                             <div className="flex items-center gap-2 sm:gap-4 flex-wrap justify-center">
                                 <div className="w-10 sm:w-12 h-6 sm:h-8 bg-white rounded border border-gray-200 flex items-center justify-center">

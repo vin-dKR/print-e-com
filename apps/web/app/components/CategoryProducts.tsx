@@ -142,7 +142,7 @@ export default function CategoryProducts() {
                                 </div>
 
                                 {/* Title Overlay - Always at bottom */}
-                                <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/80 to-transparent">
+                                <div className="absolute bottom-0 left-0 right-0 p-6 bg-linear-to-t from-black/80 to-transparent">
                                     <h3 className="text-xl font-bold text-white">
                                         {category.name}
                                     </h3>
@@ -150,7 +150,7 @@ export default function CategoryProducts() {
 
                                 {/* Hover Overlay - Slides up from bottom */}
                                 <div
-                                    className={`absolute inset-x-0 bottom-0 top-auto h-full bg-gradient-to-t ${color} transition-all duration-500 ${hoveredCard === category.id
+                                    className={`absolute inset-x-0 bottom-0 top-auto h-full bg-linear-to-t ${color} transition-all duration-500 ${hoveredCard === category.id
                                         ? 'translate-y-0 opacity-100'
                                         : 'translate-y-full opacity-0'
                                         }`}

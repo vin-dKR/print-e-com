@@ -141,6 +141,21 @@ app.use(errorHandler);
 
 export default app;
 
-// app.listen(PORT, () => {
-//     console.log(`🚀 Server running on http://localhost:${PORT}`);
-// });
+// Only start the server if not in Vercel serverless environment
+if (process.env.VERCEL !== '1') {
+    const server = app.listen(PORT, () => {
+        console.log(`🚀 Server running on http://localhost:${PORT}`);
+        console.log(`📚 API Docs: http://localhost:${PORT}/api/docs`);
+        console.log(`🎮 API Playground: http://localhost:${PORT}/api/playground`);
+    });
+
+    server.on('error', (error: NodeJS.ErrnoException) => {
+        if (error.code === 'EADDRINUSE') {
+            console.error(`❌ Port ${PORT} is already in use. Please stop the other process or use a different port.`);
+            console.error(`   To find and kill the process: lsof -ti:${PORT} | xargs kill -9`);
+        } else {
+            console.error('❌ Failed to start server:', error.message);
+        }
+        process.exit(1);
+    });
+}

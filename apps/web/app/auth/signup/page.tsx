@@ -87,7 +87,7 @@ export default function SignupPage() {
     return (
         <AuthLayout
             title="Create Account"
-            subtitle="Join PrintEcom today"
+            subtitle="Join PAGZ today"
             onGoogleAuth={handleGoogleSignup}
             onFacebookAuth={handleFacebookSignup}
             error={error}

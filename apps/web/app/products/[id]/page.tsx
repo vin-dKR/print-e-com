@@ -15,6 +15,7 @@ import ProductTabs from "../../components/ProductTabs";
 import RelatedProducts from "../../components/RelatedProducts";
 import { BarsSpinner } from "../../components/shared/BarsSpinner";
 import { useProduct } from "@/hooks/products/useProduct";
+import { useCart } from "@/contexts/CartContext";
 import { Star } from "lucide-react";
 
 export default function ProductDetailsPage({ params }: { params: Promise<{ id: string }> }) {
@@ -43,6 +44,10 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
         productImages,
         sizes,
     } = useProduct({ productId: id });
+
+    // Check if product is already in cart
+    const { isProductInCart } = useCart();
+    const isInCart = product ? isProductInCart(product.name) : false;
 
     // Local UI state
     const [selectedSize, setSelectedSize] = useState<string | undefined>("");
@@ -87,6 +92,8 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
         if (success) {
             // Show success message or notification
             alert("Product added to cart successfully!");
+            // Trigger a page refresh to update cart count
+            window.location.reload();
         } else {
             alert("Failed to add product to cart. Please try again.");
         }
@@ -776,6 +783,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                                     onBuyNow={onBuyNow}
                                     addToCartLoading={cartLoading}
                                     buyNowLoading={buyNowLoading}
+                                    isInCart={isInCart}
                                 />
                             </div>
 
@@ -829,6 +837,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                             addToCartLoading={cartLoading}
                             buyNowLoading={buyNowLoading}
                             isMobile
+                            isInCart={isInCart}
                         />
                     </div>
                 </div>
