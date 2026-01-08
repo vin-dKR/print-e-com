@@ -26,7 +26,28 @@ import {
     exportOrders,
 } from "../controllers/orderController.js";
 import { adminAuth } from "../middleware/auth.js";
-import { deleteAdminUser, getAdminUser, getAdminUsers, updateAdminUser } from "../controllers/userController.js";
+import {
+    deleteAdminUser,
+    getAdminUser,
+    getAdminUsers,
+    updateAdminUser,
+    createAdminUser,
+    getUserStatistics,
+    getUserStatisticsById,
+    getUserOrders,
+    getUserAddresses,
+    getUserPayments,
+    getUserReviews,
+    getUserWishlistAndCart,
+    addUserAddress,
+    updateUserAddress,
+    deleteUserAddress,
+    setDefaultAddress,
+    exportUsers,
+    resetUserPassword,
+    suspendUser,
+    activateUser,
+} from "../controllers/userController.js";
 import { getAdminCoupon, getAdminCoupons } from "../controllers/couponController.js";
 import { createAdminCoupon } from "../controllers/couponController.js";
 import { updateAdminCoupon } from "../controllers/couponController.js";
@@ -102,9 +123,25 @@ router.post("/orders/:id/deliver", markAsDelivered);
 
 // Customer User Management (admin only - manages customer users only)
 router.get("/users", getAdminUsers);
+router.get("/users/statistics", getUserStatistics);
+router.get("/users/export", exportUsers);
+router.post("/users", createAdminUser);
 router.get("/users/:id", getAdminUser);
 router.put("/users/:id", updateAdminUser);
 router.delete("/users/:id", deleteAdminUser);
+router.get("/users/:id/statistics", getUserStatisticsById);
+router.get("/users/:id/orders", getUserOrders);
+router.get("/users/:id/addresses", getUserAddresses);
+router.post("/users/:id/addresses", addUserAddress);
+router.put("/users/:id/addresses/:addressId", updateUserAddress);
+router.delete("/users/:id/addresses/:addressId", deleteUserAddress);
+router.patch("/users/:id/addresses/:addressId/set-default", setDefaultAddress);
+router.get("/users/:id/payments", getUserPayments);
+router.get("/users/:id/reviews", getUserReviews);
+router.get("/users/:id/wishlist-cart", getUserWishlistAndCart);
+router.post("/users/:id/reset-password", resetUserPassword);
+router.post("/users/:id/suspend", suspendUser);
+router.post("/users/:id/activate", activateUser);
 
 // Coupon Management (admin only)
 router.get("/coupons", getAdminCoupons);

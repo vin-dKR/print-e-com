@@ -113,14 +113,22 @@ export const adminAuth = async (
 
         // Try Supabase first
         if (supabase) {
-            const { data: { user }, error } = await supabase.auth.getUser(token);
+            const { data: { user }, error: supabaseError } = await supabase.auth.getUser(token);
 
-            if (!error && user) {
+            if (supabaseError) {
+                // Supabase token validation failed - try JWT fallback
+                // Log the error for debugging but don't throw yet
+                console.log('[AUTH] Supabase token validation failed:', supabaseError.message);
+            } else if (user) {
                 const dbUser = await prisma.user.findUnique({
                     where: { supabaseId: user.id },
                 });
 
-                if (!dbUser || !dbUser.isAdmin) {
+                if (!dbUser) {
+                    throw new UnauthorizedError("User not found in database. Please contact support.");
+                }
+
+                if (!dbUser.isAdmin) {
                     throw new ForbiddenError("Admin access required");
                 }
 
@@ -138,16 +146,24 @@ export const adminAuth = async (
         try {
             const decoded = jwt.verify(token, jwtSecret) as { userId: string; email: string; type: string };
 
+            if (!decoded.userId || !decoded.type) {
+                throw new UnauthorizedError("Token missing required fields. Please login again.");
+            }
+
             if (decoded.type !== "admin") {
-                throw new UnauthorizedError("Invalid token type");
+                throw new UnauthorizedError(`Invalid token type: expected 'admin', got '${decoded.type}'. Please login again.`);
             }
 
             const user = await prisma.user.findUnique({
                 where: { id: decoded.userId },
             });
 
-            if (!user || !user.isAdmin) {
-                throw new ForbiddenError("Admin access required");
+            if (!user) {
+                throw new UnauthorizedError("User not found. Please login again.");
+            }
+
+            if (!user.isAdmin) {
+                throw new ForbiddenError("Admin access required. Your account does not have admin privileges.");
             }
 
             req.user = {
@@ -156,13 +172,28 @@ export const adminAuth = async (
                 type: "admin",
             };
             return next();
-        } catch (jwtError) {
-            throw new UnauthorizedError("Invalid or expired token");
+        } catch (jwtError: any) {
+            // Provide specific error messages based on JWT error type
+            if (jwtError.name === 'TokenExpiredError') {
+                throw new UnauthorizedError("Session expired. Please login again.");
+            } else if (jwtError.name === 'JsonWebTokenError') {
+                throw new UnauthorizedError("Invalid token format. Please login again.");
+            } else if (jwtError.name === 'NotBeforeError') {
+                throw new UnauthorizedError("Token not yet valid. Please login again.");
+            } else if (jwtError instanceof UnauthorizedError || jwtError instanceof ForbiddenError) {
+                // Re-throw our custom errors as-is
+                throw jwtError;
+            } else {
+                // Generic JWT error
+                throw new UnauthorizedError("Token validation failed. Please login again.");
+            }
         }
     } catch (error) {
         if (error instanceof UnauthorizedError || error instanceof ForbiddenError) {
             return sendError(res, error.message, error instanceof UnauthorizedError ? 401 : 403);
         }
-        return sendError(res, "Authentication failed", 401);
+        // Log unexpected errors for debugging
+        console.error('[AUTH] Unexpected authentication error:', error);
+        return sendError(res, "Authentication failed. Please try logging in again.", 401);
     }
 };
