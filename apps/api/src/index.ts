@@ -18,7 +18,7 @@ import cartRoutes from "./routes/cart.js";
 import wishlistRoutes from "./routes/wishlist.js";
 import reviewRoutes from "./routes/reviews.js";
 import couponRoutes from "./routes/coupons.js";
-import webhookRoutes from "./routes/webhook.js";
+import webhookRoutes from "./routes/webhook.js"; 
 
 import { errorHandler } from "./middleware/errorHandler.js";
 import { checkDatabaseConnection } from "./services/prisma.js";

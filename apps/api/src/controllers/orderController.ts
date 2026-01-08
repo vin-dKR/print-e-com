@@ -39,9 +39,28 @@ export const createOrder = async (req: Request, res: Response, next: NextFunctio
         const { couponCode, shippingCharges = 0 } = req.body;
 
         // Calculate subtotal and validate items
+        // OPTIMIZATION: Fetch all products in parallel instead of sequentially
+        const productIds = items.map(item => item.productId).filter(Boolean);
+        const uniqueProductIds = [...new Set(productIds)];
+
+        // Fetch all products in a single query (parallel)
+        const products = await prisma.product.findMany({
+            where: {
+                id: { in: uniqueProductIds },
+                isActive: true,
+            },
+            include: {
+                variants: true,
+            },
+        });
+
+        // Create a map for O(1) lookup
+        const productMap = new Map(products.map(p => [p.id, p]));
+
         let subtotal = 0;
         const orderItems = [];
 
+        // Validate and calculate prices (no database calls in loop)
         for (const item of items) {
             const { productId, variantId, quantity, customDesignUrl, customText } = item;
 
@@ -49,12 +68,9 @@ export const createOrder = async (req: Request, res: Response, next: NextFunctio
                 throw new ValidationError("Invalid order item");
             }
 
-            const product = await prisma.product.findUnique({
-                where: { id: productId },
-                include: { variants: true },
-            });
+            const product = productMap.get(productId);
 
-            if (!product || !product.isActive) {
+            if (!product) {
                 throw new NotFoundError(`Product ${productId} not found`);
             }
 
@@ -816,14 +832,28 @@ export const updateOrder = async (req: Request, res: Response, next: NextFunctio
                 where: { orderId: id },
             });
 
+            // OPTIMIZATION: Fetch all products in parallel instead of sequentially
+            const productIds = items.map(item => item.productId).filter(Boolean);
+            const uniqueProductIds = [...new Set(productIds)];
+
+            // Fetch all products in a single query (parallel)
+            const products = await prisma.product.findMany({
+                where: {
+                    id: { in: uniqueProductIds },
+                },
+                include: {
+                    variants: true,
+                },
+            });
+
+            // Create a map for O(1) lookup
+            const productMap = new Map(products.map(p => [p.id, p]));
+
             const orderItems = [];
             for (const item of items) {
                 const { productId, variantId, quantity, customDesignUrl, customText } = item;
 
-                const product = await prisma.product.findUnique({
-                    where: { id: productId },
-                    include: { variants: true },
-                });
+                const product = productMap.get(productId);
 
                 if (!product) {
                     throw new NotFoundError(`Product ${productId} not found`);

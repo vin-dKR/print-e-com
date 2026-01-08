@@ -444,8 +444,22 @@ export async function markAsDelivered(
  * Get order invoice (returns HTML)
  */
 export async function getOrderInvoice(orderId: string): Promise<string> {
+    const endpoint = `/admin/orders/${orderId}/invoice`;
+    const fullUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1'}${endpoint}`;
+    const currentPath = typeof window !== 'undefined' ? window.location.pathname : 'N/A';
+    const timestamp = new Date().toISOString();
+
+    console.log('[🔍 ADMIN_API_CALL]', {
+        timestamp,
+        method: 'GET',
+        endpoint,
+        fullUrl,
+        currentPage: currentPath,
+        hasAuth: !!getAuthToken(),
+    });
+
     const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1'}/admin/orders/${orderId}/invoice`,
+        fullUrl,
         {
             method: 'GET',
             headers: {
@@ -493,8 +507,21 @@ export async function exportOrders(
     const endpoint = `/admin/orders/export${queryString ? `?${queryString}` : ''}`;
 
     const token = getAuthToken();
+    const fullUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1'}${endpoint}`;
+    const currentPath = typeof window !== 'undefined' ? window.location.pathname : 'N/A';
+    const timestamp = new Date().toISOString();
+
+    console.log('[🔍 ADMIN_API_CALL]', {
+        timestamp,
+        method: 'GET',
+        endpoint,
+        fullUrl,
+        currentPage: currentPath,
+        hasAuth: !!token,
+    });
+
     const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1'}${endpoint}`,
+        fullUrl,
         {
             method: 'GET',
             headers: {

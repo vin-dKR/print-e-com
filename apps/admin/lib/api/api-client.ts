@@ -72,6 +72,23 @@ async function fetchAPI<T>(
         headers['Authorization'] = `Bearer ${token}`;
     }
 
+    // Log admin API calls with unique prefix for easy grepping
+    if (endpoint.startsWith('/admin/')) {
+        const method = options.method || 'GET';
+        const currentPath = typeof window !== 'undefined' ? window.location.pathname : 'N/A';
+        const timestamp = new Date().toISOString();
+        const fullUrl = `${API_BASE_URL}${endpoint}`;
+
+        console.log('[🔍 ADMIN_API_CALL]', {
+            timestamp,
+            method,
+            endpoint,
+            fullUrl,
+            currentPage: currentPath,
+            hasAuth: !!token,
+        });
+    }
+
     try {
         const response = await fetch(`${API_BASE_URL}${endpoint}`, {
             ...options,
