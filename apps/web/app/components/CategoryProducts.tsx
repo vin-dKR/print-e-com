@@ -28,8 +28,8 @@ export default function CategoryProducts() {
                 setLoading(true);
                 setError(null);
                 const data = await getAllCategories();
-                // Take first 4 categories for the main display
-                setCategories(data.slice(0, 4));
+                // Take first 8 categories for the main display (show 4 on mobile, 8 on desktop)
+                setCategories(data.slice(0, 8));
             } catch (err: any) {
                 console.error('Failed to fetch categories:', err);
                 setError(err.message || 'Failed to load categories');
@@ -82,9 +82,9 @@ export default function CategoryProducts() {
         return (
             <section className="py-10 bg-white">
                 <div className="w-full mx-auto px-10">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
-                        {[1, 2, 3, 4].map((i) => (
-                            <div key={i} className="relative h-100 rounded-4xl overflow-hidden bg-gray-200 animate-pulse" />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 2xl:grid-cols-4 gap-4 sm:gap-4 md:gap-5 lg:gap-8 2xl:gap-10">
+                        {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                            <div key={i} className={`relative h-100 rounded-4xl overflow-hidden bg-gray-200 animate-pulse ${i > 4 ? 'hidden 2xl:block' : ''} ${i > 3 && i <= 6 ? 'hidden md:block 2xl:block' : ''}`} />
                         ))}
                     </div>
                 </div>
@@ -118,17 +118,25 @@ export default function CategoryProducts() {
                     </Link>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 2xl:grid-cols-4 gap-4 sm:gap-4 md:gap-5 lg:gap-8 2xl:gap-10">
                     {categories.map((category, index) => {
                         const imageUrl = getCategoryImage(category);
                         const color = getCategoryColor(index);
                         const action = getCategoryAction(category.name);
+                        // Hide items 5-8 on smaller screens, show items 5-6 on medium screens (tablets), show all 8 on 2xl screens (>= 1536px, close to 1690px)
+                        const isMobileHidden = index >= 4;
+                        const isLargeOnly = index >= 6;
 
                         return (
                             <Link
                                 href={`/services/${category.slug}`}
                                 key={category.id}
-                                className="relative group h-100 rounded-4xl overflow-hidden cursor-pointer"
+                                className={`relative group aspect-square md:aspect-[4/3] lg:aspect-square 2xl:h-100 rounded-2xl md:rounded-3xl lg:rounded-4xl overflow-hidden cursor-pointer ${isMobileHidden
+                                    ? isLargeOnly
+                                        ? 'hidden 2xl:block'
+                                        : 'hidden md:block'
+                                    : ''
+                                    }`}
                                 onMouseEnter={() => setHoveredCard(category.id)}
                                 onMouseLeave={() => setHoveredCard(null)}
                             >
@@ -142,8 +150,8 @@ export default function CategoryProducts() {
                                 </div>
 
                                 {/* Title Overlay - Always at bottom */}
-                                <div className="absolute bottom-0 left-0 right-0 p-6 bg-linear-to-t from-black/80 to-transparent">
-                                    <h3 className="text-xl font-bold text-white">
+                                <div className="absolute bottom-0 left-0 right-0 p-3 md:p-4 lg:p-6 bg-linear-to-t from-black/80 to-transparent">
+                                    <h3 className="text-base md:text-lg lg:text-xl font-bold text-white">
                                         {category.name}
                                     </h3>
                                 </div>
@@ -155,16 +163,16 @@ export default function CategoryProducts() {
                                         : 'translate-y-full opacity-0'
                                         }`}
                                 >
-                                    <div className="h-full flex flex-col justify-center items-center p-6">
+                                    <div className="h-full flex flex-col justify-center items-center p-4 md:p-5 lg:p-6">
                                         {/* Description */}
-                                        <p className="text-white text-center mb-6 leading-relaxed">
+                                        <p className="text-white text-center mb-4 md:mb-5 lg:mb-6 leading-relaxed text-sm md:text-base lg:text-base">
                                             {category.description || `${category.name} services with professional quality and fast delivery.`}
                                         </p>
 
                                         {/* CTA Button */}
-                                        <button className="bg-white text-gray-900 py-3 px-6 rounded-lg font-bold hover:bg-gray-100 transition-colors flex items-center gap-2 transform hover:scale-105 transition-transform">
+                                        <button className="bg-white text-gray-900 py-2 md:py-2.5 lg:py-3 px-4 md:px-5 lg:px-6 rounded-lg font-bold hover:bg-gray-100 flex items-center gap-2 transform hover:scale-105 transition-all text-sm md:text-base lg:text-base">
                                             {action}
-                                            <ArrowRight className="w-5 h-5" />
+                                            <ArrowRight className="w-4 h-4 md:w-4 md:h-4 lg:w-5 lg:h-5" />
                                         </button>
                                     </div>
                                 </div>

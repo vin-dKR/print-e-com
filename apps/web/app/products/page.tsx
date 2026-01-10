@@ -300,7 +300,7 @@ function ProductsPageChild() {
                         <p className="text-gray-600 mb-4">{error}</p>
                         <button
                             onClick={() => window.location.reload()}
-                            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                            className="px-6 py-2 bg-[#008ECC] text-white rounded-lg hover:bg-blue-700 transition-colors"
                         >
                             Retry
                         </button>
@@ -324,7 +324,7 @@ function ProductsPageChild() {
                         <button
                             id="filter-button"
                             onClick={() => setIsFilterOpen(!isFilterOpen)}
-                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                            className="flex items-center gap-2 px-4 py-2 bg-[#008ECC] text-white rounded-lg hover:bg-blue-700 transition-colors"
                         >
                             <Filter size={18} />
                             <span>Filters</span>
@@ -418,7 +418,7 @@ function ProductsPageChild() {
                                 <div className="p-4 border-t">
                                     <button
                                         onClick={() => setIsFilterOpen(false)}
-                                        className="w-full py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                                        className="w-full py-3 bg-[#008ECC] text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
                                     >
                                         Apply Filters
                                         <span className="ml-2 text-sm bg-white/30 px-2 py-0.5 rounded">
@@ -693,7 +693,7 @@ function ProductsPageChild() {
                                                     onClick={() => {
                                                         window.location.href = '/products';
                                                     }}
-                                                    className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                                                    className="px-6 py-3 bg-[#008ECC] text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
                                                 >
                                                     Browse All Products
                                                 </button>
@@ -717,7 +717,7 @@ function ProductsPageChild() {
                                             </p>
                                             <button
                                                 onClick={handleClearAllFilters}
-                                                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                                                className="px-6 py-3 bg-[#008ECC] text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
                                             >
                                                 Clear All Filters
                                             </button>

@@ -35,19 +35,19 @@ export default function BestSeller() {
         console.log("Add to cart:", productId);
     };
 
-    // Loading skeleton - matching PopularProducts
+    // Loading skeleton
     if (loading) {
         return (
-            <section className="py-12 bg-white">
-                <div className="w-full px-10">
-                    <div className="flex items-center justify-between mb-8">
+            <section className="py-10 bg-white">
+                <div className="w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-30">
+                    <div className="flex items-center justify-between mb-6">
                         <div className="h-8 w-48 bg-gray-200 rounded animate-pulse"></div>
                         <div className="h-6 w-24 bg-gray-200 rounded animate-pulse"></div>
                     </div>
                     <div className="overflow-x-auto scrollbar-hide">
-                        <div className="flex gap-6 pb-4">
+                        <div className="flex gap-4 sm:gap-6 pb-4">
                             {Array(6).fill(0).map((_, i) => (
-                                <div key={i} className="flex-shrink-0 w-64 h-80 bg-gray-200 rounded-lg animate-pulse"></div>
+                                <div key={i} className="shrink-0 w-64 h-80 bg-gray-200 rounded-2xl animate-pulse"></div>
                             ))}
                         </div>
                     </div>
@@ -62,13 +62,13 @@ export default function BestSeller() {
     }
 
     return (
-        <section className="py-12 bg-white">
-            <div className="w-full px-10">
-                <div className="flex items-center justify-between mb-8">
-                    <h2 className="text-3xl font-bold text-gray-900">Best Seller</h2>
+        <section className="py-10 bg-white">
+            <div className="w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-30">
+                <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900">Best Seller</h2>
                     <Link
                         href="/products?sort=bestseller"
-                        className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium transition-colors"
+                        className="flex items-center gap-2 text-[#008ECC] hover:text-blue-700 font-medium transition-colors text-sm sm:text-base"
                     >
                         Show More
                         <svg
@@ -87,16 +87,16 @@ export default function BestSeller() {
                     </Link>
                 </div>
 
-                {/* Horizontal Scrollable Product Grid - matching PopularProducts */}
+                {/* Horizontal Scrollable Product Grid */}
                 <div className="overflow-x-auto scrollbar-hide">
-                    <div className="flex gap-6 pb-4" style={{ minWidth: "max-content" }}>
+                    <div className="flex gap-4 sm:gap-6 pb-4" style={{ minWidth: "max-content" }}>
                         {products.map((product) => (
                             <div
                                 key={product.id}
-                                className="flex-shrink-0 w-64 bg-white rounded-2xl shadow-md hover:shadow-lg transition-shadow overflow-hidden relative"
+                                className="shrink-0 w-64 bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden relative"
                             >
-                                {/* Product Image - matching PopularProducts */}
-                                <Link href={`/products/${product.id}`} className="block relative aspect-square bg-gray-100">
+                                {/* Product Image */}
+                                <Link href={`/products/${product.id}`} className="block relative aspect-square bg-gray-50 rounded-t-2xl overflow-hidden">
                                     {product.images && product.images.length > 0 ? (
                                         <img
                                             src={product.images[0]?.url || ''}
@@ -111,38 +111,33 @@ export default function BestSeller() {
                                         />
                                     )}
 
-                                    {/* Bestseller Badge - positioned like PopularProducts */}
-                                    <div className="absolute top-3 left-3 bg-orange-500 text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-md">
+                                    {/* Bestseller Badge */}
+                                    <div className="absolute top-3 left-3 bg-orange-500 text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-sm">
                                         BESTSELLER
                                     </div>
                                 </Link>
-                                {/*
-                                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
-                                    <span className="text-gray-400 text-sm">No Image</span>
-                                    </div>
-                                    */}
 
-                                {/* Product Info - matching PopularProducts */}
+                                {/* Product Info */}
                                 <div className="p-4">
                                     <Link href={`/products/${product.id}`}>
-                                        <p className="text-sm font-semibold text-gray-900 mb-1">
+                                        <p className="text-sm font-semibold text-gray-900 mb-1 line-clamp-2">
                                             {product.shortDescription || product.name}
                                         </p>
-                                        <p className="text-sm text-gray-600 line-clamp-2 mb-2">
+                                        <p className="text-xs sm:text-sm text-gray-500 line-clamp-2 mb-2">
                                             {product.category?.name || "Unknown category"}
                                         </p>
                                         <div className="flex items-center gap-2">
                                             {product.sellingPrice && product.sellingPrice < product.basePrice ? (
                                                 <>
-                                                    <p className="text-lg font-bold text-gray-900">
+                                                    <p className="text-base sm:text-lg font-semibold text-gray-900">
                                                         ₹{Number(product.sellingPrice).toFixed(2)}
                                                     </p>
-                                                    <p className="text-sm text-gray-400 line-through">
+                                                    <p className="text-xs sm:text-sm text-gray-400 line-through">
                                                         ₹{Number(product.basePrice).toFixed(2)}
                                                     </p>
                                                 </>
                                             ) : (
-                                                <p className="text-lg font-bold text-gray-900">
+                                                <p className="text-base sm:text-lg font-semibold text-gray-900">
                                                     ₹{Number(product.basePrice).toFixed(2)}
                                                 </p>
                                             )}
@@ -150,10 +145,10 @@ export default function BestSeller() {
                                     </Link>
                                 </div>
 
-                                {/* Add to Cart Button - matching PopularProducts */}
+                                {/* Add to Cart Button */}
                                 <button
                                     onClick={() => handleAddToCart(product.id)}
-                                    className="absolute bottom-4 right-4 w-10 h-10 bg-orange-500 hover:bg-orange-600 rounded-xl flex items-center justify-center text-white shadow-lg transition-colors"
+                                    className="absolute bottom-4 right-4 w-10 h-10 bg-[#008ECC] hover:bg-blue-700 rounded-xl flex items-center justify-center text-white shadow-sm hover:shadow transition-all duration-200"
                                     aria-label="Add to cart"
                                 >
                                     <svg

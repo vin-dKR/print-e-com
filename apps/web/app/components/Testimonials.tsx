@@ -79,48 +79,48 @@ export default function Testimonials() {
     };
 
     return (
-        <section className="py-26 bg-white">
-            <div className="w-full px-10">
-                {/* Section Header with Navigation Buttons in top right */}
-                <div className="flex items-center justify-between mb-8">
+        <section className="py-10 bg-white pb-0 sm:pb-40">
+            <div className="w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-30">
+                {/* Section Header with Navigation Buttons */}
+                <div className="flex items-center justify-between mb-6">
                     <div>
-                        <h2 className="text-3xl font-bold text-gray-900">
+                        <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900">
                             Our Happy Customers
                         </h2>
-                        <p className="text-gray-600 mt-2">
+                        <p className="text-gray-500 mt-1 text-sm sm:text-base">
                             See what our customers are saying about us
                         </p>
                     </div>
 
-                    {/* Navigation Buttons in Top Right Corner */}
-                    <div className="flex items-center gap-2">
+                    {/* Navigation Buttons */}
+                    <div className="hidden sm:flex items-center gap-2">
                         <button
                             onClick={scrollLeft}
-                            className="w-12 h-12 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center transition-colors group"
+                            className="w-11 h-11 bg-white border border-gray-200 hover:bg-gray-50 rounded-full flex items-center justify-center transition-all duration-200 shadow-sm hover:shadow"
                             aria-label="Previous testimonials"
                         >
                             <svg
-                                width="24"
-                                height="24"
+                                width="20"
+                                height="20"
                                 viewBox="0 0 24 24"
                                 fill="none"
                                 stroke="currentColor"
                                 strokeWidth="2"
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
-                                className="text-gray-700 group-hover:text-gray-900"
+                                className="text-gray-700"
                             >
                                 <polyline points="15 18 9 12 15 6"></polyline>
                             </svg>
                         </button>
                         <button
                             onClick={scrollRight}
-                            className="w-12 h-12 bg-gray-900 hover:bg-black rounded-full flex items-center justify-center transition-colors group"
+                            className="w-11 h-11 bg-[#008ECC] hover:bg-blue-700 rounded-full flex items-center justify-center transition-all duration-200 shadow-sm hover:shadow"
                             aria-label="Next testimonials"
                         >
                             <svg
-                                width="24"
-                                height="24"
+                                width="20"
+                                height="20"
                                 viewBox="0 0 24 24"
                                 fill="none"
                                 stroke="currentColor"
@@ -142,27 +142,27 @@ export default function Testimonials() {
                         className="overflow-x-auto overflow-y-hidden scrollbar-hide scroll-smooth"
                         style={{ scrollBehavior: 'smooth' }}
                     >
-                        <div className="flex gap-6 pb-4" style={{ minWidth: "max-content" }}>
+                        <div className="flex gap-4 sm:gap-6 pb-4" style={{ minWidth: "max-content" }}>
                             {testimonials.map((testimonial) => (
                                 <div
                                     key={testimonial.id}
-                                    className="flex-shrink-0 w-[380px] bg-white border-b border-b-4 rounded-2xl shadow-md hover:shadow-xl transition-shadow p-8 border border-gray-100"
+                                    className="shrink-0 w-[320px] sm:w-[380px] bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all duration-200 p-6 sm:p-8"
                                 >
-                                    {/* Customer Name with dot (●) */}
-                                    <div className="flex items-center gap-2 mb-6">
-                                        <h4 className="text-xl font-bold text-gray-900">
+                                    {/* Customer Name */}
+                                    <div className="flex items-center gap-2 mb-4 sm:mb-6">
+                                        <h4 className="text-lg sm:text-xl font-semibold text-gray-900">
                                             {testimonial.customerName}
                                         </h4>
-                                        <BadgeCheck size={25} fill="green" strokeWidth={2} color="white" />
+                                        <BadgeCheck size={22} className="text-green-500" fill="currentColor" strokeWidth={2} />
                                     </div>
 
                                     {/* Star Rating */}
-                                    <div className="flex items-center gap-1 mb-6">
+                                    <div className="flex items-center gap-1 mb-4 sm:mb-6">
                                         {Array.from({ length: testimonial.rating }).map((_, index) => (
                                             <svg
                                                 key={index}
-                                                width="20"
-                                                height="20"
+                                                width="18"
+                                                height="18"
                                                 viewBox="0 0 24 24"
                                                 fill="currentColor"
                                                 className="text-yellow-500"
@@ -173,7 +173,7 @@ export default function Testimonials() {
                                     </div>
 
                                     {/* Review Text */}
-                                    <p className="text-gray-700 text-lg leading-relaxed">
+                                    <p className="text-gray-600 text-sm sm:text-base leading-relaxed">
                                         &ldquo;{testimonial.review}&rdquo;
                                     </p>
                                 </div>

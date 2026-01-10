@@ -305,6 +305,46 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
         });
     };
 
+    // Check if all required fields are filled (for button disabling)
+    const areAllRequiredFieldsFilled = useMemo(() => {
+        if (!category) return false;
+
+        // Check required specifications
+        const requiredSpecs = category.specifications.filter(spec => {
+            if (!spec.isRequired || !isSpecificationVisible(spec)) {
+                return false;
+            }
+            const value = selectedSpecifications[spec.slug];
+            if (spec.type === 'SELECT' || spec.type === 'MULTI_SELECT' || spec.type === 'BOOLEAN') {
+                return !value || value === '';
+            } else if (spec.type === 'NUMBER') {
+                return value === undefined || value === null || value === '';
+            } else if (spec.type === 'TEXT') {
+                return !value || value.trim() === '';
+            }
+            return !value;
+        });
+
+        if (requiredSpecs.length > 0) return false;
+
+        // Check if file upload is required
+        if (category.configuration?.fileUploadRequired && uploadedFiles.length === 0) {
+            return false;
+        }
+
+        // Check if product exists (matching product found)
+        if (!matchingProduct?.id) {
+            return false;
+        }
+
+        // Check if out of stock
+        if (matchingProduct.stock <= 0) {
+            return false;
+        }
+
+        return true;
+    }, [category, selectedSpecifications, uploadedFiles, matchingProduct]);
+
     const handleAddToCart = async () => {
         // Check authentication
         if (!isAuthenticated) {
@@ -567,6 +607,7 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
                 productId={matchingProduct?.id ?? null}
                 images={categoryImages}
                 minQuantity={minQuantityFromFiles}
+                areRequiredFieldsFilled={areAllRequiredFieldsFilled}
             >
                 {/* Dynamic Configuration Options */}
                 <div className="space-y-8">

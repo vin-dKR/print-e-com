@@ -122,8 +122,8 @@ export default function ProductFilters({
                             key={size}
                             onClick={() => toggleSize(size)}
                             className={`px-4 py-2 rounded-lg border transition-colors ${selectedSizes.includes(size)
-                                    ? "bg-blue-600 text-white border-blue-600"
-                                    : "bg-white text-gray-700 border-gray-300 hover:border-blue-600"
+                                ? "bg-[#008ECC] text-white border-blue-600"
+                                : "bg-white text-gray-700 border-gray-300 hover:border-blue-600"
                                 }`}
                         >
                             {size}

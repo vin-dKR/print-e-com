@@ -45,11 +45,11 @@ export function ConfirmDialog({
 
     return (
         <Dialog open={open} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-[400px]">
                 <DialogHeader>
                     {variant === 'destructive' && (
-                        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
-                            <AlertTriangle className="h-6 w-6 text-red-600" />
+                        <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-red-50">
+                            <AlertTriangle className="h-7 w-7 text-red-500" />
                         </div>
                     )}
                     <DialogTitle>{title}</DialogTitle>
@@ -60,6 +60,7 @@ export function ConfirmDialog({
                         variant="outline"
                         onClick={onClose}
                         disabled={isProcessing || isLoading}
+                        className="w-full sm:w-auto"
                     >
                         {cancelText}
                     </Button>
@@ -67,6 +68,7 @@ export function ConfirmDialog({
                         variant={variant === 'destructive' ? 'destructive' : 'default'}
                         onClick={handleConfirm}
                         disabled={isProcessing || isLoading}
+                        className="w-full sm:w-auto"
                     >
                         {isProcessing || isLoading ? 'Processing...' : confirmText}
                     </Button>

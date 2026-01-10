@@ -149,8 +149,8 @@ export default function BillingAddressForm({
                             <label
                                 key={address.id}
                                 className={`flex items-start gap-3 p-3 border-2 rounded-lg cursor-pointer transition-colors ${selectedAddressId === address.id
-                                        ? "border-blue-500 bg-blue-50"
-                                        : "border-gray-200 hover:border-gray-300"
+                                    ? "border-blue-500 bg-blue-50"
+                                    : "border-gray-200 hover:border-gray-300"
                                     }`}
                             >
                                 <input
@@ -319,7 +319,7 @@ export default function BillingAddressForm({
                         <button
                             type="submit"
                             disabled={isSubmitting}
-                            className="flex-1 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
+                            className="flex-1 px-6 py-2 bg-[#008ECC] text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
                         >
                             {isSubmitting ? "Creating..." : "Create Address"}
                         </button>

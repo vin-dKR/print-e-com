@@ -9,6 +9,8 @@ import { useCart } from "@/contexts/CartContext";
 import { BarsSpinner } from "@/app/components/shared/BarsSpinner";
 import { toastError } from "@/lib/utils/toast";
 import { useConfirm } from "@/lib/hooks/use-confirm";
+import { ShoppingCart } from "lucide-react";
+import Link from "next/link";
 
 function CartPageContent() {
     const {
@@ -76,7 +78,7 @@ function CartPageContent() {
             description: 'Are you sure you want to remove this item from your cart?',
             confirmText: 'Remove',
             cancelText: 'Cancel',
-            variant: 'default',
+            variant: 'destructive',
             onConfirm: async () => {
                 const success = await removeItem(id);
                 if (!success) {
@@ -123,14 +125,20 @@ function CartPageContent() {
                         {/* Left Column - Cart Items */}
                         <div className="lg:col-span-2">
                             {items.length === 0 ? (
-                                <div className="bg-white rounded-lg shadow-md p-12 text-center">
-                                    <p className="text-gray-600 text-lg mb-4">Your cart is empty</p>
-                                    <a
+                                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 sm:p-12 text-center">
+                                    <div className="w-16 h-16 mx-auto mb-5 rounded-full bg-gray-50 flex items-center justify-center">
+                                        <ShoppingCart className="text-gray-400 w-8 h-8" strokeWidth={1.5} />
+                                    </div>
+                                    <p className="text-lg font-semibold text-gray-900 mb-2">Your cart is empty</p>
+                                    <p className="text-gray-500 text-sm mb-6 max-w-md mx-auto">
+                                        Looks like you haven't added anything to your cart yet. Start shopping to add items.
+                                    </p>
+                                    <Link
                                         href="/products"
-                                        className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
+                                        className="inline-flex items-center justify-center px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-[#008ECC] active:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow font-medium"
                                     >
                                         Continue Shopping
-                                    </a>
+                                    </Link>
                                 </div>
                             ) : (
                                 <div className="space-y-4 border border-gray-100 rounded-2xl p-4 pb-0">

@@ -21,16 +21,16 @@ export default function HeroSection() {
     };
 
     return (
-        <section className="h-[600px] bg-white border-t border-gray-100 w-full py-10 px-10 flex items-center justify-center overflow-hidden">
+        <section className="h-[600px] bg-white border-t border-gray-100 w-full py-4 px-4 md:py-10 md:px-10 flex items-center justify-center overflow-hidden">
             {/* Background Image Overlay */}
-            <div className="relative w-full h-full rounded rounded-2xl">
+            <div className="relative w-full h-full rounded-2xl flex items-center justify-center">
                 <div className="absolute inset-0 rounded-[50px] bg-[url('/images/hero-image.png')] bg-cover bg-center opacity-90"></div>
                 <div className="absolute inset-0 rounded-[50px] bg-gradient-to-b from-black/50 to-black/40"></div>
                 {/* Content */}
-                <div className="relative z-10 max-w-4xl mx-auto px-6 py-16 text-center">
+                <div className="relative z-10 max-w-4xl mx-auto px-4 py-8 md:px-6 text-center">
                     {/* Main Title */}
-                    <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-8 font-serif italic">
-                        Change Your wardrobe. Find exciting goods.
+                    <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold text-white mb-6 md:mb-8 font-serif italic">
+                        Print Your Vision.<br className="hidden md:block" /> Quality Printing Services.
                     </h1>
 
                     {/* Search Bar */}
@@ -45,7 +45,7 @@ export default function HeroSection() {
                             />
                             <button
                                 type="submit"
-                                className="absolute right-2 w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center hover:bg-blue-700 transition-colors"
+                                className="absolute right-2 w-12 h-12 bg-[#008ECC] rounded-full flex items-center justify-center hover:bg-blue-700 transition-colors"
                                 aria-label="Search"
                             >
                                 <svg

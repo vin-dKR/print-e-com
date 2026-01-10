@@ -38,7 +38,7 @@ export default function PaymentMethod() {
                             </p>
                         </div>
                         <div className="ml-4">
-                            <div className="w-16 h-10 bg-blue-600 rounded flex items-center justify-center text-white font-bold text-xs">
+                            <div className="w-16 h-10 bg-[#008ECC] rounded flex items-center justify-center text-white font-bold text-xs">
                                 PayPal
                             </div>
                         </div>

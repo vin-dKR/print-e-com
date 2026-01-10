@@ -72,7 +72,7 @@ export default function ProtectedRoute({
                     <div className="space-y-3">
                         <Link
                             href="/auth/login"
-                            className="block w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                            className="block w-full px-6 py-3 bg-[#008ECC] text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
                         >
                             Sign In
                         </Link>

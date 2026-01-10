@@ -358,7 +358,7 @@ export function CategoryImages({ categoryId }: CategoryImagesProps) {
                                                 unoptimized={image.url?.includes('amazonaws.com') || image.url?.includes('s3.')}
                                             />
                                             {image.isPrimary && (
-                                                <div className="absolute top-2 left-2 rounded bg-blue-600 px-2 py-1 text-xs font-medium text-white">
+                                                <div className="absolute top-2 left-2 rounded bg-[#008ECC] px-2 py-1 text-xs font-medium text-white">
                                                     Primary
                                                 </div>
                                             )}

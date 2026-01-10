@@ -35,6 +35,7 @@ interface ProductPageTemplateProps {
     productId?: string | null;
     images?: Array<{ id: string; src: string; alt: string; thumbnailSrc?: string }>;
     minQuantity?: number;
+    areRequiredFieldsFilled?: boolean;
 }
 
 export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
@@ -58,8 +59,10 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
     productId,
     images = [],
     minQuantity = 1,
+    areRequiredFieldsFilled = false,
 }) => {
     const router = useRouter();
+    const outOfStock = isOutOfStock || (stock !== null && stock !== undefined && stock <= 0);
 
     // Transform breadcrumb items to match Breadcrumbs component format
     const breadcrumbsFormatted = breadcrumbItems.map(item => ({
@@ -67,10 +70,8 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
         href: item.href,
         isActive: item.isActive
     }));
-
-    const outOfStock = isOutOfStock || (stock !== null && stock !== undefined && stock <= 0);
     return (
-        <div className="min-h-screen bg-white py-8">
+        <div className="min-h-screen bg-white py-8 pb-24">
             <div className="w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-30">
                 {/* Breadcrumbs - Hidden on mobile, shown on tablet and above */}
                 <div className="hidden sm:block mb-6">
@@ -91,66 +92,64 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
                 </div>
 
                 {/* Main Product Section - Matching product detail layout */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-12">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 mb-12">
                     {/* Left Column - Product Images & Configuration (7/12 on desktop) */}
-                    <div className="lg:col-span-7">
-                        <div className="sticky top-24 space-y-6 max-h-[calc(100vh-120px)] overflow-y-auto">
-                            {/* Product Gallery */}
-                            <div className="bg-white p-2 rounded-xl border border-gray-200">
-                                <ProductGallery
-                                    images={images}
-                                    fallbackIcon={<ShoppingCart className="w-24 h-24 text-[#008ECC]" />}
-                                />
-                            </div>
+                    <div className="lg:col-span-7 space-y-4 sm:space-y-5">
+                        {/* Product Gallery */}
+                        <div className="bg-white p-3 sm:p-4 rounded-2xl border border-gray-100 shadow-sm">
+                            <ProductGallery
+                                images={images}
+                                fallbackIcon={<ShoppingCart className="w-24 h-24 text-[#008ECC]" />}
+                            />
+                        </div>
 
-                            {/* File Upload Section */}
-                            <div className="bg-gray-50 p-4 sm:p-6 rounded-xl">
-                                <ProductDocumentUpload
-                                    onFileSelect={(files: File[], totalQuantity: number) => {
-                                        // Use the new callback if provided, otherwise use legacy callback
-                                        if (onFileSelectWithQuantity) {
-                                            onFileSelectWithQuantity(files, totalQuantity);
-                                        } else {
-                                            // Legacy: pass first file to onFileSelect
-                                            const firstFile: File | null = files.length > 0 && files[0] ? files[0] : null;
-                                            onFileSelect(firstFile);
-                                        }
-                                    }}
-                                    onQuantityChange={(calculatedQuantity: number) => {
-                                        // Call the quantity change callback if provided
-                                        if (onQuantityChange && calculatedQuantity > 0) {
-                                            onQuantityChange(calculatedQuantity);
-                                        }
-                                    }}
-                                    maxSizeMB={50}
-                                />
-                            </div>
+                        {/* File Upload Section */}
+                        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-100 shadow-sm">
+                            <ProductDocumentUpload
+                                onFileSelect={(files: File[], totalQuantity: number) => {
+                                    // Use the new callback if provided, otherwise use legacy callback
+                                    if (onFileSelectWithQuantity) {
+                                        onFileSelectWithQuantity(files, totalQuantity);
+                                    } else {
+                                        // Legacy: pass first file to onFileSelect
+                                        const firstFile: File | null = files.length > 0 && files[0] ? files[0] : null;
+                                        onFileSelect(firstFile);
+                                    }
+                                }}
+                                onQuantityChange={(calculatedQuantity: number) => {
+                                    // Call the quantity change callback if provided
+                                    if (onQuantityChange && calculatedQuantity > 0) {
+                                        onQuantityChange(calculatedQuantity);
+                                    }
+                                }}
+                                maxSizeMB={50}
+                            />
+                        </div>
 
-                            {/* Configuration Options */}
-                            <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200">
-                                <h3 className="text-lg font-semibold text-gray-900 mb-4">Customize Your Order</h3>
-                                {children}
-                            </div>
+                        {/* Configuration Options */}
+                        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-100 shadow-sm">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Customize Your Order</h3>
+                            {children}
                         </div>
                     </div>
 
                     {/* Right Column - Product Info & Pricing (5/12 on desktop) */}
                     <div className="lg:col-span-5">
-                        <div className="sticky top-24 space-y-6">
+                        <div className="sticky top-24 space-y-4 sm:space-y-6">
                             {/* Product Title */}
-                            <div>
-                                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
+                            <div className="bg-white p-5 sm:p-6 rounded-2xl border border-gray-100 shadow-sm">
+                                <h1 className="text-2xl sm:text-3xl font-semibold text-gray-900 mb-3">
                                     {productData.title || 'Service'}
                                 </h1>
                                 {productData.description && (
-                                    <p className="text-gray-600 text-sm mt-2">
+                                    <p className="text-gray-500 text-sm leading-relaxed">
                                         {productData.description}
                                     </p>
                                 )}
                             </div>
 
                             {/* Price Section */}
-                            <div className="bg-gray-50 p-4 sm:p-6 rounded-xl">
+                            <div className="bg-white p-5 sm:p-6 rounded-2xl border border-gray-100 shadow-sm">
                                 <PriceBreakdown
                                     items={priceItems}
                                     total={totalPrice}
@@ -181,37 +180,36 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
                                     </div>
                                 )}
                                 {/* Tax Info */}
-                                <div className="mt-2 text-sm text-green-600 font-medium">
+                                <div className="mt-4 pt-4 border-t border-gray-100 text-xs text-gray-500">
                                     Inclusive of all taxes
                                 </div>
                             </div>
 
                             {/* Features */}
                             {productData.features && productData.features.length > 0 && (
-                                <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200">
-                                    <h3 className="font-semibold text-gray-900 mb-3">Features</h3>
+                                <div className="bg-white p-4 sm:p-6 rounded-2xl border border-gray-100 shadow-sm">
+                                    <h3 className="font-semibold text-gray-900 mb-4">Features</h3>
                                     <ProductFeatures features={productData.features} />
                                 </div>
                             )}
 
                             {/* Action Buttons */}
-                            <div className="mt-6 space-y-3">
+                            <div className="space-y-3">
                                 <Button
                                     variant="primary"
                                     size="lg"
                                     icon={ShoppingCart}
                                     fullWidth
-                                    disabled={(!uploadedFile && !onFileSelectWithQuantity) || outOfStock}
+                                    isLoading={addToCartLoading}
+                                    disabled={!areRequiredFieldsFilled || outOfStock || addToCartLoading}
                                     onClick={isInCart ? () => router.push('/cart') : onAddToCart}
-                                    className="text-base"
+                                    className="text-base font-medium"
                                 >
                                     {outOfStock
                                         ? 'Out of Stock'
-                                        : (!uploadedFile && !onFileSelectWithQuantity)
-                                            ? 'Upload File to Continue'
-                                            : isInCart
-                                                ? 'Go to Cart'
-                                                : `Add to Cart - ₹${totalPrice.toFixed(2)}`
+                                        : isInCart
+                                            ? 'Go to Cart'
+                                            : `Add to Cart - ₹${totalPrice.toFixed(2)}`
                                     }
                                 </Button>
 
@@ -219,9 +217,10 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
                                     variant="primary"
                                     size="lg"
                                     fullWidth
-                                    disabled={(!uploadedFile && !onFileSelectWithQuantity) || outOfStock}
+                                    isLoading={buyNowLoading}
+                                    disabled={!areRequiredFieldsFilled || outOfStock || buyNowLoading}
                                     onClick={onBuyNow}
-                                    className='font-hkgb'
+                                    className="font-medium"
                                 >
                                     {outOfStock ? 'Out of Stock' : 'Buy Now'}
                                 </Button>
@@ -232,15 +231,21 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
             </div>
 
             {/* Fixed Mobile Action Bar */}
-            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-300 shadow-lg sm:hidden z-50">
+            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg sm:hidden z-50 pb-safe">
                 <div className="flex p-4 gap-3">
                     <button
                         onClick={isInCart ? () => router.push('/cart') : onAddToCart}
-                        disabled={(!uploadedFile && !onFileSelectWithQuantity) || (isInCart ? false : addToCartLoading)}
-                        className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2"
+                        disabled={!areRequiredFieldsFilled || outOfStock || addToCartLoading}
+                        className="flex-1 px-4 py-3 bg-blue-500 text-white rounded-lg font-medium hover:bg-[#008ECC] active:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-400 flex items-center justify-center gap-2"
                     >
-                        {(!uploadedFile && !onFileSelectWithQuantity)
-                            ? 'Upload File'
+                        {addToCartLoading && (
+                            <svg className="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        )}
+                        {outOfStock
+                            ? 'Out of Stock'
                             : isInCart
                                 ? 'Go to Cart'
                                 : addToCartLoading
@@ -250,10 +255,16 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
                     </button>
                     <button
                         onClick={onBuyNow}
-                        disabled={(!uploadedFile && !onFileSelectWithQuantity) || buyNowLoading}
-                        className="flex-1 px-4 py-3 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed cursor-pointer"
+                        disabled={!areRequiredFieldsFilled || outOfStock || buyNowLoading}
+                        className="flex-1 px-4 py-3 bg-orange-500 text-white rounded-lg font-medium hover:bg-orange-600 active:bg-orange-700 transition-all duration-200 shadow-sm hover:shadow disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-400 flex items-center justify-center gap-2"
                     >
-                        {buyNowLoading ? 'Processing...' : 'Buy Now'}
+                        {buyNowLoading && (
+                            <svg className="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        )}
+                        {buyNowLoading ? 'Processing...' : outOfStock ? 'Out of Stock' : 'Buy Now'}
                     </button>
                 </div>
             </div>

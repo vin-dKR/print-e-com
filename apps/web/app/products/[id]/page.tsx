@@ -237,7 +237,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                             </button>
                             <button
                                 onClick={() => router.push("/products")}
-                                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
+                                className="px-6 py-2 bg-[#008ECC] text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
                             >
                                 Browse Products
                             </button>
@@ -565,7 +565,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
     }));
 
     return (
-        <div className="min-h-screen bg-white py-8">
+        <div className="min-h-screen bg-white py-8 pb-24 sm:pb-8">
             <div className="w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-30">
                 {/* Breadcrumbs - Hidden on mobile, shown on tablet and above */}
                 <div className="hidden sm:block mb-6">
@@ -585,177 +585,209 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                     </button>
                 </div>
 
-                {/* Main Product Section - Flipkart Style */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-12">
+                {/* Main Product Section */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 lg:gap-8 mb-12">
                     {/* Left Column - Product Images (5/12 on desktop) */}
-                    <div className="lg:col-span-5">
-                        <div className="sticky flex gap-0 lg:gap-4 top-24">
-                            {/* Product Images Container */}
+                    <div className="lg:col-span-5 space-y-4 sm:space-y-5">
+                        {/* Desktop: Thumbnails and Main Image */}
+                        <div className="hidden lg:flex gap-4">
+                            {/* Vertical Thumbnails */}
                             {productImages.length > 1 && (
-                                <div className="lg:order-first lg:w-20">
-                                    {/* Desktop: Vertical Thumbnails */}
-                                    <div className="hidden lg:flex flex-col gap-3">
-                                        {productImages.map((img, index) => (
-                                            <button
-                                                key={index}
-                                                onClick={() => setCurrentImageIndex(index)}
-                                                className={`shrink-0 w-20 h-20 rounded-lg border-2 overflow-hidden transition-all cursor-pointer ${currentImageIndex === index
-                                                    ? "border-blue-600 scale-105 shadow-md"
-                                                    : "border-gray-200 hover:border-gray-300"
-                                                    }`}
-                                            >
-                                                <img
-                                                    src={img}
-                                                    alt={`Thumbnail ${index + 1}`}
-                                                    className="w-full h-full object-cover"
-                                                />
-                                            </button>
-                                        ))}
-                                    </div>
+                                <div className="flex flex-col gap-3">
+                                    {productImages.map((img, index) => (
+                                        <button
+                                            key={index}
+                                            onClick={() => setCurrentImageIndex(index)}
+                                            className={`shrink-0 w-20 h-20 rounded-lg border-2 overflow-hidden transition-all cursor-pointer ${currentImageIndex === index
+                                                ? "border-blue-600 scale-105 shadow-md"
+                                                : "border-gray-200 hover:border-gray-300"
+                                                }`}
+                                        >
+                                            <img
+                                                src={img}
+                                                alt={`Thumbnail ${index + 1}`}
+                                                className="w-full h-full object-cover"
+                                            />
+                                        </button>
+                                    ))}
                                 </div>
                             )}
 
-                            <div className="bg-white p-2 rounded-xl border border-gray-200">
-                                <div className="relative flex flex-col lg:flex-row gap-4 lg:gap-6">
-                                    {/* Main Image Container */}
-                                    <div className={`${productImages.length > 1 ? 'lg:flex-1' : 'w-full'}`}>
-                                        {/* Main Image */}
-                                        <div className="aspect-square relative overflow-hidden rounded-lg bg-gray-50">
-                                            {productImages[currentImageIndex] ? (
-                                                <img
-                                                    src={productImages[currentImageIndex]}
-                                                    alt={product.name}
-                                                    className="w-full h-full object-contain"
-                                                    onError={(e) => {
-                                                        console.error('Image load error:', productImages[currentImageIndex]);
-                                                        const target = e.target as HTMLImageElement;
-                                                        target.style.display = 'none';
-                                                        // Show fallback
-                                                        const parent = target.parentElement;
-                                                        if (parent && !parent.querySelector('.image-fallback')) {
-                                                            const fallback = document.createElement('div');
-                                                            fallback.className = 'image-fallback w-full h-full flex items-center justify-center text-gray-400 bg-gray-100';
-                                                            fallback.textContent = product.name || 'Image not available';
-                                                            parent.appendChild(fallback);
-                                                        }
-                                                    }}
-                                                />
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center text-gray-400">
-                                                    No image available
-                                                </div>
-                                            )}
-
-                                            {/* Zoom Indicator (optional) */}
-                                            <button
-                                                className="absolute top-3 right-3 p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-lg hover:bg-white transition-colors cursor-pointer"
-                                                onClick={() => {
-                                                    // Implement zoom/modal view here
-                                                    console.log("Open image zoom");
+                            {/* Main Image Container */}
+                            <div className="flex-1">
+                                <div className="bg-white p-3 sm:p-4 rounded-2xl border border-gray-100 shadow-sm">
+                                    <div className="aspect-square relative overflow-hidden rounded-lg bg-gray-50">
+                                        {productImages[currentImageIndex] ? (
+                                            <img
+                                                src={productImages[currentImageIndex]}
+                                                alt={product.name}
+                                                className="w-full h-full object-contain"
+                                                onError={(e) => {
+                                                    console.error('Image load error:', productImages[currentImageIndex]);
+                                                    const target = e.target as HTMLImageElement;
+                                                    target.style.display = 'none';
+                                                    // Show fallback
+                                                    const parent = target.parentElement;
+                                                    if (parent && !parent.querySelector('.image-fallback')) {
+                                                        const fallback = document.createElement('div');
+                                                        fallback.className = 'image-fallback w-full h-full flex items-center justify-center text-gray-400 bg-gray-100';
+                                                        fallback.textContent = product.name || 'Image not available';
+                                                        parent.appendChild(fallback);
+                                                    }
                                                 }}
-                                            >
-                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                    <circle cx="11" cy="11" r="8"></circle>
-                                                    <path d="m21 21-4.35-4.35"></path>
-                                                </svg>
-                                            </button>
-                                        </div>
+                                            />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center text-gray-400">
+                                                No image available
+                                            </div>
+                                        )}
+
+                                        {/* Zoom Indicator */}
+                                        <button
+                                            className="absolute top-3 right-3 p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-lg hover:bg-white transition-colors cursor-pointer"
+                                            onClick={() => {
+                                                console.log("Open image zoom");
+                                            }}
+                                        >
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                <circle cx="11" cy="11" r="8"></circle>
+                                                <path d="m21 21-4.35-4.35"></path>
+                                            </svg>
+                                        </button>
 
                                         {/* Image Navigation Controls */}
                                         {productImages.length > 1 && (
                                             <>
-                                                {/* Previous Button */}
                                                 <button
                                                     onClick={() => setCurrentImageIndex(prev =>
                                                         prev === 0 ? productImages.length - 1 : prev - 1
                                                     )}
-                                                    className="hidden lg:block absolute left-0 top-1/2 -translate-y-1/2 p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-lg hover:bg-white transition-colors cursor-pointer"
+                                                    className="absolute left-3 top-1/2 -translate-y-1/2 p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-lg hover:bg-white transition-colors cursor-pointer"
                                                 >
                                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                                         <path d="M15 18l-6-6 6-6" />
                                                     </svg>
                                                 </button>
 
-                                                {/* Next Button */}
                                                 <button
                                                     onClick={() => setCurrentImageIndex(prev =>
                                                         prev === productImages.length - 1 ? 0 : prev + 1
                                                     )}
-                                                    className="hidden lg:block absolute right-0 top-1/2 -translate-y-1/2 p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-lg hover:bg-white transition-colors cursor-pointer"
+                                                    className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-lg hover:bg-white transition-colors cursor-pointer"
                                                 >
                                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                                         <path d="M9 18l6-6-6-6" />
                                                     </svg>
                                                 </button>
 
-                                                {/* Mobile Navigation Dots */}
-                                                <div className="lg:hidden flex justify-center gap-2 mt-4">
-                                                    {productImages.map((_, index) => (
-                                                        <button
-                                                            key={index}
-                                                            onClick={() => setCurrentImageIndex(index)}
-                                                            className={`w-2 h-2 rounded-full cursor-pointer ${currentImageIndex === index
-                                                                ? "bg-blue-600"
-                                                                : "bg-gray-300"
-                                                                }`}
-                                                        />
-                                                    ))}
+                                                {/* Image Counter */}
+                                                <div className="absolute bottom-3 right-3 px-2 py-1 bg-black/60 backdrop-blur-sm rounded-full text-white text-xs">
+                                                    {currentImageIndex + 1} / {productImages.length}
                                                 </div>
                                             </>
                                         )}
-
-                                        {/* Image Counter */}
-                                        {productImages.length > 1 && (
-                                            <div className="absolute bottom-3 right-3 px-2 py-1 bg-black/60 backdrop-blur-sm rounded-full text-white text-xs">
-                                                {currentImageIndex + 1} / {productImages.length}
-                                            </div>
-                                        )}
                                     </div>
+
+                                    {/* View All Images Button */}
+                                    {productImages.length > 4 && (
+                                        <div className="mt-4 text-center">
+                                            <button className="text-blue-600 text-sm font-medium hover:underline cursor-pointer">
+                                                View all {productImages.length} images
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
-
-                                {/* View All Images Button */}
-                                {productImages.length > 4 && (
-                                    <div className="mt-4 text-center">
-                                        <button className="text-blue-600 text-sm font-medium hover:underline cursor-pointer">
-                                            View all {productImages.length} images
-                                        </button>
-                                    </div>
-                                )}
                             </div>
                         </div>
-                    </div>
 
-                    {/* Mobile: Horizontal Scroll Thumbnails */}
-                    <div className="lg:hidden flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
-                        {productImages.map((img, index) => (
-                            <button
-                                key={index}
-                                onClick={() => setCurrentImageIndex(index)}
-                                className={`shrink-0 w-16 h-16 rounded-lg border-2 overflow-hidden cursor-pointer ${currentImageIndex === index
-                                    ? "border-blue-600"
-                                    : "border-gray-200"
-                                    }`}
-                            >
-                                <img
-                                    src={img}
-                                    alt={`Thumbnail ${index + 1}`}
-                                    className="w-full h-full object-cover"
-                                />
-                            </button>
-                        ))}
+                        {/* Mobile: Main Image */}
+                        <div className="lg:hidden">
+                            <div className="bg-white p-3 rounded-2xl border border-gray-100 shadow-sm">
+                                <div className="aspect-square relative overflow-hidden rounded-lg bg-gray-50">
+                                    {productImages[currentImageIndex] ? (
+                                        <img
+                                            src={productImages[currentImageIndex]}
+                                            alt={product.name}
+                                            className="w-full h-full object-contain"
+                                            onError={(e) => {
+                                                console.error('Image load error:', productImages[currentImageIndex]);
+                                                const target = e.target as HTMLImageElement;
+                                                target.style.display = 'none';
+                                                const parent = target.parentElement;
+                                                if (parent && !parent.querySelector('.image-fallback')) {
+                                                    const fallback = document.createElement('div');
+                                                    fallback.className = 'image-fallback w-full h-full flex items-center justify-center text-gray-400 bg-gray-100';
+                                                    fallback.textContent = product.name || 'Image not available';
+                                                    parent.appendChild(fallback);
+                                                }
+                                            }}
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-gray-400">
+                                            No image available
+                                        </div>
+                                    )}
+
+                                    {/* Mobile Navigation Dots */}
+                                    {productImages.length > 1 && (
+                                        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+                                            {productImages.map((_, index) => (
+                                                <button
+                                                    key={index}
+                                                    onClick={() => setCurrentImageIndex(index)}
+                                                    className={`w-2 h-2 rounded-full cursor-pointer transition-all ${currentImageIndex === index
+                                                        ? "bg-[#008ECC]"
+                                                        : "bg-gray-300"
+                                                        }`}
+                                                />
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {/* Image Counter */}
+                                    {productImages.length > 1 && (
+                                        <div className="absolute top-3 right-3 px-2 py-1 bg-black/60 backdrop-blur-sm rounded-full text-white text-xs">
+                                            {currentImageIndex + 1} / {productImages.length}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Mobile: Horizontal Scroll Thumbnails */}
+                        {productImages.length > 1 && (
+                            <div className="lg:hidden flex gap-2 overflow-x-auto pb-2">
+                                {productImages.map((img, index) => (
+                                    <button
+                                        key={index}
+                                        onClick={() => setCurrentImageIndex(index)}
+                                        className={`shrink-0 w-16 h-16 rounded-lg border-2 overflow-hidden cursor-pointer transition-all ${currentImageIndex === index
+                                            ? "border-blue-600"
+                                            : "border-gray-200"
+                                            }`}
+                                    >
+                                        <img
+                                            src={img}
+                                            alt={`Thumbnail ${index + 1}`}
+                                            className="w-full h-full object-cover"
+                                        />
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     {/* Right Column - Product Info (7/12 on desktop) */}
                     <div className="lg:col-span-7">
-                        <div className="space-y-6">
+                        <div className="space-y-4 sm:space-y-5">
                             {/* Product Title and Actions */}
-                            <div>
-                                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
+                            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-100 shadow-sm">
+                                <h1 className="text-2xl sm:text-3xl font-semibold text-gray-900 mb-3">
                                     {product.name}
                                 </h1>
 
                                 {/* Rating and Actions Row */}
-                                <div className="flex flex-wrap items-center justify-between gap-4 mt-4">
+                                <div className="flex flex-wrap items-center justify-between gap-4">
                                     <div className="flex items-center gap-4">
                                         <ProductRating
                                             rating={product.rating ? Number(product.rating) : 0}
@@ -788,7 +820,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                             </div>
 
                             {/* Price Section */}
-                            <div className="bg-gray-50 p-4 sm:p-6 rounded-xl">
+                            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-100 shadow-sm">
                                 <PriceDisplay
                                     currentPrice={currentPrice}
                                     originalPrice={originalPrice}
@@ -804,7 +836,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                                             </svg>
                                             <span className="text-sm font-medium text-red-800">Out of Stock</span>
                                         </div>
-                                        <p className="mt-1 text-xs text-red-600">
+                                        <p className="mt-1 text-xs text-red-600 leading-relaxed">
                                             This product is currently unavailable. Please check back later or contact us for availability.
                                         </p>
                                     </div>
@@ -822,75 +854,78 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                                 )}
 
                                 {/* Tax Info */}
-                                <div className="mt-2 text-sm text-green-600 font-medium">
+                                <div className="mt-2 text-sm text-gray-500 font-medium">
                                     Inclusive of all taxes
                                 </div>
                             </div>
 
                             {/* Short Description */}
                             {product.shortDescription && (
-                                <div className="p-4 bg-gray-50 rounded-lg">
-                                    <h3 className="font-medium text-gray-900 mb-2">Description</h3>
-                                    <p className="text-gray-600 text-sm">{product.shortDescription}</p>
+                                <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-100 shadow-sm">
+                                    <h3 className="font-semibold text-gray-900 mb-2">Description</h3>
+                                    <p className="text-gray-500 text-sm leading-relaxed">{product.shortDescription}</p>
                                 </div>
                             )}
 
                             {/* Customization Options */}
-                            <div className="space-y-6 border-t border-gray-300 pt-6">
-                                {/* Upload Document */}
-                                <ProductDocumentUpload
-                                    onFileSelect={handleFileSelect}
-                                    onQuantityChange={(calculatedQuantity) => {
-                                        // Update minimum quantity
-                                        if (calculatedQuantity > 0) {
-                                            setMinQuantityFromFiles(calculatedQuantity);
-                                            // Only auto-update if current quantity is less
-                                            if (quantity < calculatedQuantity) {
-                                                setQuantity(calculatedQuantity);
+                            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-100 shadow-sm">
+                                <h3 className="text-lg font-semibold text-gray-900 mb-4">Customize Your Order</h3>
+                                <div className="space-y-5">
+                                    {/* Upload Document */}
+                                    <ProductDocumentUpload
+                                        onFileSelect={handleFileSelect}
+                                        onQuantityChange={(calculatedQuantity) => {
+                                            // Update minimum quantity
+                                            if (calculatedQuantity > 0) {
+                                                setMinQuantityFromFiles(calculatedQuantity);
+                                                // Only auto-update if current quantity is less
+                                                if (quantity < calculatedQuantity) {
+                                                    setQuantity(calculatedQuantity);
+                                                }
                                             }
-                                        }
-                                    }}
-                                    maxSizeMB={50}
-                                />
-
-                                {/* Size/Variant Selector */}
-                                {sizes.length > 0 && (
-                                    <SizeSelector
-                                        sizes={sizes}
-                                        selectedSize={selectedSize}
-                                        onSizeChange={handleSizeChange}
+                                        }}
+                                        maxSizeMB={50}
                                     />
-                                )}
 
-                                {/* Quantity Selector */}
-                                <div>
-                                    <h3 className="font-medium text-gray-900 mb-3">Quantity</h3>
-                                    <QuantitySelector
-                                        quantity={quantity}
-                                        onQuantityChange={handleQuantityChange}
-                                        min={Math.max(product.minOrderQuantity || 1, minQuantityFromFiles)}
-                                        max={
-                                            product.maxOrderQuantity && product.maxOrderQuantity > 0
-                                                ? Math.min(product.maxOrderQuantity, product.stock)
-                                                : product.stock
-                                        }
-                                    />
-                                    <p className="mt-1 text-xs text-gray-500">
-                                        Min order: {Math.max(product.minOrderQuantity || 1, minQuantityFromFiles)}
-                                        {product.maxOrderQuantity
-                                            ? ` • Max per order: ${product.maxOrderQuantity}`
-                                            : ''}
-                                        {uploadedFiles.length > 0 && minQuantityFromFiles > 1 && (
-                                            <span className="block mt-1 text-blue-600">
-                                                Minimum quantity: {minQuantityFromFiles} (based on uploaded files)
-                                            </span>
-                                        )}
-                                    </p>
+                                    {/* Size/Variant Selector */}
+                                    {sizes.length > 0 && (
+                                        <SizeSelector
+                                            sizes={sizes}
+                                            selectedSize={selectedSize}
+                                            onSizeChange={handleSizeChange}
+                                        />
+                                    )}
+
+                                    {/* Quantity Selector */}
+                                    <div>
+                                        <h3 className="font-medium text-gray-900 mb-3">Quantity</h3>
+                                        <QuantitySelector
+                                            quantity={quantity}
+                                            onQuantityChange={handleQuantityChange}
+                                            min={Math.max(product.minOrderQuantity || 1, minQuantityFromFiles)}
+                                            max={
+                                                product.maxOrderQuantity && product.maxOrderQuantity > 0
+                                                    ? Math.min(product.maxOrderQuantity, product.stock)
+                                                    : product.stock
+                                            }
+                                        />
+                                        <p className="mt-1 text-xs text-gray-500">
+                                            Min order: {Math.max(product.minOrderQuantity || 1, minQuantityFromFiles)}
+                                            {product.maxOrderQuantity
+                                                ? ` • Max per order: ${product.maxOrderQuantity}`
+                                                : ''}
+                                            {uploadedFiles.length > 0 && minQuantityFromFiles > 1 && (
+                                                <span className="block mt-1 text-blue-600">
+                                                    Minimum quantity: {minQuantityFromFiles} (based on uploaded files)
+                                                </span>
+                                            )}
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
 
                             {/* Action Buttons - Desktop */}
-                            <div className="hidden sm:flex gap-4 pt-6 border-t border-gray-300">
+                            <div className="hidden sm:block space-y-3">
                                 <ProductActions
                                     stock={product.stock}
                                     onAddToCart={onAddToCart}
@@ -898,14 +933,15 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                                     addToCartLoading={cartLoading || uploadingFiles}
                                     buyNowLoading={buyNowLoading || uploadingFiles}
                                     isInCart={isInCart}
+                                    hasFiles={uploadedFiles.length > 0}
                                 />
                             </div>
 
                             {/* Seller Info */}
-                            <div className="bg-gray-50 p-4 rounded-lg">
+                            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-100 shadow-sm">
                                 <div className="flex items-center justify-between mb-3">
-                                    <div className="font-medium text-gray-900">Seller</div>
-                                    <button className="text-blue-600 text-sm hover:underline cursor-pointer">
+                                    <div className="font-semibold text-gray-900">Seller</div>
+                                    <button className="text-blue-600 text-sm hover:underline cursor-pointer font-medium">
                                         View Details
                                     </button>
                                 </div>
@@ -942,7 +978,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                 )}
 
                 {/* Fixed Mobile Action Bar */}
-                <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-300 shadow-lg sm:hidden z-50">
+                <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg sm:hidden z-50 pb-safe">
                     <div className="flex p-4 gap-3">
                         <ProductActions
                             stock={product.stock}
@@ -952,6 +988,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                             buyNowLoading={buyNowLoading || uploadingFiles}
                             isMobile
                             isInCart={isInCart}
+                            hasFiles={uploadedFiles.length > 0}
                         />
                     </div>
                 </div>

@@ -28,20 +28,20 @@ export default function CustomizableCarousel() {
     };
 
     return (
-        <section className="py-12 bg-white relative">
-            <div className="max-w-7xl mx-auto px-6">
+        <section className="py-10 bg-white relative">
+            <div className="w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-30">
                 <div className="relative">
                     {/* Carousel Container */}
-                    <div className="relative h-[400px] md:h-[500px] rounded-lg overflow-hidden">
+                    <div className="relative h-[300px] sm:h-[400px] md:h-[500px] rounded-2xl overflow-hidden bg-white border border-gray-100 shadow-sm">
                         {slides.map((slide, index) => (
                             <div
                                 key={slide.id}
                                 className={`absolute inset-0 transition-opacity duration-500 ${index === currentSlide ? "opacity-100" : "opacity-0"
                                     }`}
                             >
-                                <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
-                                    <div className="text-center">
-                                        <p className="text-gray-400 text-lg mb-2">{slide.title}</p>
+                                <div className="w-full h-full bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+                                    <div className="text-center px-4">
+                                        <p className="text-gray-600 text-base sm:text-lg mb-2 font-medium">{slide.title}</p>
                                         <p className="text-gray-500 text-sm">Slide {index + 1}</p>
                                     </div>
                                 </div>
@@ -55,9 +55,9 @@ export default function CustomizableCarousel() {
                             <button
                                 key={index}
                                 onClick={() => goToSlide(index)}
-                                className={`w-3 h-3 rounded-full transition-colors ${index === currentSlide
-                                        ? "bg-blue-600"
-                                        : "bg-blue-200 hover:bg-blue-300"
+                                className={`w-2.5 h-2.5 rounded-full transition-all duration-200 ${index === currentSlide
+                                    ? "bg-[#008ECC] w-8"
+                                    : "bg-gray-300 hover:bg-gray-400"
                                     }`}
                                 aria-label={`Go to slide ${index + 1}`}
                             />

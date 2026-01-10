@@ -7,7 +7,6 @@ import { useAuth } from "../../../contexts/AuthContext";
 import { useCart } from "../../../contexts/CartContext";
 import { BadgePercent, ShoppingCart, Truck, User, Menu, X, ChevronDown } from "lucide-react";
 import Image from "next/image";
-import { toastInfo } from "@/lib/utils/toast";
 
 // Component that uses useSearchParams - must be wrapped in Suspense
 function SearchParamsSync({
@@ -41,6 +40,7 @@ export default function Header() {
     const pathname = usePathname();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+    const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
     const [activeCategory, setActiveCategory] = useState<string | null>(null);
     const [hoveredCategory, setHoveredCategory] = useState<string | null>(null);
@@ -163,7 +163,7 @@ export default function Header() {
                         />
                     </Link>
 
-                    {/* Search Bar - Hide on small mobile, show from sm */}
+                    {/* Search Bar - Desktop only */}
                     <form
                         className="hidden sm:flex flex-1 max-w-3xl gap-2"
                         onSubmit={(e) => {
@@ -212,30 +212,68 @@ export default function Header() {
                         </button>
                     </form>
 
-                    {/* Mobile Search Button - Show only on small screens */}
-                    <button
-                        className="sm:hidden text-gray-700 p-2"
-                        onClick={() => {
-                            // You can implement a mobile search modal or slide-in here
-                            toastInfo("Mobile search feature coming soon");
-                        }}
-                        aria-label="Search"
-                    >
-                        <svg
-                            width="24"
-                            height="24"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            className="text-blue-600"
-                        >
-                            <circle cx="11" cy="11" r="8"></circle>
-                            <path d="m21 21-4.35-4.35"></path>
-                        </svg>
-                    </button>
+                    {/* Mobile Search Modal */}
+                    {isSearchOpen && (
+                        <div className="sm:hidden fixed inset-0 z-50 bg-white">
+                            <div className="flex flex-col h-full">
+                                {/* Search Header */}
+                                <div className="flex items-center gap-3 p-4 border-b border-gray-200">
+                                    <form
+                                        className="flex-1 flex gap-2"
+                                        onSubmit={(e) => {
+                                            e.preventDefault();
+                                            if (searchQuery.trim()) {
+                                                setIsSearchOpen(false);
+                                                window.location.href = `/products?search=${encodeURIComponent(searchQuery.trim())}`;
+                                            }
+                                        }}
+                                    >
+                                        <div className="relative flex-1 flex items-center bg-[#F3F9FB] rounded-lg border border-gray-200 px-3 py-2">
+                                            <svg
+                                                width="20"
+                                                height="20"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                strokeWidth="2"
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                className="text-gray-400 mr-2"
+                                            >
+                                                <circle cx="11" cy="11" r="8"></circle>
+                                                <path d="m21 21-4.35-4.35"></path>
+                                            </svg>
+                                            <input
+                                                type="text"
+                                                placeholder="Search for products..."
+                                                value={searchQuery}
+                                                onChange={(e) => setSearchQuery(e.target.value)}
+                                                className="flex-1 bg-transparent outline-none text-gray-700 placeholder:text-gray-400"
+                                                autoFocus
+                                            />
+                                        </div>
+                                        <button
+                                            type="submit"
+                                            className="px-4 py-2 bg-[#008ECC] text-white rounded-lg hover:bg-[#0077B5] transition-colors font-medium"
+                                            disabled={!searchQuery.trim()}
+                                        >
+                                            Search
+                                        </button>
+                                    </form>
+                                    <button
+                                        onClick={() => {
+                                            setIsSearchOpen(false);
+                                            setSearchQuery("");
+                                        }}
+                                        className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                                        aria-label="Close search"
+                                    >
+                                        <X size={24} />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Right Actions */}
                     <div className="flex items-center gap-2 sm:gap-4 shrink-0">
@@ -354,19 +392,41 @@ export default function Header() {
                         {/* Separator - Hide on mobile */}
                         <div className="h-6 w-px bg-gray-300 hidden sm:block"></div>
 
-                        {/* Cart */}
+                        {/* Cart - Hide on mobile, show from sm */}
                         <Link
                             href="/cart"
-                            className="flex items-center gap-2 text-gray-700 hover:text-blue-600 transition-colors relative p-2"
+                            className="hidden sm:flex items-center gap-2 text-gray-700 hover:text-blue-600 transition-colors relative p-2"
                         >
                             <ShoppingCart size={22} color="#008ECC" strokeWidth={2} />
-                            <span className="text-sm font-bold font-hkgb hidden sm:inline">Cart</span>
+                            <span className="text-sm font-bold font-hkgb hidden lg:inline">Cart</span>
                             {cartItemCount > 0 && (
-                                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-semibold px-1.5 py-0.5 rounded-full min-w-[1.25rem] text-center">
+                                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-semibold px-1.5 py-0.5 rounded-full min-w-5 text-center">
                                     {cartItemCount}
                                 </span>
                             )}
                         </Link>
+
+                        {/* Mobile Search Button */}
+                        <button
+                            className="sm:hidden text-gray-700 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                            onClick={() => setIsSearchOpen(true)}
+                            aria-label="Search"
+                        >
+                            <svg
+                                width="24"
+                                height="24"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                className="text-blue-600"
+                            >
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <path d="m21 21-4.35-4.35"></path>
+                            </svg>
+                        </button>
 
                         {/* Mobile Menu Button */}
                         <button
@@ -513,7 +573,7 @@ export default function Header() {
                                 <div className="mb-6">
                                     <Link
                                         href="/auth/login"
-                                        className="block w-full mb-2 px-4 py-3 bg-blue-600 text-white text-center rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                                        className="block w-full mb-2 px-4 py-3 bg-[#008ECC] text-white text-center rounded-lg font-medium hover:bg-blue-700 transition-colors"
                                         onClick={() => setIsMenuOpen(false)}
                                     >
                                         Sign In

@@ -236,7 +236,7 @@ function CheckoutPageContent() {
                         <p className="text-gray-600 text-lg mb-4">Your cart is empty</p>
                         <a
                             href="/products"
-                            className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
+                            className="inline-block px-6 py-3 bg-[#008ECC] text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
                         >
                             Continue Shopping
                         </a>

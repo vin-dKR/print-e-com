@@ -19,12 +19,12 @@ export const Dialog: React.FC<DialogProps> = ({ open, onOpenChange, children }) 
     if (!open) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div
-                className="fixed inset-0 bg-black/50"
+                className="fixed inset-0 bg-black/30 backdrop-blur-sm transition-opacity"
                 onClick={() => onOpenChange?.(false)}
             />
-            <div className="relative z-50">
+            <div className="relative z-50 w-full max-w-sm transform transition-all">
                 {children}
             </div>
         </div>
@@ -33,7 +33,7 @@ export const Dialog: React.FC<DialogProps> = ({ open, onOpenChange, children }) 
 
 export const DialogContent: React.FC<DialogContentProps> = ({ children, className = '' }) => {
     return (
-        <div className={`bg-white rounded-lg shadow-lg p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto ${className}`}>
+        <div className={`bg-white rounded-2xl shadow-2xl p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto border border-gray-100 ${className}`}>
             {children}
         </div>
     );
@@ -44,15 +44,15 @@ export const DialogHeader: React.FC<{ children: React.ReactNode }> = ({ children
 };
 
 export const DialogTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    return <h2 className="text-2xl font-semibold">{children}</h2>;
+    return <h2 className="text-xl font-semibold text-gray-900 text-center">{children}</h2>;
 };
 
 export const DialogDescription: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    return <p className="text-sm text-gray-600 mt-1">{children}</p>;
+    return <p className="text-sm text-gray-500 mt-2 text-center leading-relaxed">{children}</p>;
 };
 
 export const DialogFooter: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    return <div className="mt-6 flex justify-end gap-2">{children}</div>;
+    return <div className="mt-6 flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">{children}</div>;
 };
 
 export const DialogClose: React.FC<{ onClose: () => void }> = ({ onClose }) => {
