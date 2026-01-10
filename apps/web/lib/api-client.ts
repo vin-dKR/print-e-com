@@ -302,3 +302,111 @@ export async function patch<T>(
     });
 }
 
+/**
+ * Upload file (multipart/form-data)
+ * Used for file uploads that require FormData
+ */
+export async function uploadFile<T>(
+    endpoint: string,
+    files: File[],
+    additionalData?: Record<string, string>
+): Promise<ApiResponse<T>> {
+    const formData = new FormData();
+
+    // Append files
+    files.forEach(file => {
+        formData.append('files', file);
+    });
+
+    // Append additional form data
+    if (additionalData) {
+        Object.entries(additionalData).forEach(([key, value]) => {
+            formData.append(key, value);
+        });
+    }
+
+    let token = getAuthToken();
+
+    // Check if token is expiring soon and refresh it proactively
+    if (token && isTokenExpiringSoon(token) && !endpoint.includes('/auth/refresh')) {
+        const newToken = await refreshAuthToken();
+        if (newToken) {
+            token = newToken;
+        }
+    }
+
+    const headers: Record<string, string> = {};
+    // IMPORTANT: Don't set Content-Type for FormData - browser will set it automatically with boundary
+    // Setting it manually will break the multipart/form-data boundary
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+            method: 'POST',
+            headers,
+            body: formData,
+        });
+
+        // Check if response is JSON before parsing
+        const contentType = response.headers.get('content-type');
+        let data;
+
+        if (contentType && contentType.includes('application/json')) {
+            data = await response.json();
+        } else {
+            const text = await response.text();
+            data = {
+                error: text || 'An error occurred',
+                message: `Server returned ${response.status}: ${response.statusText}`,
+            };
+        }
+
+        if (!response.ok) {
+            const error: ApiError = {
+                message: data.message || data.error || 'An error occurred',
+                statusCode: response.status,
+                errors: data.errors,
+            };
+
+            // Handle 401 Unauthorized errors
+            if (response.status === 401) {
+                const newToken = await refreshAuthToken();
+                if (newToken) {
+                    // Retry the request with the new token
+                    headers['Authorization'] = `Bearer ${newToken}`;
+                    const retryResponse = await fetch(`${API_BASE_URL}${endpoint}`, {
+                        method: 'POST',
+                        headers,
+                        body: formData,
+                    });
+                    const retryData = await retryResponse.json();
+                    if (!retryResponse.ok) {
+                        throw error;
+                    }
+                    return retryData;
+                } else {
+                    setAuthToken(undefined);
+                    if (typeof window !== 'undefined' && !window.location.pathname.includes('/auth/login')) {
+                        window.location.href = '/auth/login';
+                    }
+                    throw error;
+                }
+            }
+
+            throw error;
+        }
+
+        return data;
+    } catch (error) {
+        if (error instanceof TypeError && error.message === 'Failed to fetch') {
+            throw {
+                message: 'Network error. Please check if the API server is running.',
+                statusCode: 0,
+            } as ApiError;
+        }
+        throw error as ApiError;
+    }
+}
+

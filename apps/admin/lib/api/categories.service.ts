@@ -3,7 +3,7 @@
  * Handles category management operations (including specifications & pricing)
  */
 
-import { get, post, put, del } from './api-client';
+import { get, post, put, del, uploadFile } from './api-client';
 
 export interface CategoryImage {
     id: string;
@@ -500,6 +500,36 @@ export async function createCategoryImageApi(
     }
 
     return response.data;
+}
+
+/**
+ * Upload category image file to S3
+ */
+export async function uploadCategoryImageApi(
+    categoryId: string,
+    file: File,
+    options?: { alt?: string; isPrimary?: boolean }
+): Promise<CategoryImage> {
+    const { uploadFile } = await import('./api-client');
+    const formData: Record<string, string> = {
+        categoryId,
+    };
+    if (options?.alt) formData.alt = options.alt;
+    if (options?.isPrimary !== undefined) formData.isPrimary = String(options.isPrimary);
+
+    const response = await uploadFile<{ url: string; key: string; filename: string; size: number; mimetype: string; image: CategoryImage }>(
+        `/admin/upload/category-image`,
+        file,
+        formData
+    );
+
+    if (!response.success || !response.data) {
+        throw new Error(response.error || 'Failed to upload category image');
+    }
+
+    // The API returns { url, key, filename, size, mimetype, image }
+    // We need to return the image object
+    return response.data.image || response.data as unknown as CategoryImage;
 }
 
 export async function updateCategoryImageApi(

@@ -5,6 +5,7 @@ import QuantitySelector from "./QuantitySelector";
 import PriceDisplay from "./PriceDisplay";
 import { CartItem as CartItemType } from "@/lib/api/cart";
 import Image from "next/image";
+import { FileText } from "lucide-react";
 
 interface CartItemProps {
     item: CartItemType;
@@ -25,11 +26,17 @@ export default function CartItem({
     const variant = item.variant;
     const productId = product?.id || item.productId;
     const productName = product?.name || 'Unknown Product';
+    const variantId = variant?.id || item.variantId;
+
+    // Get uploaded files from cart item (S3 URLs already stored)
+    const uploadedFileUrls = Array.isArray(item.customDesignUrl)
+        ? item.customDesignUrl
+        : (item.customDesignUrl ? [item.customDesignUrl] : []);
 
     // Get product image
     const productImage = product?.images?.find(img => img.isPrimary)?.url ||
-                        product?.images?.[0]?.url ||
-                        '/images/placeholder.png';
+        product?.images?.[0]?.url ||
+        '/images/placeholder.png';
 
     // Calculate price
     const basePrice = Number(product?.sellingPrice || product?.basePrice || 0);
@@ -37,6 +44,8 @@ export default function CartItem({
     const itemPrice = basePrice + variantModifier;
 
     const size = variant?.name;
+
+
     return (
         <div className="border-b border-gray-100 pb-4 flex gap-4 relative">
             {/* Delete Button */}
@@ -67,6 +76,17 @@ export default function CartItem({
                     <div className="flex flex-wrap gap-4 text-sm text-gray-600 mb-2">
                         {size && <span>Size: {size}</span>}
                     </div>
+
+                    {/* Uploaded Files Section - Show if files are uploaded (S3 URLs stored in cart) */}
+                    {uploadedFileUrls.length > 0 && (
+                        <div className="mt-2 mb-2 p-2 bg-blue-50 rounded-lg border border-blue-200">
+                            <div className="text-xs font-semibold text-blue-900 mb-1.5 flex items-center gap-1">
+                                <FileText className="h-3 w-3" />
+                                Uploaded Files ({uploadedFileUrls.length})
+                            </div>
+                        </div>
+                    )}
+
                     <div className="flex justify-between text-lg font-bold text-gray-900">
                         <PriceDisplay currentPrice={itemPrice} />
                         <QuantitySelector

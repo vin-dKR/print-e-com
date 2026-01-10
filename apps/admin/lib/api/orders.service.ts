@@ -20,7 +20,9 @@ export interface OrderItem {
     variantId?: string | null;
     quantity: number;
     price: number;
-    customDesignUrl?: string | null;
+    customDesignUrl?: string[] | null; // Array of S3 URLs
+    customDesignPresignedUrls?: string[] | null; // Array of presigned URLs for viewing private S3 files
+    customDesignPresignedUrl?: string | null; // Legacy: single presigned URL (for backward compatibility)
     customText?: string | null;
     product?: {
         id: string;
@@ -446,17 +448,6 @@ export async function markAsDelivered(
 export async function getOrderInvoice(orderId: string): Promise<string> {
     const endpoint = `/admin/orders/${orderId}/invoice`;
     const fullUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1'}${endpoint}`;
-    const currentPath = typeof window !== 'undefined' ? window.location.pathname : 'N/A';
-    const timestamp = new Date().toISOString();
-
-    console.log('[🔍 ADMIN_API_CALL]', {
-        timestamp,
-        method: 'GET',
-        endpoint,
-        fullUrl,
-        currentPage: currentPath,
-        hasAuth: !!getAuthToken(),
-    });
 
     const response = await fetch(
         fullUrl,
@@ -508,17 +499,6 @@ export async function exportOrders(
 
     const token = getAuthToken();
     const fullUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1'}${endpoint}`;
-    const currentPath = typeof window !== 'undefined' ? window.location.pathname : 'N/A';
-    const timestamp = new Date().toISOString();
-
-    console.log('[🔍 ADMIN_API_CALL]', {
-        timestamp,
-        method: 'GET',
-        endpoint,
-        fullUrl,
-        currentPage: currentPath,
-        hasAuth: !!token,
-    });
 
     const response = await fetch(
         fullUrl,

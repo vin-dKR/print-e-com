@@ -133,12 +133,42 @@ export const addToCart = async (req: Request, res: Response, next: NextFunction)
 
         let cartItem;
         if (existingItem) {
+            // Normalize existing customDesignUrl to array (handle legacy string values and Prisma types)
+            let existingUrls: string[] = [];
+            if (existingItem.customDesignUrl) {
+                if (Array.isArray(existingItem.customDesignUrl)) {
+                    existingUrls = (existingItem.customDesignUrl as unknown[]).filter((url) => {
+                        return typeof url === 'string' && url.trim().length > 0;
+                    }) as string[];
+                } else if (typeof existingItem.customDesignUrl === 'string') {
+                    const urlStr = String(existingItem.customDesignUrl).trim();
+                    if (urlStr.length > 0) {
+                        existingUrls = [urlStr];
+                    }
+                }
+            }
+
+            // Normalize new customDesignUrl to array
+            let newUrls: string[] = [];
+            if (customDesignUrl) {
+                if (Array.isArray(customDesignUrl)) {
+                    newUrls = customDesignUrl.filter((url) => {
+                        return typeof url === 'string' && url.trim().length > 0;
+                    }) as string[];
+                } else if (typeof customDesignUrl === 'string' && customDesignUrl.length > 0) {
+                    newUrls = [customDesignUrl];
+                }
+            }
+
+            // Merge or replace URLs (if new URLs provided, use them; otherwise keep existing)
+            const finalUrls = newUrls.length > 0 ? newUrls : existingUrls;
+
             // Update quantity
             cartItem = await prisma.cartItem.update({
                 where: { id: existingItem.id },
                 data: {
                     quantity: existingItem.quantity + quantity,
-                    customDesignUrl: customDesignUrl || existingItem.customDesignUrl,
+                    customDesignUrl: finalUrls,
                     customText: customText || existingItem.customText,
                 },
                 include: {
@@ -153,13 +183,23 @@ export const addToCart = async (req: Request, res: Response, next: NextFunction)
             });
         } else {
             // Create new cart item
+            // Normalize customDesignUrl to always be an array
+            let normalizedUrls: string[] = [];
+            if (customDesignUrl) {
+                if (Array.isArray(customDesignUrl)) {
+                    normalizedUrls = customDesignUrl.filter((url): url is string => typeof url === 'string' && url.length > 0);
+                } else if (typeof customDesignUrl === 'string' && customDesignUrl.length > 0) {
+                    normalizedUrls = [customDesignUrl];
+                }
+            }
+
             cartItem = await prisma.cartItem.create({
                 data: {
                     cartId: cart.id,
                     productId,
                     variantId: variantId || null,
                     quantity,
-                    customDesignUrl: customDesignUrl || null,
+                    customDesignUrl: normalizedUrls,
                     customText: customText || null,
                 },
                 include: {
@@ -218,11 +258,41 @@ export const updateCartItem = async (req: Request, res: Response, next: NextFunc
             throw new ValidationError("Insufficient stock");
         }
 
+        // Normalize existing customDesignUrl to array (handle legacy string values and Prisma types)
+        let existingUrls: string[] = [];
+        if (cartItem.customDesignUrl) {
+            if (Array.isArray(cartItem.customDesignUrl)) {
+                for (const url of cartItem.customDesignUrl) {
+                    const urlStr = String(url);
+                    if (urlStr && urlStr.trim().length > 0) {
+                        existingUrls.push(urlStr.trim());
+                    }
+                }
+            } else {
+                const urlStr = String(cartItem.customDesignUrl).trim();
+                if (urlStr.length > 0) {
+                    existingUrls = [urlStr];
+                }
+            }
+        }
+
+        // Normalize new customDesignUrl to array
+        let newUrls: string[] = [];
+        if (customDesignUrl !== undefined) {
+            if (Array.isArray(customDesignUrl)) {
+                newUrls = customDesignUrl.filter((url): url is string => typeof url === 'string' && url.trim().length > 0);
+            } else if (customDesignUrl && typeof customDesignUrl === 'string' && customDesignUrl.length > 0) {
+                newUrls = [customDesignUrl];
+            }
+        } else {
+            newUrls = existingUrls;
+        }
+
         const updatedItem = await prisma.cartItem.update({
             where: { id: itemId },
             data: {
                 quantity,
-                customDesignUrl: customDesignUrl !== undefined ? customDesignUrl : cartItem.customDesignUrl,
+                customDesignUrl: newUrls,
                 customText: customText !== undefined ? customText : cartItem.customText,
             },
             include: {

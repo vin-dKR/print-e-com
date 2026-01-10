@@ -13,6 +13,7 @@ import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { useCheckout } from "@/hooks/checkout/useCheckout";
 import { BarsSpinner } from "@/app/components/shared/BarsSpinner";
 import { createRazorpayOrderFromCart, verifyRazorpayPayment } from "@/lib/api/payments";
+import CheckoutFilesReview from "../components/CheckoutFilesReview";
 
 function CheckoutPageContent() {
     const {
@@ -42,6 +43,7 @@ function CheckoutPageContent() {
 
     // Track selected shipping method
     const [selectedShippingId, setSelectedShippingId] = useState<string>("standard");
+
 
     const shippingOptions = [
         {
@@ -161,8 +163,12 @@ function CheckoutPageContent() {
                             return;
                         }
 
-                        // Redirect to order page (order was created during verification)
-                        window.location.href = `/orders/${verifyResp.data.orderId}`;
+                        const orderId = verifyResp.data.orderId;
+
+                        // Files are already uploaded to S3 and stored in cart items
+                        // Order items are created with S3 URLs from cart items during payment verification
+                        // Just redirect to order page
+                        window.location.href = `/orders/${orderId}`;
                     } catch (err) {
                         console.error("Failed to verify payment", err);
                         alert("Payment verification failed. If amount was deducted, please contact support.");
@@ -271,6 +277,22 @@ function CheckoutPageContent() {
                         >
                             <OrderReview items={cartItems} />
                         </CollapsibleSection>
+
+                        {/* Uploaded Files Review - Show if cart items have uploaded files */}
+                        {cartItems.some(item => {
+                            const fileUrls = Array.isArray(item.customDesignUrl)
+                                ? item.customDesignUrl
+                                : (item.customDesignUrl ? [item.customDesignUrl] : []);
+                            return fileUrls.length > 0;
+                        }) && (
+                                <CollapsibleSection
+                                    title="Uploaded Files"
+                                    subtitle={`Files ready for your order`}
+                                    defaultExpanded={true}
+                                >
+                                    <CheckoutFilesReview cartItems={cartItems} />
+                                </CollapsibleSection>
+                            )}
 
                         {/* Discount Codes - Collapsible */}
                         <CollapsibleSection title="Discount Codes" defaultExpanded={false}>

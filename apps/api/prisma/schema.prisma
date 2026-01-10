@@ -422,7 +422,7 @@ model OrderItem {
   variantId       String?
   quantity        Int
   price           Decimal  @db.Decimal(10, 2) // Price at time of order
-  customDesignUrl String?
+  customDesignUrl String[] @default([]) // Array of S3 URLs for multiple files
   customText      String?
   createdAt       DateTime @default(now())
 
@@ -501,7 +501,7 @@ model CartItem {
   productId       String
   variantId       String?
   quantity        Int      @default(1)
-  customDesignUrl String?
+  customDesignUrl String[] @default([]) // Array of S3 URLs for multiple files
   customText      String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

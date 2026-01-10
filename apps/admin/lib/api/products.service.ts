@@ -3,7 +3,7 @@
  * Handles product management operations
  */
 
-import { get, post, put, del } from './api-client';
+import { get, post, put, del, uploadFile } from './api-client';
 
 export interface ProductListResponse {
     products: Product[];
@@ -279,5 +279,82 @@ export async function addProductVariant(
     }
 
     return response.data;
+}
+
+/**
+ * Upload product image file to S3
+ */
+export async function uploadProductImageApi(
+    productId: string,
+    file: File,
+    options?: { alt?: string; isPrimary?: boolean }
+): Promise<ProductImage> {
+    const formData: Record<string, string> = {
+        productId,
+    };
+    if (options?.alt) formData.alt = options.alt;
+    if (options?.isPrimary !== undefined) formData.isPrimary = String(options.isPrimary);
+
+    const response = await uploadFile<{ url: string; key: string; filename: string; size: number; mimetype: string; image: ProductImage }>(
+        `/admin/upload/product-image`,
+        file,
+        formData
+    );
+
+    if (!response.success || !response.data) {
+        throw new Error(response.error || 'Failed to upload product image');
+    }
+
+    // The API returns { url, key, filename, size, mimetype, image }
+    // We need to return the image object
+    return response.data.image || response.data as unknown as ProductImage;
+}
+
+/**
+ * Upload multiple product images to S3
+ */
+export async function uploadProductImagesApi(
+    productId: string,
+    files: File[]
+): Promise<ProductImage[]> {
+    const formData = new FormData();
+    files.forEach((file) => {
+        formData.append('files', file);
+    });
+    formData.append('productId', productId);
+
+    const token = typeof window !== 'undefined' ?
+        document.cookie.split(';').find(c => c.trim().startsWith('admin_token='))?.split('=')[1]?.trim() : null;
+
+    const headers: Record<string, string> = {};
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1';
+    const response = await fetch(`${API_BASE_URL}/admin/upload/product-images`, {
+        method: 'POST',
+        headers,
+        body: formData,
+    });
+
+    const data = await response.json();
+
+    if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Failed to upload product images');
+    }
+
+    return data.data?.images || [];
+}
+
+/**
+ * Delete product image
+ */
+export async function deleteProductImageApi(imageId: string): Promise<void> {
+    const response = await del(`/admin/upload/product-image/${imageId}`);
+
+    if (!response.success) {
+        throw new Error(response.error || 'Failed to delete product image');
+    }
 }
 

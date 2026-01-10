@@ -12,13 +12,16 @@ import { ProductData, BreadcrumbItem } from '@/types';
 import { Breadcrumb } from '../ui/Breadcrumb';
 import Breadcrumbs from '../Breadcrumbs';
 import { useRouter } from 'next/navigation';
+import ProductDocumentUpload from '../products/ProductDocumentUpload';
 
 interface ProductPageTemplateProps {
     productData: Partial<ProductData>;
     breadcrumbItems: BreadcrumbItem[];
     uploadedFile: File | null;
-    onFileSelect: (file: File) => void;
+    onFileSelect: (file: File | null) => void;
     onFileRemove: () => void;
+    onFileSelectWithQuantity?: (files: File[], totalQuantity: number) => void;
+    onQuantityChange?: (quantity: number) => void;
     priceItems: Array<{ label: string; value: number; description?: string }>;
     totalPrice: number;
     onAddToCart: () => void;
@@ -31,6 +34,7 @@ interface ProductPageTemplateProps {
     isOutOfStock?: boolean;
     productId?: string | null;
     images?: Array<{ id: string; src: string; alt: string; thumbnailSrc?: string }>;
+    minQuantity?: number;
 }
 
 export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
@@ -39,6 +43,8 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
     uploadedFile,
     onFileSelect,
     onFileRemove,
+    onFileSelectWithQuantity,
+    onQuantityChange,
     priceItems,
     totalPrice,
     onAddToCart,
@@ -51,6 +57,7 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
     isOutOfStock = false,
     productId,
     images = [],
+    minQuantity = 1,
 }) => {
     const router = useRouter();
 
@@ -98,12 +105,24 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
 
                             {/* File Upload Section */}
                             <div className="bg-gray-50 p-4 sm:p-6 rounded-xl">
-                                <ProductFileUpload
-                                    onFileSelect={onFileSelect}
-                                    uploadedFile={uploadedFile}
-                                    onRemove={onFileRemove}
-                                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                                    title="Upload Your File"
+                                <ProductDocumentUpload
+                                    onFileSelect={(files: File[], totalQuantity: number) => {
+                                        // Use the new callback if provided, otherwise use legacy callback
+                                        if (onFileSelectWithQuantity) {
+                                            onFileSelectWithQuantity(files, totalQuantity);
+                                        } else {
+                                            // Legacy: pass first file to onFileSelect
+                                            const firstFile: File | null = files.length > 0 && files[0] ? files[0] : null;
+                                            onFileSelect(firstFile);
+                                        }
+                                    }}
+                                    onQuantityChange={(calculatedQuantity: number) => {
+                                        // Call the quantity change callback if provided
+                                        if (onQuantityChange && calculatedQuantity > 0) {
+                                            onQuantityChange(calculatedQuantity);
+                                        }
+                                    }}
+                                    maxSizeMB={50}
                                 />
                             </div>
 
@@ -182,13 +201,13 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
                                     size="lg"
                                     icon={ShoppingCart}
                                     fullWidth
-                                    disabled={!uploadedFile || outOfStock}
+                                    disabled={(!uploadedFile && !onFileSelectWithQuantity) || outOfStock}
                                     onClick={isInCart ? () => router.push('/cart') : onAddToCart}
                                     className="text-base"
                                 >
                                     {outOfStock
                                         ? 'Out of Stock'
-                                        : !uploadedFile
+                                        : (!uploadedFile && !onFileSelectWithQuantity)
                                             ? 'Upload File to Continue'
                                             : isInCart
                                                 ? 'Go to Cart'
@@ -200,7 +219,7 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
                                     variant="primary"
                                     size="lg"
                                     fullWidth
-                                    disabled={!uploadedFile || outOfStock}
+                                    disabled={(!uploadedFile && !onFileSelectWithQuantity) || outOfStock}
                                     onClick={onBuyNow}
                                     className='font-hkgb'
                                 >
@@ -217,10 +236,10 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
                 <div className="flex p-4 gap-3">
                     <button
                         onClick={isInCart ? () => router.push('/cart') : onAddToCart}
-                        disabled={!uploadedFile || (isInCart ? false : addToCartLoading)}
+                        disabled={(!uploadedFile && !onFileSelectWithQuantity) || (isInCart ? false : addToCartLoading)}
                         className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2"
                     >
-                        {!uploadedFile
+                        {(!uploadedFile && !onFileSelectWithQuantity)
                             ? 'Upload File'
                             : isInCart
                                 ? 'Go to Cart'
@@ -231,7 +250,7 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
                     </button>
                     <button
                         onClick={onBuyNow}
-                        disabled={!uploadedFile || buyNowLoading}
+                        disabled={(!uploadedFile && !onFileSelectWithQuantity) || buyNowLoading}
                         className="flex-1 px-4 py-3 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed cursor-pointer"
                     >
                         {buyNowLoading ? 'Processing...' : 'Buy Now'}

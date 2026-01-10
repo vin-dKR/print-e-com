@@ -17,6 +17,7 @@ import { BarsSpinner } from "../../components/shared/BarsSpinner";
 import { useProduct } from "@/hooks/products/useProduct";
 import { useCart } from "@/contexts/CartContext";
 import { Star } from "lucide-react";
+import { uploadOrderFilesToS3 } from "@/lib/api/uploads";
 
 export default function ProductDetailsPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
@@ -54,8 +55,9 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
     const [selectedVariant, setSelectedVariant] = useState<string | undefined>("");
     const [quantity, setQuantity] = useState(1);
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
-    const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-    const [uploadedFileUrl, setUploadedFileUrl] = useState<string | null>(null);
+    const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+    const [uploadingFiles, setUploadingFiles] = useState(false);
+    const [minQuantityFromFiles, setMinQuantityFromFiles] = useState<number>(1);
 
     // Set default variant when product loads
     useMemo(() => {
@@ -65,48 +67,110 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
         }
     }, [product, selectedVariant]);
 
-    // Handle file upload
-    const handleFileSelect = (file: File | null, pageCount?: number) => {
-        setUploadedFile(file);
-        // TODO: Upload file to server and get URL
-        // For now, just store the file reference
-        if (file) {
-            // In a real implementation, you'd upload to server here
-            const objectUrl = URL.createObjectURL(file);
-            setUploadedFileUrl(objectUrl);
+    // Handle file upload with quantity calculation
+    // Files are stored in memory - uploaded to S3 only when adding to cart
+    const handleFileSelect = async (files: File[], totalQuantity: number) => {
+        setUploadedFiles(files);
+
+        // Set minimum quantity based on files
+        if (totalQuantity > 0) {
+            setMinQuantityFromFiles(totalQuantity);
+            // Auto-update quantity if current quantity is less than calculated
+            if (quantity < totalQuantity) {
+                setQuantity(totalQuantity);
+            }
         } else {
-            setUploadedFileUrl(null);
+            setMinQuantityFromFiles(1);
+            if (quantity < 1) {
+                setQuantity(1);
+            }
         }
+
+        // Files will be uploaded to S3 when user adds to cart
     };
 
-    // Handle add to cart
+    // Handle quantity change - prevent decreasing below minimum
+    const handleQuantityChange = (newQuantity: number) => {
+        const minQty = Math.max(1, minQuantityFromFiles);
+        setQuantity(Math.max(newQuantity, minQty));
+    };
+
+    // Handle add to cart - upload files to S3 first, then add to cart
     const onAddToCart = async () => {
         if (!product) return;
 
+        // Upload files to S3 if files are present (before adding to cart)
+        let s3Keys: string[] = [];
+        if (uploadedFiles.length > 0) {
+            setUploadingFiles(true);
+            try {
+                const uploadResponse = await uploadOrderFilesToS3(uploadedFiles);
+                if (uploadResponse.success && uploadResponse.data) {
+                    s3Keys = uploadResponse.data.files.map(f => f.key);
+                } else {
+                    alert('Failed to upload files. Please try again.');
+                    setUploadingFiles(false);
+                    return;
+                }
+            } catch (error) {
+                console.error('Error uploading files:', error);
+                alert('Failed to upload files. Please try again.');
+                setUploadingFiles(false);
+                return;
+            } finally {
+                setUploadingFiles(false);
+            }
+        }
+
+        // Add to cart with S3 URLs (handleAddToCart manages cartLoading state)
         const success = await handleAddToCart({
             variantId: selectedVariant,
             quantity,
-            customDesignUrl: uploadedFileUrl || undefined,
+            customDesignUrl: s3Keys.length > 0 ? s3Keys : undefined,
         });
 
         if (success) {
-            // Show success message or notification
+            // Reset uploaded files after adding to cart
+            setUploadedFiles([]);
             alert("Product added to cart successfully!");
             // Trigger a page refresh to update cart count
-            window.location.reload();
         } else {
             alert("Failed to add product to cart. Please try again.");
         }
     };
 
-    // Handle buy now
+    // Handle buy now - upload files to S3 first, then proceed
     const onBuyNow = async () => {
         if (!product) return;
 
+        // Upload files to S3 if files are present
+        let s3Keys: string[] = [];
+        if (uploadedFiles.length > 0) {
+            setUploadingFiles(true);
+            try {
+                const uploadResponse = await uploadOrderFilesToS3(uploadedFiles);
+                if (uploadResponse.success && uploadResponse.data) {
+                    s3Keys = uploadResponse.data.files.map(f => f.key);
+                } else {
+                    alert('Failed to upload files. Please try again.');
+                    setUploadingFiles(false);
+                    return;
+                }
+            } catch (error) {
+                console.error('Error uploading files:', error);
+                alert('Failed to upload files. Please try again.');
+                setUploadingFiles(false);
+                return;
+            } finally {
+                setUploadingFiles(false);
+            }
+        }
+
+        // Add to cart with S3 URLs and redirect to checkout
         const success = await handleBuyNow({
             variantId: selectedVariant,
             quantity,
-            customDesignUrl: uploadedFileUrl || undefined,
+            customDesignUrl: s3Keys.length > 0 ? s3Keys : undefined,
         });
 
         if (!success) {
@@ -542,11 +606,30 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                                     <div className={`${productImages.length > 1 ? 'lg:flex-1' : 'w-full'}`}>
                                         {/* Main Image */}
                                         <div className="aspect-square relative overflow-hidden rounded-lg bg-gray-50">
-                                            <img
-                                                src={productImages[currentImageIndex]}
-                                                alt={product.name}
-                                                className="w-full h-full object-contain"
-                                            />
+                                            {productImages[currentImageIndex] ? (
+                                                <img
+                                                    src={productImages[currentImageIndex]}
+                                                    alt={product.name}
+                                                    className="w-full h-full object-contain"
+                                                    onError={(e) => {
+                                                        console.error('Image load error:', productImages[currentImageIndex]);
+                                                        const target = e.target as HTMLImageElement;
+                                                        target.style.display = 'none';
+                                                        // Show fallback
+                                                        const parent = target.parentElement;
+                                                        if (parent && !parent.querySelector('.image-fallback')) {
+                                                            const fallback = document.createElement('div');
+                                                            fallback.className = 'image-fallback w-full h-full flex items-center justify-center text-gray-400 bg-gray-100';
+                                                            fallback.textContent = product.name || 'Image not available';
+                                                            parent.appendChild(fallback);
+                                                        }
+                                                    }}
+                                                />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center text-gray-400">
+                                                    No image available
+                                                </div>
+                                            )}
 
                                             {/* Zoom Indicator (optional) */}
                                             <button
@@ -742,6 +825,17 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                                 {/* Upload Document */}
                                 <ProductDocumentUpload
                                     onFileSelect={handleFileSelect}
+                                    onQuantityChange={(calculatedQuantity) => {
+                                        // Update minimum quantity
+                                        if (calculatedQuantity > 0) {
+                                            setMinQuantityFromFiles(calculatedQuantity);
+                                            // Only auto-update if current quantity is less
+                                            if (quantity < calculatedQuantity) {
+                                                setQuantity(calculatedQuantity);
+                                            }
+                                        }
+                                    }}
+                                    maxSizeMB={50}
                                 />
 
                                 {/* Size/Variant Selector */}
@@ -758,8 +852,8 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                                     <h3 className="font-medium text-gray-900 mb-3">Quantity</h3>
                                     <QuantitySelector
                                         quantity={quantity}
-                                        onQuantityChange={setQuantity}
-                                        min={product.minOrderQuantity || 1}
+                                        onQuantityChange={handleQuantityChange}
+                                        min={Math.max(product.minOrderQuantity || 1, minQuantityFromFiles)}
                                         max={
                                             product.maxOrderQuantity && product.maxOrderQuantity > 0
                                                 ? Math.min(product.maxOrderQuantity, product.stock)
@@ -767,10 +861,15 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                                         }
                                     />
                                     <p className="mt-1 text-xs text-gray-500">
-                                        Min order: {product.minOrderQuantity || 1}
+                                        Min order: {Math.max(product.minOrderQuantity || 1, minQuantityFromFiles)}
                                         {product.maxOrderQuantity
                                             ? ` • Max per order: ${product.maxOrderQuantity}`
                                             : ''}
+                                        {uploadedFiles.length > 0 && minQuantityFromFiles > 1 && (
+                                            <span className="block mt-1 text-blue-600">
+                                                Minimum quantity: {minQuantityFromFiles} (based on uploaded files)
+                                            </span>
+                                        )}
                                     </p>
                                 </div>
                             </div>
@@ -781,8 +880,8 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                                     stock={product.stock}
                                     onAddToCart={onAddToCart}
                                     onBuyNow={onBuyNow}
-                                    addToCartLoading={cartLoading}
-                                    buyNowLoading={buyNowLoading}
+                                    addToCartLoading={cartLoading || uploadingFiles}
+                                    buyNowLoading={buyNowLoading || uploadingFiles}
                                     isInCart={isInCart}
                                 />
                             </div>
@@ -834,8 +933,8 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                             stock={product.stock}
                             onAddToCart={onAddToCart}
                             onBuyNow={onBuyNow}
-                            addToCartLoading={cartLoading}
-                            buyNowLoading={buyNowLoading}
+                            addToCartLoading={cartLoading || uploadingFiles}
+                            buyNowLoading={buyNowLoading || uploadingFiles}
                             isMobile
                             isInCart={isInCart}
                         />

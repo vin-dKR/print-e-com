@@ -10,7 +10,7 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Alert } from '@/app/components/ui/alert';
-import {  PageLoading } from '@/app/components/ui/loading';
+import { PageLoading } from '@/app/components/ui/loading';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/app/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/app/components/ui/dialog';
 import { Input } from '@/app/components/ui/input';
@@ -413,18 +413,62 @@ export function OrderDetail({ orderId }: { orderId: string }) {
                                                     <strong>Custom Text:</strong> {item.customText}
                                                 </div>
                                             )}
-                                            {item.customDesignUrl && (
-                                                <div className="mt-2">
-                                                    <a
-                                                        href={item.customDesignUrl}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="text-blue-600 hover:underline text-sm"
-                                                    >
-                                                        View Custom Design
-                                                    </a>
-                                                </div>
-                                            )}
+                                            {((Array.isArray(item.customDesignUrl) && item.customDesignUrl.length > 0) ||
+                                                (typeof item.customDesignUrl === 'string' && item.customDesignUrl) ||
+                                                (Array.isArray(item.customDesignPresignedUrls) && item.customDesignPresignedUrls.length > 0) ||
+                                                item.customDesignPresignedUrl) && (
+                                                    <div className="mt-2 p-2 bg-blue-50 rounded border border-blue-200">
+                                                        <p className="text-sm font-medium text-blue-900 mb-2">
+                                                            Custom Design Files {Array.isArray(item.customDesignUrl) ? `(${item.customDesignUrl.length})` : ''}
+                                                        </p>
+                                                        <div className="space-y-2">
+                                                            {/* Handle array of files */}
+                                                            {Array.isArray(item.customDesignPresignedUrls) && item.customDesignPresignedUrls.length > 0 ? (
+                                                                item.customDesignPresignedUrls.map((presignedUrl, index) => {
+                                                                    const fileUrl = Array.isArray(item.customDesignUrl) ? item.customDesignUrl[index] : '';
+                                                                    return (
+                                                                        <div key={index} className="flex items-center justify-between p-2 bg-white rounded border">
+                                                                            <a
+                                                                                href={presignedUrl || fileUrl || '#'}
+                                                                                target="_blank"
+                                                                                rel="noopener noreferrer"
+                                                                                className="text-blue-600 hover:underline text-sm flex items-center gap-1 flex-1"
+                                                                            >
+                                                                                <Download className="h-4 w-4" />
+                                                                                <span>File {index + 1}: {fileUrl ? fileUrl.split('/').pop() : `Download File ${index + 1}`}</span>
+                                                                            </a>
+                                                                            {fileUrl && (
+                                                                                <span className="text-xs text-gray-400 font-mono ml-2 truncate max-w-xs" title={fileUrl}>
+                                                                                    {fileUrl.split('/').pop()}
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                    );
+                                                                })
+                                                            ) : (
+                                                                /* Legacy: single file (backward compatibility) */
+                                                                <a
+                                                                    href={item.customDesignPresignedUrl || (typeof item.customDesignUrl === 'string' ? item.customDesignUrl : '') || '#'}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="text-blue-600 hover:underline text-sm flex items-center gap-1"
+                                                                >
+                                                                    <Download className="h-4 w-4" />
+                                                                    <span>View/Download File</span>
+                                                                </a>
+                                                            )}
+                                                        </div>
+                                                        {Array.isArray(item.customDesignUrl) && item.customDesignUrl.length > 0 && (
+                                                            <div className="mt-2 space-y-1">
+                                                                {item.customDesignUrl.map((url, index) => (
+                                                                    <p key={index} className="text-xs text-gray-500 font-mono truncate" title={url}>
+                                                                        File {index + 1}: {url.split('/').pop()}
+                                                                    </p>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
                                         </div>
                                     </div>
                                 ))}

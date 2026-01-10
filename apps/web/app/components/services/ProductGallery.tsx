@@ -43,6 +43,7 @@ export const ProductGallery: React.FC<ProductGalleryProps> = ({
                             fill
                             className="object-cover"
                             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                            unoptimized={images[selectedImageIndex]?.src?.includes('amazonaws.com') || images[selectedImageIndex]?.src?.includes('s3.')}
                         />
                         {images.length > 1 && (
                             <>
@@ -100,6 +101,7 @@ export const ProductGallery: React.FC<ProductGalleryProps> = ({
                                 fill
                                 className="object-cover"
                                 sizes="(max-width: 768px) 25vw, 16vw"
+                                unoptimized={(image.thumbnailSrc || image.src)?.includes('amazonaws.com') || (image.thumbnailSrc || image.src)?.includes('s3.')}
                             />
                         </button>
                     ))}

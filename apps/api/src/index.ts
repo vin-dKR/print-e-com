@@ -18,7 +18,8 @@ import cartRoutes from "./routes/cart.js";
 import wishlistRoutes from "./routes/wishlist.js";
 import reviewRoutes from "./routes/reviews.js";
 import couponRoutes from "./routes/coupons.js";
-import webhookRoutes from "./routes/webhook.js"; 
+import webhookRoutes from "./routes/webhook.js";
+import uploadRoutes from "./routes/upload.js";
 
 import { errorHandler } from "./middleware/errorHandler.js";
 import { checkDatabaseConnection } from "./services/prisma.js";
@@ -136,6 +137,7 @@ app.use("/api/v1/wishlist", wishlistRoutes);
 app.use("/api/v1/reviews", reviewRoutes);
 app.use("/api/v1/coupons", couponRoutes);
 app.use("/api/v1/customer", customerRoutes);
+app.use("/api/v1/upload", uploadRoutes);
 
 app.use(errorHandler);
 

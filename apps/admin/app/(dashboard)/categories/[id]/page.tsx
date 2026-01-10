@@ -6,12 +6,12 @@
 import { CategoryDetail } from '@/app/components/features/categories/category-detail';
 
 export default async function CategoryDetailPage({
-  params,
+    params,
 }: {
-  params: Promise<{ id: string }>;
+    params: Promise<{ id: string }>;
 }) {
-  const { id } = await params;
-  return <CategoryDetail categoryId={id} />;
+    const { id } = await params;
+    return <CategoryDetail categoryId={id} />;
 }
 
 

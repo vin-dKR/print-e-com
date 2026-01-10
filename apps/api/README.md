@@ -62,6 +62,7 @@ Required variables:
 - `JWT_SECRET`: Secret key for JWT tokens
 - `RAZORPAY_KEY_ID` & `RAZORPAY_KEY_SECRET`: Razorpay credentials
 - `SUPABASE_URL` & `SUPABASE_ANON_KEY`: (Optional) Supabase credentials
+- `AWS_REGION`, `AWS_S3_BUCKET_NAME`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`: AWS S3 credentials (see `AWS_S3_SETUP.md`)
 - `CORS_ORIGINS`: (Optional) Comma-separated list of additional allowed origins for CORS. Default includes:
   - `http://localhost:3000` (Next.js dev server)
   - `http://localhost:3001`

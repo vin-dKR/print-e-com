@@ -959,10 +959,28 @@ export const deleteProduct = async (req: Request, res: Response, next: NextFunct
 
         const product = await prisma.product.findUnique({
             where: { id },
+            include: { images: true },
         });
 
         if (!product) {
             throw new NotFoundError("Product not found");
+        }
+
+        // Delete product images from S3 before soft deleting
+        if (product.images && product.images.length > 0) {
+            const { deleteFromS3, extractKeyFromUrl } = await import("../services/s3.js");
+            await Promise.allSettled(
+                product.images.map(async (image) => {
+                    const key = extractKeyFromUrl(image.url);
+                    if (key) {
+                        try {
+                            await deleteFromS3(key);
+                        } catch (error) {
+                            console.error(`Failed to delete S3 file for product image ${image.id}:`, error);
+                        }
+                    }
+                })
+            );
         }
 
         await prisma.product.update({

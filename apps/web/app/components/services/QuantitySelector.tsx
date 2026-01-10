@@ -34,8 +34,12 @@ export const QuantitySelector: React.FC<QuantitySelectorProps> = ({
 
     const decrement = () => {
         const newValue = value - step;
+        // Prevent decreasing below minimum
         if (newValue >= min) {
             onChange(newValue);
+        } else {
+            // If trying to go below min, set to min
+            onChange(min);
         }
     };
 

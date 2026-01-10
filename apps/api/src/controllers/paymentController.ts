@@ -189,6 +189,15 @@ export const verifyPayment = async (req: Request, res: Response, next: NextFunct
                 razorpayOrderId: razorpay_order_id,
                 userId: req.user.id,
             },
+            include: {
+                items: {
+                    include: {
+                        product: true,
+                        variant: true,
+                    },
+                },
+                address: true,
+            },
         });
 
         // If order doesn't exist, create it from Razorpay order notes
@@ -237,7 +246,7 @@ export const verifyPayment = async (req: Request, res: Response, next: NextFunct
 
                     const product = await prisma.product.findUnique({
                         where: { id: productId },
-                        include: { variants: true },
+                        include: { variants: true, images: true },
                     });
 
                     if (!product || !product.isActive) {
@@ -257,12 +266,23 @@ export const verifyPayment = async (req: Request, res: Response, next: NextFunct
                     const itemTotal = itemPrice * quantity;
                     subtotal += itemTotal;
 
+                    // Normalize customDesignUrl to array (files already uploaded to S3 when added to cart)
+                    let normalizedUrls: string[] = [];
+                    if (customDesignUrl) {
+                        if (Array.isArray(customDesignUrl)) {
+                            normalizedUrls = customDesignUrl.filter((url): url is string => typeof url === 'string' && url.length > 0);
+                        } else if (typeof customDesignUrl === 'string' && customDesignUrl.length > 0) {
+                            normalizedUrls = [customDesignUrl];
+                        }
+                    }
+
+                    // Create order item with S3 URLs from cart (files already uploaded)
                     orderItems.push({
                         productId,
                         variantId: variantId || null,
                         quantity,
                         price: itemPrice,
-                        customDesignUrl: customDesignUrl || null,
+                        customDesignUrl: normalizedUrls, // Use S3 URLs from cart items
                         customText: customText || null,
                     });
                 }
@@ -314,7 +334,7 @@ export const verifyPayment = async (req: Request, res: Response, next: NextFunct
                 // Calculate final total
                 const total = subtotal - discountAmount + shippingCharges;
 
-                // Create order
+                // Create order with S3 URLs from cart items (files already uploaded to S3 when user selected them)
                 order = await prisma.order.create({
                     data: {
                         userId: req.user.id,

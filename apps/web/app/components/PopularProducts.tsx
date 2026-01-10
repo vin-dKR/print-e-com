@@ -8,7 +8,6 @@ export default function PopularProducts() {
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
 
-    console.log("---- products fetch in PopularProducts", products)
     useEffect(() => {
         const fetchPopularProducts = async () => {
             try {
@@ -33,8 +32,9 @@ export default function PopularProducts() {
     }, []);
 
     const handleAddToCart = (productId: string) => {
+        // TODO
         // Handle add to cart logic (will be implemented in Phase 2)
-        console.log("Add to cart:", productId);
+        alert("Add TO Cart functionality is not implemented yet")
     };
 
     // Loading skeleton

@@ -193,4 +193,24 @@ router.delete("/categories/:id/images/:imageId", deleteCategoryImage);
 router.get("/categories/:categoryId/pricing-rules/:ruleId/preview-product", previewProductFromPricingRule);
 router.post("/categories/:categoryId/pricing-rules/:ruleId/publish", publishPricingRuleAsProduct);
 
+// Upload Management (admin only)
+import {
+    uploadProductImage,
+    uploadProductImages,
+    deleteProductImage,
+    uploadCategoryImage,
+    deleteCategoryImage as deleteCategoryImageUpload,
+} from "../controllers/uploadController.js";
+import { uploadImage } from "../middleware/upload-s3.js";
+
+// Product Image Upload Routes
+router.post("/upload/product-image", uploadImage.single("file"), uploadProductImage);
+router.post("/upload/product-images", uploadImage.array("files", 10), uploadProductImages);
+router.delete("/upload/product-image/:imageId", deleteProductImage);
+
+// Category Image Upload Routes
+router.post("/upload/category-image", uploadImage.single("file"), uploadCategoryImage);
+router.post("/upload/category-image/:categoryId", uploadImage.single("file"), uploadCategoryImage);
+router.delete("/upload/category-image/:imageId", deleteCategoryImageUpload);
+
 export default router;

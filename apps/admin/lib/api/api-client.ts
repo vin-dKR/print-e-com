@@ -123,23 +123,8 @@ async function fetchAPI<T>(
 
     // Log admin API calls with unique prefix for easy grepping
     if (endpoint.startsWith('/admin/')) {
-        const method = options.method || 'GET';
-        const currentPath = typeof window !== 'undefined' ? window.location.pathname : 'N/A';
-        const timestamp = new Date().toISOString();
-        const fullUrl = `${API_BASE_URL}${endpoint}`;
-        const tokenInfo = token ? decodeToken(token) : null;
-        const isExpired = token ? isTokenExpired(token) : true;
 
-        console.log('[🔍 ADMIN_API_CALL]', {
-            timestamp,
-            method,
-            endpoint,
-            fullUrl,
-            currentPage: currentPath,
-            hasAuth: !!token,
-            tokenExpired: isExpired,
-            tokenType: tokenInfo?.type || 'unknown',
-        });
+        const isExpired = token ? isTokenExpired(token) : true;
 
         // Warn if using expired token
         if (token && isExpired) {
@@ -285,5 +270,70 @@ export async function patch<T>(
         method: 'PATCH',
         body: body ? JSON.stringify(body) : undefined,
     });
+}
+
+/**
+ * Upload file (multipart/form-data)
+ */
+export async function uploadFile<T>(
+    endpoint: string,
+    file: File,
+    additionalData?: Record<string, string>
+): Promise<ApiResponse<T>> {
+    const token = getAuthToken();
+    const formData = new FormData();
+    formData.append('file', file);
+
+    if (additionalData) {
+        Object.entries(additionalData).forEach(([key, value]) => {
+            formData.append(key, value);
+        });
+    }
+
+    const headers: Record<string, string> = {};
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+            method: 'POST',
+            headers,
+            body: formData,
+        });
+
+        const contentType = response.headers.get('content-type');
+        let data;
+
+        if (contentType && contentType.includes('application/json')) {
+            data = await response.json();
+        } else {
+            const text = await response.text();
+            data = {
+                error: text || 'An error occurred',
+                message: `Server returned ${response.status}: ${response.statusText}`,
+            };
+        }
+
+        if (!response.ok) {
+            const errorMessage = data.message || data.error || 'An error occurred';
+            const error: ApiError = {
+                message: errorMessage,
+                statusCode: response.status,
+                errors: data.errors,
+            };
+            throw error;
+        }
+
+        return data;
+    } catch (error) {
+        if (error instanceof TypeError && error.message === 'Failed to fetch') {
+            throw {
+                message: 'Network error. Please check if the API server is running.',
+                statusCode: 0,
+            } as ApiError;
+        }
+        throw error as ApiError;
+    }
 }
 
