@@ -5,6 +5,7 @@ import {
     updateReview,
     deleteReview,
     voteReviewHelpful,
+    removeHelpfulVote,
 } from "../controllers/reviewController.js";
 import { customerAuth } from "../middleware/auth.js";
 
@@ -25,6 +26,7 @@ router.post("/product/:productId", createReview);
 router.put("/:reviewId", updateReview);
 router.delete("/:reviewId", deleteReview);
 router.post("/:reviewId/helpful", voteReviewHelpful);
+router.delete("/:reviewId/helpful", removeHelpfulVote);
 
 export default router;
 

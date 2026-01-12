@@ -53,9 +53,19 @@ import { createAdminCoupon } from "../controllers/couponController.js";
 import { updateAdminCoupon } from "../controllers/couponController.js";
 import { deleteAdminCoupon } from "../controllers/couponController.js";
 import { getAdminPayment, getAdminPayments } from "../controllers/paymentController.js";
-import { deleteAdminReview, getAdminReviews } from "../controllers/reviewController.js";
-import { getAdminReview } from "../controllers/reviewController.js";
-import { updateAdminReview } from "../controllers/reviewController.js";
+import {
+    deleteAdminReview,
+    getAdminReviews,
+    getAdminReview,
+    updateAdminReview,
+    approveReview,
+    rejectReview,
+    getReviewStatistics,
+    bulkApproveReviews,
+    bulkRejectReviews,
+    bulkDeleteReviews,
+    editAdminReview,
+} from "../controllers/reviewController.js";
 import {
     getCategorySpecifications,
     createCategorySpecification,
@@ -156,9 +166,16 @@ router.get("/payments/:id", getAdminPayment);
 
 // Review Management (admin only)
 router.get("/reviews", getAdminReviews);
+router.get("/reviews/statistics", getReviewStatistics);
 router.get("/reviews/:id", getAdminReview);
 router.put("/reviews/:id", updateAdminReview);
+router.post("/reviews/:id/approve", approveReview);
+router.post("/reviews/:id/reject", rejectReview);
+router.put("/reviews/:id/edit", editAdminReview);
 router.delete("/reviews/:id", deleteAdminReview);
+router.post("/reviews/bulk-approve", bulkApproveReviews);
+router.post("/reviews/bulk-reject", bulkRejectReviews);
+router.post("/reviews/bulk-delete", bulkDeleteReviews);
 
 // Category Specifications Management (admin only)
 router.get("/categories/:id/specifications", getCategorySpecifications);

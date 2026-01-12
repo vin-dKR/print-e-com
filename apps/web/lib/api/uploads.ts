@@ -30,3 +30,22 @@ export async function uploadOrderFilesToS3(
     );
 }
 
+/**
+ * Upload review images to S3
+ * Returns public URLs for review images (stored in images/reviews folder)
+ */
+export async function uploadReviewImages(
+    files: File[],
+    productId?: string
+): Promise<ApiResponse<UploadFilesResponse>> {
+    const additionalData: Record<string, string> = {};
+    if (productId) {
+        additionalData.productId = productId;
+    }
+    return uploadFile<UploadFilesResponse>(
+        '/upload/review-images',
+        files,
+        additionalData
+    );
+}
+

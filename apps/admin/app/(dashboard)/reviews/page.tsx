@@ -3,7 +3,7 @@
  * Moderate product reviews
  */
 
-import { ReviewsList } from '@/app/components/features/reviews/reviews-list';
+import { ReviewsListEnhanced } from '@/app/components/features/reviews/reviews-list-enhanced';
 
 export default function ReviewsPage() {
   return (
@@ -15,7 +15,7 @@ export default function ReviewsPage() {
         </p>
       </div>
 
-      <ReviewsList />
+      <ReviewsListEnhanced />
     </div>
   );
 }

@@ -50,7 +50,6 @@ export const uploadDesign = async (req: Request, res: Response, next: NextFuncti
             size: req.file.size,
             mimetype: req.file.mimetype,
             pageCount,
-            sessionId,
         }, "File uploaded successfully", 201);
     } catch (error) {
         next(error);
@@ -118,6 +117,100 @@ export const uploadOrderFiles = async (req: Request, res: Response, next: NextFu
     }
 };
 
+// Upload review images (customer)
+export const uploadReviewImages = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        if (!req.files) {
+            throw new ValidationError("No files uploaded");
+        }
+
+        if (!req.user || req.user.type !== "customer") {
+            throw new ValidationError("Customer authentication required");
+        }
+
+        const userId = req.user.id;
+        const productId = req.body.productId as string | undefined;
+
+        // Validate product exists if productId is provided
+        if (productId) {
+            const product = await prisma.product.findUnique({
+                where: { id: productId },
+            });
+            if (!product) {
+                throw new NotFoundError("Product not found");
+            }
+        }
+
+        // Handle both single file array and multiple files
+        let files: Express.Multer.File[] = [];
+        if (Array.isArray(req.files)) {
+            files = req.files;
+        } else if (typeof req.files === "object") {
+            // Handle fieldname-based file object
+            files = Object.values(req.files).flat();
+        }
+
+        if (files.length === 0) {
+            throw new ValidationError("No files uploaded");
+        }
+
+        // Validate file count (max 5 images per review)
+        if (files.length > 5) {
+            throw new ValidationError("Maximum 5 images allowed per review");
+        }
+
+        // Validate file types (only images)
+        const allowedMimeTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+        const maxFileSize = 5 * 1024 * 1024; // 5MB
+
+        for (const file of files) {
+            if (!allowedMimeTypes.includes(file.mimetype)) {
+                throw new ValidationError(
+                    `Invalid file type: ${file.mimetype}. Only JPG, PNG, and WebP images are allowed.`
+                );
+            }
+            if (file.size > maxFileSize) {
+                throw new ValidationError(
+                    `File ${file.originalname} is too large. Maximum file size is 5MB.`
+                );
+            }
+        }
+
+        // Upload to S3 in reviews folder
+        const subfolder = productId ? `${userId}/${productId}` : `${userId}/temp`;
+        const uploadResults = await Promise.all(
+            files.map(async (file, index) => {
+                const filename = generateFilename(file.originalname, "review");
+                const timestamp = Date.now();
+                const key = await uploadToS3(
+                    file,
+                    "images", // Use images folder for review images (public access)
+                    `reviews/${subfolder}`,
+                    `${timestamp}-${index}-${filename}`,
+                    true // Public file so review images can be displayed directly
+                );
+
+                // Get public URL (since images are public)
+                const publicUrl = getPublicUrl(key);
+
+                return {
+                    key,
+                    url: publicUrl,
+                    filename: `${timestamp}-${index}-${filename}`,
+                    size: file.size,
+                    mimetype: file.mimetype,
+                };
+            })
+        );
+
+        return sendSuccess(res, {
+            files: uploadResults,
+        }, "Review images uploaded successfully", 201);
+    } catch (error) {
+        next(error);
+    }
+};
+
 // Get order file (presigned URL)
 export const getOrderFile = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -127,33 +220,43 @@ export const getOrderFile = async (req: Request, res: Response, next: NextFuncti
             throw new ValidationError("File key is required");
         }
 
-        if (!req.user) {
-            throw new ValidationError("Authentication required");
+        if (!req.user || req.user.type !== "customer") {
+            throw new ValidationError("Customer authentication required");
         }
 
-        // Verify file belongs to user (for customers) or allow admin access
-        const key = fileKey.startsWith("orders-file/") ? fileKey : `orders-file/${fileKey}`;
-
-        if (req.user.type === "customer") {
-            // Verify the file is in the user's folder
-            if (!key.includes(`/${req.user.id}/`)) {
-                throw new ValidationError("Access denied");
-            }
-        }
-
-        const expiresIn = parseInt(req.query.expiresIn as string) || 3600;
-        const presignedUrl = await generatePresignedUrl(key, expiresIn);
+        // Generate presigned URL (valid for 1 hour)
+        const presignedUrl = await generatePresignedUrl(fileKey, 3600);
 
         return sendSuccess(res, {
-            presignedUrl,
-            expiresIn,
-        }, "Presigned URL generated successfully");
+            url: presignedUrl,
+        }, "File URL generated successfully");
     } catch (error) {
         next(error);
     }
 };
 
 // Delete order file
+export const deleteOrderFile = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { fileKey } = req.params;
+
+        if (!fileKey) {
+            throw new ValidationError("File key is required");
+        }
+
+        if (!req.user || req.user.type !== "customer") {
+            throw new ValidationError("Customer authentication required");
+        }
+
+        // Delete from S3
+        await deleteFromS3(fileKey);
+
+        return sendSuccess(res, null, "File deleted successfully");
+    } catch (error) {
+        next(error);
+    }
+};
+
 // Upload files for order after order confirmation (called from frontend after payment success)
 export const uploadOrderFilesAfterConfirmation = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -263,383 +366,24 @@ export const uploadOrderFilesAfterConfirmation = async (req: Request, res: Respo
         }
 
         // Update order item with S3 URLs (replace existing array with new URLs)
-        const existingUrls = Array.isArray(matchingItem.customDesignUrl)
-            ? matchingItem.customDesignUrl
-            : [];
-        const updatedUrls = [...existingUrls, ...uploadedKeys];
+        const presignedUrls = await Promise.all(
+            uploadedKeys.map(async (key) => {
+                return await generatePresignedUrl(key, 3600 * 24 * 365); // 1 year
+            })
+        );
 
         await prisma.orderItem.update({
             where: { id: matchingItem.id },
-            data: { customDesignUrl: updatedUrls },
-        });
-
-        // Fetch updated order item to return in response
-        const updatedItem = await prisma.orderItem.findUnique({
-            where: { id: matchingItem.id },
-            select: {
-                id: true,
-                productId: true,
-                variantId: true,
-                customDesignUrl: true,
+            data: {
+                customDesignUrl: presignedUrls,
             },
         });
 
         return sendSuccess(res, {
-            orderId,
-            uploadedFiles: uploadResults,
-            updatedItems: updatedItem ? [{
-                orderItemId: updatedItem.id,
-                productId: updatedItem.productId,
-                variantId: updatedItem.variantId,
-                s3Key: uploadedKeys.length === 1 ? uploadedKeys[0] : uploadedKeys,
-                s3Urls: uploadedKeys,
-            }] : [],
-            uploadedFilesCount: files.length,
-        }, "Files uploaded and order items updated successfully", 201);
+            files: uploadResults,
+            orderItemId: matchingItem.id,
+        }, "Files uploaded and linked to order successfully", 201);
     } catch (error) {
         next(error);
     }
 };
-
-export const deleteOrderFile = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const { fileKey } = req.params;
-
-        if (!fileKey) {
-            throw new ValidationError("File key is required");
-        }
-
-        if (!req.user) {
-            throw new ValidationError("Authentication required");
-        }
-
-        const key = fileKey.startsWith("orders-file/") ? fileKey : `orders-file/${fileKey}`;
-
-        // Verify file belongs to user (for customers) or allow admin access
-        if (req.user.type === "customer") {
-            if (!key.includes(`/${req.user.id}/`)) {
-                throw new ValidationError("Access denied");
-            }
-        }
-
-        await deleteFromS3(key);
-
-        return sendSuccess(res, null, "File deleted successfully");
-    } catch (error) {
-        next(error);
-    }
-};
-
-// Upload product image (admin)
-export const uploadProductImage = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        if (!req.file) {
-            throw new ValidationError("No file uploaded");
-        }
-
-        if (!req.user || req.user.type !== "admin") {
-            throw new ValidationError("Admin authentication required");
-        }
-
-        const productId = req.body.productId || "temp";
-        const isPrimary = req.body.isPrimary === "true" || req.body.isPrimary === true;
-        const prefix = isPrimary ? "primary" : "image";
-
-        // Generate filename
-        const filename = generateFilename(req.file.originalname, prefix);
-
-        // Upload to S3
-        const subfolder = `products/${productId}`;
-        const key = await uploadToS3(
-            req.file,
-            "images",
-            subfolder,
-            filename,
-            true // Public file
-        );
-
-        const url = getPublicUrl(key);
-
-        // If productId is not "temp", save to database
-        let imageRecord = null;
-        if (productId !== "temp") {
-            // Unset other primary images if this is primary
-            if (isPrimary) {
-                await prisma.productImage.updateMany({
-                    where: { productId, isPrimary: true },
-                    data: { isPrimary: false },
-                });
-            }
-
-            // Get max display order
-            const maxOrder = await prisma.productImage.findFirst({
-                where: { productId },
-                orderBy: { displayOrder: "desc" },
-                select: { displayOrder: true },
-            });
-            const displayOrder = maxOrder ? maxOrder.displayOrder + 1 : 0;
-
-            imageRecord = await prisma.productImage.create({
-                data: {
-                    productId,
-                    url,
-                    alt: req.body.alt || null,
-                    isPrimary,
-                    displayOrder,
-                },
-            });
-        }
-
-        return sendSuccess(res, {
-            url,
-            key,
-            filename,
-            size: req.file.size,
-            mimetype: req.file.mimetype,
-            image: imageRecord,
-        }, "Image uploaded successfully", 201);
-    } catch (error) {
-        next(error);
-    }
-};
-
-// Upload multiple product images
-export const uploadProductImages = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        if (!req.files) {
-            throw new ValidationError("No files uploaded");
-        }
-
-        if (!req.user || req.user.type !== "admin") {
-            throw new ValidationError("Admin authentication required");
-        }
-
-        const productId = (req.body.productId as string) || "temp";
-
-        // Handle both single file array and multiple files
-        let files: Express.Multer.File[] = [];
-        if (Array.isArray(req.files)) {
-            files = req.files;
-        } else if (typeof req.files === "object") {
-            // Handle fieldname-based file object
-            files = Object.values(req.files).flat();
-        }
-
-        if (files.length === 0) {
-            throw new ValidationError("No files uploaded");
-        }
-
-        const subfolder = `products/${productId}`;
-
-        const uploadResults = await Promise.all(
-            files.map(async (file, index) => {
-                const isPrimary = index === 0;
-                const prefix = isPrimary ? "primary" : "image";
-                const filename = generateFilename(file.originalname, prefix);
-
-                const key = await uploadToS3(
-                    file,
-                    "images",
-                    subfolder,
-                    filename,
-                    true
-                );
-
-                const url = getPublicUrl(key);
-
-                return {
-                    url,
-                    key,
-                    filename,
-                    size: file.size,
-                    mimetype: file.mimetype,
-                    isPrimary,
-                    displayOrder: index,
-                };
-            })
-        );
-
-        // Save to database if productId is not "temp"
-        let imageRecords = null;
-        if (productId !== "temp") {
-            // Unset existing primary images
-            await prisma.productImage.updateMany({
-                where: { productId, isPrimary: true },
-                data: { isPrimary: false },
-            });
-
-            imageRecords = await prisma.productImage.createMany({
-                data: uploadResults.map((result, index) => ({
-                    productId,
-                    url: result.url,
-                    alt: null,
-                    isPrimary: index === 0,
-                    displayOrder: index,
-                })),
-            });
-        }
-
-        return sendSuccess(res, {
-            images: uploadResults,
-            records: imageRecords,
-        }, "Images uploaded successfully", 201);
-    } catch (error) {
-        next(error);
-    }
-};
-
-// Delete product image
-export const deleteProductImage = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const { imageId } = req.params;
-
-        if (!req.user || req.user.type !== "admin") {
-            throw new ValidationError("Admin authentication required");
-        }
-
-        const image = await prisma.productImage.findUnique({
-            where: { id: imageId },
-        });
-
-        if (!image) {
-            throw new NotFoundError("Image not found");
-        }
-
-        // Extract S3 key from URL
-        const key = extractKeyFromUrl(image.url);
-
-        // Delete from S3 if key is found
-        if (key) {
-            try {
-                await deleteFromS3(key);
-            } catch (s3Error) {
-                console.error("Failed to delete from S3:", s3Error);
-                // Continue with database deletion even if S3 deletion fails
-            }
-        }
-
-        // Delete from database
-        await prisma.productImage.delete({
-            where: { id: imageId },
-        });
-
-        return sendSuccess(res, null, "Image deleted successfully");
-    } catch (error) {
-        next(error);
-    }
-};
-
-// Upload category image (admin)
-export const uploadCategoryImage = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        if (!req.file) {
-            throw new ValidationError("No file uploaded");
-        }
-
-        if (!req.user || req.user.type !== "admin") {
-            throw new ValidationError("Admin authentication required");
-        }
-
-        const categoryId = req.body.categoryId || req.params.categoryId || "temp";
-        const isPrimary = req.body.isPrimary === "true" || req.body.isPrimary === true;
-        const prefix = isPrimary ? "primary" : "image";
-
-        // Generate filename
-        const filename = generateFilename(req.file.originalname, prefix);
-
-        // Upload to S3
-        const subfolder = `categories/${categoryId}`;
-        const key = await uploadToS3(
-            req.file,
-            "images",
-            subfolder,
-            filename,
-            true // Public file
-        );
-
-        const url = getPublicUrl(key);
-
-        // If categoryId is not "temp", save to database
-        let imageRecord = null;
-        if (categoryId !== "temp") {
-            // Unset other primary images if this is primary
-            if (isPrimary) {
-                await prisma.categoryImage.updateMany({
-                    where: { categoryId, isPrimary: true },
-                    data: { isPrimary: false },
-                });
-            }
-
-            // Get max display order
-            const maxOrder = await prisma.categoryImage.findFirst({
-                where: { categoryId },
-                orderBy: { displayOrder: "desc" },
-                select: { displayOrder: true },
-            });
-            const displayOrder = maxOrder ? maxOrder.displayOrder + 1 : 0;
-
-            imageRecord = await prisma.categoryImage.create({
-                data: {
-                    categoryId,
-                    url,
-                    alt: req.body.alt || null,
-                    isPrimary,
-                    displayOrder,
-                },
-            });
-        }
-
-        return sendSuccess(res, {
-            url,
-            key,
-            filename,
-            size: req.file.size,
-            mimetype: req.file.mimetype,
-            image: imageRecord,
-        }, "Image uploaded successfully", 201);
-    } catch (error) {
-        next(error);
-    }
-};
-
-// Delete category image
-export const deleteCategoryImage = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const { imageId } = req.params;
-
-        if (!req.user || req.user.type !== "admin") {
-            throw new ValidationError("Admin authentication required");
-        }
-
-        const image = await prisma.categoryImage.findUnique({
-            where: { id: imageId },
-        });
-
-        if (!image) {
-            throw new NotFoundError("Image not found");
-        }
-
-        // Extract S3 key from URL
-        const key = extractKeyFromUrl(image.url);
-
-        // Delete from S3 if key is found
-        if (key) {
-            try {
-                await deleteFromS3(key);
-            } catch (s3Error) {
-                console.error("Failed to delete from S3:", s3Error);
-                // Continue with database deletion even if S3 deletion fails
-            }
-        }
-
-        // Delete from database
-        await prisma.categoryImage.delete({
-            where: { id: imageId },
-        });
-
-        return sendSuccess(res, null, "Image deleted successfully");
-    } catch (error) {
-        next(error);
-    }
-};
-
