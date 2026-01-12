@@ -362,6 +362,7 @@ function CheckoutPageContent() {
                                 error={couponError}
                                 appliedCoupon={appliedCoupon}
                                 onRemove={removeCoupon}
+                                subtotal={subtotal || 0}
                             />
                         </CollapsibleSection>
 

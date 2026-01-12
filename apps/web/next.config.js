@@ -51,6 +51,17 @@ const nextConfig = {
         hostname: '*.novaprint.ca',
         pathname: '/**',
       },
+      // T-shirt supplier images
+      {
+        protocol: 'https',
+        hostname: 'www.tshirt-supplier.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.tshirt-supplier.com',
+        pathname: '/**',
+      },
     ],
     // Allow unoptimized images as fallback if optimization fails
     unoptimized: false,

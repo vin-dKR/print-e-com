@@ -111,3 +111,109 @@ export async function deleteCoupon(id: string): Promise<void> {
     }
 }
 
+export interface CouponStats {
+    totalActive: number;
+    totalUsage: number;
+    totalDiscount: number;
+    expiringSoon: number;
+}
+
+export interface CouponAnalytics {
+    totalUses: number;
+    uniqueUsers: number;
+    totalDiscount: number;
+    averageDiscount: number;
+    usageOverTime: Array<{
+        date: string;
+        count: number;
+    }>;
+}
+
+export interface CouponUsage {
+    id: string;
+    couponId: string;
+    userId: string;
+    orderId: string | null;
+    usedAt: string;
+    discountAmount: number;
+    user: {
+        id: string;
+        name: string | null;
+        email: string;
+    };
+}
+
+export interface PaginatedResponse<T> {
+    data: T[];
+    pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+    };
+}
+
+/**
+ * Get coupon statistics
+ */
+export async function getCouponStats(): Promise<CouponStats> {
+    const response = await get<CouponStats>('/admin/coupons/stats');
+
+    if (!response.success || !response.data) {
+        throw new Error(response.error || 'Failed to fetch stats');
+    }
+
+    return response.data;
+}
+
+/**
+ * Get coupon analytics
+ */
+export async function getCouponAnalytics(id: string): Promise<CouponAnalytics> {
+    const response = await get<CouponAnalytics>(`/admin/coupons/${id}/analytics`);
+
+    if (!response.success || !response.data) {
+        throw new Error(response.error || 'Failed to fetch analytics');
+    }
+
+    return response.data;
+}
+
+/**
+ * Get coupon usage history
+ */
+export async function getCouponUsages(
+    id: string,
+    page: number = 1,
+    limit: number = 20
+): Promise<PaginatedResponse<CouponUsage>> {
+    const response = await get<PaginatedResponse<CouponUsage>>(
+        `/admin/coupons/${id}/usages?page=${page}&limit=${limit}`
+    );
+
+    if (!response.success || !response.data) {
+        throw new Error(response.error || 'Failed to fetch usages');
+    }
+
+    return response.data;
+}
+
+/**
+ * Bulk coupon operations
+ */
+export async function bulkCouponOperation(
+    ids: string[],
+    operation: 'activate' | 'deactivate' | 'delete'
+): Promise<{ message: string; count: number }> {
+    const response = await post<{ message: string; count: number }>('/admin/coupons/bulk', {
+        ids,
+        operation,
+    });
+
+    if (!response.success || !response.data) {
+        throw new Error(response.error || 'Bulk operation failed');
+    }
+
+    return response.data;
+}
+

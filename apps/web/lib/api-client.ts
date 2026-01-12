@@ -208,10 +208,15 @@ async function fetchAPI<T>(
             if (response.status === 401) {
                 // Don't retry refresh endpoint or if we've already retried
                 if (endpoint.includes('/auth/refresh') || retryCount > 0) {
-                    // Clear token and redirect to login
-                    setAuthToken(undefined);
-                    if (typeof window !== 'undefined' && !window.location.pathname.includes('/auth/login')) {
-                        window.location.href = '/auth/login';
+                    // Clear token
+                    setAuthToken(undefined); 
+                    // Only redirect if we're on a protected route (not public pages)
+                    if (typeof window !== 'undefined') {
+                        const publicRoutes = ['/home', '/', '/coupons', '/products', '/about', '/privacy', '/terms', '/shipping', '/return', '/refund'];
+                        const isPublicRoute = publicRoutes.some(route => window.location.pathname === route || window.location.pathname.startsWith(route + '/'));
+                        if (!isPublicRoute && !window.location.pathname.includes('/auth/login')) {
+                            window.location.href = '/auth/login';
+                        }
                     }
                     throw error;
                 }
@@ -222,10 +227,15 @@ async function fetchAPI<T>(
                     // Retry the request with the new token
                     return fetchAPI<T>(endpoint, options, retryCount + 1);
                 } else {
-                    // Token refresh failed - clear token and redirect to login
+                    // Token refresh failed - clear token
                     setAuthToken(undefined);
-                    if (typeof window !== 'undefined' && !window.location.pathname.includes('/auth/login')) {
-                        window.location.href = '/auth/login';
+                    // Only redirect if we're on a protected route (not public pages)
+                    if (typeof window !== 'undefined') {
+                        const publicRoutes = ['/home', '/', '/coupons', '/products', '/about', '/privacy', '/terms', '/shipping', '/return', '/refund'];
+                        const isPublicRoute = publicRoutes.some(route => window.location.pathname === route || window.location.pathname.startsWith(route + '/'));
+                        if (!isPublicRoute && !window.location.pathname.includes('/auth/login')) {
+                            window.location.href = '/auth/login';
+                        }
                     }
                     throw error;
                 }

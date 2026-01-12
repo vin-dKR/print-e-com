@@ -108,7 +108,7 @@ export function CouponsList() {
                 <Card>
                     <CardContent className="py-12 text-center">
                         <p className="text-gray-600">No coupons found.</p>
-                        <Link href="/dashboard/coupons/new">
+                        <Link href="/coupons/new">
                             <Button className="mt-4">Create your first coupon</Button>
                         </Link>
                     </CardContent>
@@ -157,7 +157,7 @@ export function CouponsList() {
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex justify-end gap-2">
-                                                <Link href={`/dashboard/coupons/${coupon.id}/edit`}>
+                                                <Link href={`/coupons/${coupon.id}/edit`}>
                                                     <Button variant="ghost" size="icon">
                                                         <Edit className="h-4 w-4" />
                                                     </Button>

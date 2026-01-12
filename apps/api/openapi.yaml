@@ -1201,6 +1201,116 @@ paths:
           description: Unauthorized - Admin authentication required
         '404':
           description: Coupon not found
+  /api/v1/admin/coupons/stats:
+    get:
+      summary: Get coupon statistics
+      description: >-
+        Get overall coupon statistics including active count, total usage, total
+        discount given, and expiring soon
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Statistics retrieved successfully
+        '401':
+          description: Unauthorized - Admin authentication required
+  /api/v1/admin/coupons/{id}/analytics:
+    get:
+      summary: Get coupon analytics
+      description: >-
+        Get detailed analytics for a specific coupon including usage stats,
+        revenue impact, and usage over time
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Coupon ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Analytics retrieved successfully
+        '401':
+          description: Unauthorized - Admin authentication required
+        '404':
+          description: Coupon not found
+  /api/v1/admin/coupons/bulk:
+    post:
+      summary: Bulk coupon operations
+      description: Perform bulk operations on coupons (activate, deactivate, delete)
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ids
+                - operation
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: string
+                operation:
+                  type: string
+                  enum:
+                    - activate
+                    - deactivate
+                    - delete
+      responses:
+        '200':
+          description: Bulk operation completed successfully
+        '400':
+          description: Validation error
+        '401':
+          description: Unauthorized - Admin authentication required
+  /api/v1/admin/coupons/{id}/usages:
+    get:
+      summary: Get coupon usage history
+      description: Get paginated usage history for a specific coupon
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Coupon ID
+          schema:
+            type: string
+        - name: page
+          in: query
+          required: false
+          description: Page number
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          description: Items per page
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Usage history retrieved successfully
+        '401':
+          description: Unauthorized - Admin authentication required
+        '404':
+          description: Coupon not found
   /api/v1/admin/orders:
     get:
       summary: Get all orders (admin)

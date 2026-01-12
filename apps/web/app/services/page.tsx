@@ -43,7 +43,7 @@ export default function ServicesPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50 py-6 md:py-8 lg:py-10">
+            <div className="min-h-screen bg-white py-6 md:py-8 lg:py-10">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-5 lg:gap-6 w-full">
                         {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
@@ -61,7 +61,7 @@ export default function ServicesPage() {
 
     if (error) {
         return (
-            <div className="min-h-screen bg-gray-50 py-12">
+            <div className="min-h-screen bg-white py-12">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="text-center py-12">
                         <p className="text-red-600 mb-4">{error}</p>
@@ -78,7 +78,7 @@ export default function ServicesPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 py-6 md:py-8 lg:py-10">
+        <div className="min-h-screen bg-white py-6 md:py-8 lg:py-10">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 {/* Header */}
                 <div className="mb-6 md:mb-8">

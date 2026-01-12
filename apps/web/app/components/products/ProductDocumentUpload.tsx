@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Upload, File, AlertTriangle, X, Image as ImageIcon, FileText, Loader2 } from "lucide-react";
 import { uploadOrderFilesToS3, deleteOrderFile } from "@/lib/api/uploads";
 import { toastError, toastSuccess } from "@/lib/utils/toast";
@@ -38,6 +38,20 @@ export default function ProductDocumentUpload({
     const [error, setError] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const uploadAbortControllersRef = useRef<Map<string, AbortController>>(new Map());
+    const pendingCallbackRef = useRef<{ files: File[]; quantity: number; details: FileDetail[] } | null>(null);
+
+    // Sync state changes to parent component using useEffect (only for upload status changes)
+    useEffect(() => {
+        // Only call callback if there's a pending update from upload status changes
+        if (pendingCallbackRef.current) {
+            const { files, quantity, details } = pendingCallbackRef.current;
+            pendingCallbackRef.current = null;
+            onFileSelect(files, quantity, details);
+            if (onQuantityChange) {
+                onQuantityChange(quantity);
+            }
+        }
+    }, [uploadedFiles]);
 
     // Valid image types
     const validImageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
@@ -213,17 +227,18 @@ export default function ProductDocumentUpload({
             setUploadedFiles(allFileDetails);
             setTotalQuantity(finalTotalQuantity);
 
+            // Call callback immediately for initial file selection
+            // useEffect will handle subsequent updates
+            onFileSelect(allFiles, finalTotalQuantity, allFileDetails);
+            if (onQuantityChange) {
+                onQuantityChange(finalTotalQuantity);
+            }
+
             // Upload files to S3 immediately
             // Upload each file individually so we can track and cancel them
             newFileDetails.forEach((fileDetail) => {
                 uploadFileToS3(fileDetail);
             });
-
-            // Call callbacks - files will be uploaded to S3
-            onFileSelect(allFiles, finalTotalQuantity, allFileDetails);
-            if (onQuantityChange) {
-                onQuantityChange(finalTotalQuantity);
-            }
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'Failed to process files';
             setError(errorMessage);
@@ -243,15 +258,15 @@ export default function ProductDocumentUpload({
 
         // Update status to uploading
         setUploadedFiles((prev) => {
-            const updated: FileDetail[] = prev.map((fd) =>
+            const updated = prev.map((fd) =>
                 fd.id === fileDetail.id
                     ? { ...fd, uploadStatus: 'uploading' as const, uploadAbortController: abortController }
                     : fd
             );
-            // Notify parent of updated file details
+            // Schedule callback after state update
             const files = updated.map((fd) => fd.file);
             const totalQuantity = updated.reduce((sum, fd) => sum + fd.pageCount, 0);
-            onFileSelect(files, totalQuantity, updated);
+            pendingCallbackRef.current = { files, quantity: totalQuantity, details: updated };
             return updated;
         });
 
@@ -268,15 +283,15 @@ export default function ProductDocumentUpload({
                 if (uploadedFile?.key) {
                     // Update status to uploaded and store S3 key
                     setUploadedFiles((prev) => {
-                        const updated: FileDetail[] = prev.map((fd) =>
+                        const updated = prev.map((fd) =>
                             fd.id === fileDetail.id
                                 ? { ...fd, uploadStatus: 'uploaded' as const, s3Key: uploadedFile.key }
                                 : fd
                         );
-                        // Notify parent of updated file details
+                        // Schedule callback after state update
                         const files = updated.map((fd) => fd.file);
                         const totalQuantity = updated.reduce((sum, fd) => sum + fd.pageCount, 0);
-                        onFileSelect(files, totalQuantity, updated);
+                        pendingCallbackRef.current = { files, quantity: totalQuantity, details: updated };
                         return updated;
                     });
                 } else {
@@ -303,13 +318,13 @@ export default function ProductDocumentUpload({
 
             // Upload failed
             setUploadedFiles((prev) => {
-                const updated: FileDetail[] = prev.map((fd) =>
+                const updated = prev.map((fd) =>
                     fd.id === fileDetail.id ? { ...fd, uploadStatus: 'error' as const } : fd
                 );
-                // Notify parent of updated file details
+                // Schedule callback after state update
                 const files = updated.map((fd) => fd.file);
                 const totalQuantity = updated.reduce((sum, fd) => sum + fd.pageCount, 0);
-                onFileSelect(files, totalQuantity, updated);
+                pendingCallbackRef.current = { files, quantity: totalQuantity, details: updated };
                 return updated;
             });
             toastError(`Failed to upload ${fileDetail.file.name}`);
@@ -347,6 +362,7 @@ export default function ProductDocumentUpload({
         setUploadedFiles(updatedFiles);
         setTotalQuantity(updatedQuantity);
 
+        // Call callback immediately for file removal
         const files = updatedFiles.map((fd) => fd.file);
         onFileSelect(files, updatedQuantity, updatedFiles);
         if (onQuantityChange) {

@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { prisma } from "../services/prisma.js";
 import { sendSuccess, sendError } from "../utils/response.js";
 import { ValidationError, NotFoundError, UnauthorizedError } from "../utils/errors.js";
+import { deleteFromS3, extractKeyFromUrl } from "../services/s3.js";
 
 // Get user's cart
 export const getCart = async (req: Request, res: Response, next: NextFunction) => {
@@ -335,6 +336,49 @@ export const removeFromCart = async (req: Request, res: Response, next: NextFunc
             throw new UnauthorizedError("Not authorized to remove this cart item");
         }
 
+        // Delete S3 files associated with this cart item
+        if (cartItem.customDesignUrl && cartItem.customDesignUrl.length > 0) {
+            // Extract S3 keys from URLs
+            const s3Keys: string[] = [];
+
+            for (const urlOrKey of cartItem.customDesignUrl) {
+                // Check if it's already a key (starts with "orders-file/")
+                if (urlOrKey.startsWith('orders-file/')) {
+                    s3Keys.push(urlOrKey);
+                    continue;
+                }
+
+                // Try to extract key from URL using the utility function
+                const extractedKey = extractKeyFromUrl(urlOrKey);
+                if (extractedKey) {
+                    s3Keys.push(extractedKey);
+                } else {
+                    // Fallback: try regex extraction for presigned URLs
+                    const match = urlOrKey.match(/orders-file\/[^?&#]+/);
+                    if (match) {
+                        s3Keys.push(match[0]);
+                    }
+                }
+            }
+
+            // Delete all S3 files (use allSettled to continue even if some fail)
+            if (s3Keys.length > 0) {
+                const deleteResults = await Promise.allSettled(
+                    s3Keys.map(key => {
+                        console.log(`[Cart] Deleting S3 file: ${key}`);
+                        return deleteFromS3(key);
+                    })
+                );
+
+                // Log any failures (but don't throw - cart item deletion should succeed)
+                deleteResults.forEach((result, index) => {
+                    if (result.status === 'rejected') {
+                        console.error(`[Cart] Failed to delete S3 file ${s3Keys[index]}:`, result.reason);
+                    }
+                });
+            }
+        }
+
         await prisma.cartItem.delete({
             where: { id: itemId },
         });
@@ -354,9 +398,57 @@ export const clearCart = async (req: Request, res: Response, next: NextFunction)
 
         const cart = await prisma.cart.findUnique({
             where: { userId: req.user.id },
+            include: {
+                items: true,
+            },
         });
 
-        if (cart) {
+        if (cart && cart.items.length > 0) {
+            // Delete S3 files for all cart items before deleting the items
+            const s3Keys: string[] = [];
+
+            for (const item of cart.items) {
+                if (item.customDesignUrl && item.customDesignUrl.length > 0) {
+                    for (const urlOrKey of item.customDesignUrl) {
+                        // Check if it's already a key
+                        if (urlOrKey.startsWith('orders-file/')) {
+                            s3Keys.push(urlOrKey);
+                            continue;
+                        }
+
+                        // Try to extract key from URL
+                        const extractedKey = extractKeyFromUrl(urlOrKey);
+                        if (extractedKey) {
+                            s3Keys.push(extractedKey);
+                        } else {
+                            // Fallback: try regex extraction
+                            const match = urlOrKey.match(/orders-file\/[^?&#]+/);
+                            if (match) {
+                                s3Keys.push(match[0]);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Delete all S3 files
+            if (s3Keys.length > 0) {
+                const deleteResults = await Promise.allSettled(
+                    s3Keys.map(key => {
+                        console.log(`[Cart] Deleting S3 file: ${key}`);
+                        return deleteFromS3(key);
+                    })
+                );
+
+                // Log any failures (but don't throw - cart clearing should succeed)
+                deleteResults.forEach((result, index) => {
+                    if (result.status === 'rejected') {
+                        console.error(`[Cart] Failed to delete S3 file ${s3Keys[index]}:`, result.reason);
+                    }
+                });
+            }
+
+            // Delete all cart items
             await prisma.cartItem.deleteMany({
                 where: { cartId: cart.id },
             });

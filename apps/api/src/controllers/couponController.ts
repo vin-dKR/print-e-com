@@ -753,3 +753,364 @@ export const deleteAdminCoupon = async (req: Request, res: Response, next: NextF
     }
 };
 
+/**
+ * @openapi
+ * /api/v1/admin/coupons/stats:
+ *   get:
+ *     summary: Get coupon statistics
+ *     description: Get overall coupon statistics including active count, total usage, total discount given, and expiring soon
+ *     tags:
+ *       - Admin
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Statistics retrieved successfully
+ *       401:
+ *         description: Unauthorized - Admin authentication required
+ */
+// Admin: Get coupon statistics
+export const getCouponStats = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const now = new Date();
+        const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+        const [
+            totalActive,
+            totalUsage,
+            totalDiscountResult,
+            expiringSoon,
+        ] = await Promise.all([
+            prisma.coupon.count({
+                where: {
+                    isActive: true,
+                    validFrom: { lte: now },
+                    validUntil: { gte: now },
+                },
+            }),
+            prisma.couponUsage.count(),
+            prisma.payment.aggregate({
+                _sum: { discountAmount: true },
+                where: { couponId: { not: null } },
+            }),
+            prisma.coupon.count({
+                where: {
+                    isActive: true,
+                    validUntil: {
+                        gte: now,
+                        lte: sevenDaysFromNow,
+                    },
+                },
+            }),
+        ]);
+
+        return sendSuccess(res, {
+            totalActive,
+            totalUsage,
+            totalDiscount: Number(totalDiscountResult._sum.discountAmount || 0),
+            expiringSoon,
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * @openapi
+ * /api/v1/admin/coupons/{id}/analytics:
+ *   get:
+ *     summary: Get coupon analytics
+ *     description: Get detailed analytics for a specific coupon including usage stats, revenue impact, and usage over time
+ *     tags:
+ *       - Admin
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: Coupon ID
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Analytics retrieved successfully
+ *       404:
+ *         description: Coupon not found
+ *       401:
+ *         description: Unauthorized - Admin authentication required
+ */
+// Admin: Get coupon analytics
+export const getCouponAnalytics = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params;
+
+        if (!id) {
+            throw new ValidationError("Coupon ID is required");
+        }
+
+        const coupon = await prisma.coupon.findUnique({
+            where: { id },
+            include: {
+                usages: {
+                    include: {
+                        user: {
+                            select: {
+                                id: true,
+                                name: true,
+                                email: true,
+                            },
+                        },
+                    },
+                },
+                _count: {
+                    select: { usages: true },
+                },
+            },
+        });
+
+        if (!coupon) {
+            throw new NotFoundError("Coupon not found");
+        }
+
+        const totalDiscountResult = await prisma.payment.aggregate({
+            _sum: { discountAmount: true },
+            where: { couponId: id },
+        });
+
+        const uniqueUsers = new Set(coupon.usages.map((u) => u.userId)).size;
+        const totalUses = coupon._count.usages;
+        const totalDiscount = Number(totalDiscountResult._sum.discountAmount || 0);
+        const averageDiscount = totalUses > 0 ? totalDiscount / totalUses : 0;
+
+        // Usage over time (last 30 days)
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        const usageOverTime = await prisma.couponUsage.groupBy({
+            by: ['usedAt'],
+            where: {
+                couponId: id,
+                usedAt: {
+                    gte: thirtyDaysAgo,
+                },
+            },
+            _count: {
+                id: true,
+            },
+            orderBy: {
+                usedAt: 'asc',
+            },
+        });
+
+        return sendSuccess(res, {
+            totalUses,
+            uniqueUsers,
+            totalDiscount,
+            averageDiscount,
+            usageOverTime: usageOverTime.map((item) => ({
+                date: item.usedAt.toISOString().split('T')[0],
+                count: item._count.id,
+            })),
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * @openapi
+ * /api/v1/admin/coupons/bulk:
+ *   post:
+ *     summary: Bulk coupon operations
+ *     description: Perform bulk operations on coupons (activate, deactivate, delete)
+ *     tags:
+ *       - Admin
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - ids
+ *               - operation
+ *             properties:
+ *               ids:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               operation:
+ *                 type: string
+ *                 enum: [activate, deactivate, delete]
+ *     responses:
+ *       200:
+ *         description: Bulk operation completed successfully
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized - Admin authentication required
+ */
+// Admin: Bulk coupon operations
+export const bulkCouponOperation = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { ids, operation } = req.body;
+
+        if (!Array.isArray(ids) || ids.length === 0) {
+            throw new ValidationError("Coupon IDs are required");
+        }
+
+        if (!['activate', 'deactivate', 'delete'].includes(operation)) {
+            throw new ValidationError("Invalid operation. Must be 'activate', 'deactivate', or 'delete'");
+        }
+
+        let result;
+        switch (operation) {
+            case 'activate':
+                result = await prisma.coupon.updateMany({
+                    where: { id: { in: ids } },
+                    data: { isActive: true },
+                });
+                break;
+            case 'deactivate':
+                result = await prisma.coupon.updateMany({
+                    where: { id: { in: ids } },
+                    data: { isActive: false },
+                });
+                break;
+            case 'delete':
+                result = await prisma.coupon.deleteMany({
+                    where: { id: { in: ids } },
+                });
+                break;
+            default:
+                throw new ValidationError("Invalid operation");
+        }
+
+        return sendSuccess(res, {
+            message: `Successfully ${operation}d ${result.count} coupon(s)`,
+            count: result.count,
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * @openapi
+ * /api/v1/admin/coupons/{id}/usages:
+ *   get:
+ *     summary: Get coupon usage history
+ *     description: Get paginated usage history for a specific coupon
+ *     tags:
+ *       - Admin
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: Coupon ID
+ *         schema:
+ *           type: string
+ *       - name: page
+ *         in: query
+ *         required: false
+ *         description: Page number
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - name: limit
+ *         in: query
+ *         required: false
+ *         description: Items per page
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *     responses:
+ *       200:
+ *         description: Usage history retrieved successfully
+ *       404:
+ *         description: Coupon not found
+ *       401:
+ *         description: Unauthorized - Admin authentication required
+ */
+// Admin: Get coupon usage history
+export const getCouponUsages = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params;
+        const page = Number(req.query.page) || 1;
+        const limit = Number(req.query.limit) || 20;
+        const skip = (page - 1) * limit;
+
+        if (!id) {
+            throw new ValidationError("Coupon ID is required");
+        }
+
+        // Check if coupon exists
+        const coupon = await prisma.coupon.findUnique({
+            where: { id },
+        });
+
+        if (!coupon) {
+            throw new NotFoundError("Coupon not found");
+        }
+
+        const [usages, total] = await Promise.all([
+            prisma.couponUsage.findMany({
+                where: { couponId: id },
+                include: {
+                    user: {
+                        select: {
+                            id: true,
+                            name: true,
+                            email: true,
+                        },
+                    },
+                },
+                orderBy: { usedAt: 'desc' },
+                skip,
+                take: limit,
+            }),
+            prisma.couponUsage.count({
+                where: { couponId: id },
+            }),
+        ]);
+
+        // Get discount amounts from payments
+        const usageWithDiscounts = await Promise.all(
+            usages.map(async (usage) => {
+                let discountAmount = 0;
+                if (usage.orderId) {
+                    const payment = await prisma.payment.findFirst({
+                        where: {
+                            orderId: usage.orderId,
+                            couponId: id,
+                        },
+                        select: {
+                            discountAmount: true,
+                        },
+                    });
+                    discountAmount = payment ? Number(payment.discountAmount || 0) : 0;
+                }
+                return {
+                    ...usage,
+                    discountAmount,
+                };
+            })
+        );
+
+        return sendSuccess(res, {
+            usages: usageWithDiscounts,
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages: Math.ceil(total / limit),
+            },
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+

@@ -48,10 +48,17 @@ import {
     suspendUser,
     activateUser,
 } from "../controllers/userController.js";
-import { getAdminCoupon, getAdminCoupons } from "../controllers/couponController.js";
-import { createAdminCoupon } from "../controllers/couponController.js";
-import { updateAdminCoupon } from "../controllers/couponController.js";
-import { deleteAdminCoupon } from "../controllers/couponController.js";
+import {
+    getAdminCoupon,
+    getAdminCoupons,
+    createAdminCoupon,
+    updateAdminCoupon,
+    deleteAdminCoupon,
+    getCouponStats,
+    getCouponAnalytics,
+    bulkCouponOperation,
+    getCouponUsages,
+} from "../controllers/couponController.js";
 import { getAdminPayment, getAdminPayments } from "../controllers/paymentController.js";
 import {
     deleteAdminReview,
@@ -89,6 +96,16 @@ import {
     previewProductFromPricingRule,
     publishPricingRuleAsProduct,
 } from "../controllers/categoryController.js";
+
+// Upload Management (admin only)
+import {
+    uploadProductImage,
+    uploadProductImages,
+    deleteProductImage,
+    uploadCategoryImage,
+    deleteCategoryImage as deleteCategoryImageUpload,
+} from "../controllers/uploadController.js";
+import { uploadImage } from "../middleware/upload-s3.js";
 
 const router: IRouter = Router();
 
@@ -154,9 +171,13 @@ router.post("/users/:id/suspend", suspendUser);
 router.post("/users/:id/activate", activateUser);
 
 // Coupon Management (admin only)
+router.get("/coupons/stats", getCouponStats);
 router.get("/coupons", getAdminCoupons);
 router.get("/coupons/:id", getAdminCoupon);
+router.get("/coupons/:id/analytics", getCouponAnalytics);
+router.get("/coupons/:id/usages", getCouponUsages);
 router.post("/coupons", createAdminCoupon);
+router.post("/coupons/bulk", bulkCouponOperation);
 router.put("/coupons/:id", updateAdminCoupon);
 router.delete("/coupons/:id", deleteAdminCoupon);
 
@@ -210,15 +231,7 @@ router.delete("/categories/:id/images/:imageId", deleteCategoryImage);
 router.get("/categories/:categoryId/pricing-rules/:ruleId/preview-product", previewProductFromPricingRule);
 router.post("/categories/:categoryId/pricing-rules/:ruleId/publish", publishPricingRuleAsProduct);
 
-// Upload Management (admin only)
-import {
-    uploadProductImage,
-    uploadProductImages,
-    deleteProductImage,
-    uploadCategoryImage,
-    deleteCategoryImage as deleteCategoryImageUpload,
-} from "../controllers/uploadController.js";
-import { uploadImage } from "../middleware/upload-s3.js";
+
 
 // Product Image Upload Routes
 router.post("/upload/product-image", uploadImage.single("file"), uploadProductImage);
