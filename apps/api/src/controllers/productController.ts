@@ -236,7 +236,6 @@ export const getAdminCategories = async (req: Request, res: Response, next: Next
 
 export const createCategoties = async (req: Request, res: Response, next: NextFunction) => {
     const { name, slug, description } = req.body
-    console.log("---------", req.body)
 
     try {
         const category = await prisma.category.create({
@@ -249,7 +248,6 @@ export const createCategoties = async (req: Request, res: Response, next: NextFu
 
         return sendSuccess(res, category, "Category created successfully", 200)
     } catch (error) {
-        // console.log("hello------------------", error)
         next(error)
     }
 }

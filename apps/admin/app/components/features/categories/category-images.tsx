@@ -12,7 +12,6 @@ import { Label } from '@/app/components/ui/label';
 import { Alert } from '@/app/components/ui/alert';
 import {
     getCategoryImagesApi,
-    createCategoryImageApi,
     updateCategoryImageApi,
     deleteCategoryImageApi,
     uploadCategoryImageApi,
@@ -30,27 +29,14 @@ interface CategoryImagesProps {
 export function CategoryImages({ categoryId }: CategoryImagesProps) {
     const [images, setImages] = useState<CategoryImage[]>([]);
     const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
     const [deleting, setDeleting] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const { confirm, ConfirmDialog } = useConfirm();
 
-    const [uploadMode, setUploadMode] = useState<'url' | 'file'>('file');
     const [uploading, setUploading] = useState(false);
-    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+    const [fileMetadata, setFileMetadata] = useState<Map<number, { alt: string; isPrimary: boolean }>>(new Map());
     const [uploadProgress, setUploadProgress] = useState(0);
-
-    const [form, setForm] = useState<{
-        url: string;
-        alt: string;
-        isPrimary: boolean;
-    }>({
-        url: '',
-        alt: '',
-        isPrimary: false,
-    });
-
-    console.log('categoryId', images);
 
     useEffect(() => {
         loadImages();
@@ -71,22 +57,22 @@ export function CategoryImages({ categoryId }: CategoryImagesProps) {
 
     const handleFileUpload = async (e: FormEvent) => {
         e.preventDefault();
-        if (!selectedFile) {
-            setError('Please select a file');
+        if (selectedFiles.length === 0) {
+            setError('Please select at least one file');
             return;
         }
 
-        // Validate file type
+        // Validate all files
         const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
-        if (!allowedTypes.includes(selectedFile.type)) {
-            setError('Invalid file type. Please upload JPG, PNG, WebP, or GIF images.');
-            return;
-        }
-
-        // Validate file size (10MB)
-        if (selectedFile.size > 10 * 1024 * 1024) {
-            setError('File size must be less than 10MB');
-            return;
+        for (const file of selectedFiles) {
+            if (!allowedTypes.includes(file.type)) {
+                setError(`Invalid file type: ${file.name}. Please upload JPG, PNG, WebP, or GIF images.`);
+                return;
+            }
+            if (file.size > 10 * 1024 * 1024) {
+                setError(`File size too large: ${file.name}. Max size is 10MB.`);
+                return;
+            }
         }
 
         try {
@@ -94,52 +80,67 @@ export function CategoryImages({ categoryId }: CategoryImagesProps) {
             setError(null);
             setUploadProgress(0);
 
-            const newImage = await uploadCategoryImageApi(categoryId, selectedFile, {
-                alt: form.alt.trim() || undefined,
-                isPrimary: form.isPrimary,
-            });
+            const uploadedImages: CategoryImage[] = [];
 
-            setImages([...images, newImage]);
-            setForm({ url: '', alt: '', isPrimary: false });
-            setSelectedFile(null);
+            // Upload all files sequentially
+            for (let i = 0; i < selectedFiles.length; i++) {
+                const file = selectedFiles[i];
+                if (!file) continue; // Skip if file is undefined
+
+                const metadata = fileMetadata.get(i) || { alt: '', isPrimary: false };
+
+                const newImage = await uploadCategoryImageApi(categoryId, file, {
+                    alt: metadata.alt.trim() || undefined,
+                    isPrimary: metadata.isPrimary,
+                });
+
+                uploadedImages.push(newImage);
+                setUploadProgress(((i + 1) / selectedFiles.length) * 100);
+            }
+
+            setImages([...images, ...uploadedImages]);
+            setSelectedFiles([]);
+            setFileMetadata(new Map());
             setUploadProgress(0);
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to upload image');
+            setError(err instanceof Error ? err.message : 'Failed to upload images');
         } finally {
             setUploading(false);
         }
     };
 
-    const handleUrlSubmit = async (e: FormEvent) => {
-        e.preventDefault();
-        if (!form.url.trim()) {
-            setError('Image URL is required');
-            return;
-        }
 
-        try {
-            setSaving(true);
-            setError(null);
-            const newImage = await createCategoryImageApi(categoryId, {
-                url: form.url.trim(),
-                alt: form.alt.trim() || undefined,
-                isPrimary: form.isPrimary,
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = Array.from(e.target.files || []);
+        if (files.length > 0) {
+            setSelectedFiles(files);
+            // Initialize metadata for each file
+            const newMetadata = new Map<number, { alt: string; isPrimary: boolean }>();
+            files.forEach((_, index) => {
+                newMetadata.set(index, { alt: '', isPrimary: index === 0 }); // First file is primary by default
             });
-            setImages([...images, newImage]);
-            setForm({ url: '', alt: '', isPrimary: false });
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to add image');
-        } finally {
-            setSaving(false);
+            setFileMetadata(newMetadata);
+            setError(null);
         }
     };
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            setSelectedFile(file);
-            setError(null);
-        }
+    const updateFileMetadata = (index: number, updates: Partial<{ alt: string; isPrimary: boolean }>) => {
+        setFileMetadata((prev) => {
+            const newMap = new Map(prev);
+            const current = newMap.get(index) || { alt: '', isPrimary: false };
+            newMap.set(index, { ...current, ...updates });
+
+            // If setting one as primary, unset others
+            if (updates.isPrimary === true) {
+                newMap.forEach((meta, idx) => {
+                    if (idx !== index) {
+                        newMap.set(idx, { ...meta, isPrimary: false });
+                    }
+                });
+            }
+
+            return newMap;
+        });
     };
 
     const handleSetPrimary = async (imageId: string) => {
@@ -221,114 +222,77 @@ export function CategoryImages({ categoryId }: CategoryImagesProps) {
                         <CardTitle>Add New Image</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        {/* Upload Mode Toggle */}
-                        <div className="mb-4 flex gap-2">
-                            <Button
-                                type="button"
-                                variant={uploadMode === 'file' ? 'default' : 'outline'}
-                                onClick={() => setUploadMode('file')}
-                                size="sm"
-                            >
-                                Upload File
-                            </Button>
-                            <Button
-                                type="button"
-                                variant={uploadMode === 'url' ? 'default' : 'outline'}
-                                onClick={() => setUploadMode('url')}
-                                size="sm"
-                            >
-                                Enter URL
-                            </Button>
-                        </div>
+                        <form onSubmit={handleFileUpload} className="space-y-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="image-files">Select Images (Multiple)</Label>
+                                <Input
+                                    id="image-files"
+                                    type="file"
+                                    accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
+                                    onChange={handleFileChange}
+                                    multiple
+                                    required
+                                />
+                                <p className="text-xs text-gray-500">
+                                    Supported formats: JPG, PNG, WebP, GIF. Max size per file: 10MB. You can select multiple images at once.
+                                </p>
+                            </div>
 
-                        {uploadMode === 'file' ? (
-                            <form onSubmit={handleFileUpload} className="space-y-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="image-file">Select Image</Label>
-                                    <Input
-                                        id="image-file"
-                                        type="file"
-                                        accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
-                                        onChange={handleFileChange}
-                                        required
-                                    />
-                                    {selectedFile && (
-                                        <div className="mt-2 rounded-md border p-2">
-                                            <p className="text-sm text-gray-600">
-                                                Selected: {selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
-                                            </p>
-                                        </div>
-                                    )}
-                                    <p className="text-xs text-gray-500">
-                                        Supported formats: JPG, PNG, WebP, GIF. Max size: 10MB
+                            {/* File List with Individual Settings */}
+                            {selectedFiles.length > 0 && (
+                                <div className="space-y-4 rounded-md border p-4">
+                                    <p className="text-sm font-medium text-gray-700">
+                                        Configure {selectedFiles.length} image{selectedFiles.length !== 1 ? 's' : ''}:
                                     </p>
+                                    <div className="space-y-4">
+                                        {selectedFiles.map((file, index) => {
+                                            const metadata = fileMetadata.get(index) || { alt: '', isPrimary: false };
+                                            return (
+                                                <div key={index} className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                                                    <div className="mb-3 flex items-start justify-between">
+                                                        <div className="flex-1">
+                                                            <p className="text-sm font-medium text-gray-900">{file.name}</p>
+                                                            <p className="text-xs text-gray-500">
+                                                                {(file.size / 1024 / 1024).toFixed(2)} MB
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="space-y-3">
+                                                        <div className="space-y-1">
+                                                            <Label htmlFor={`alt-${index}`} className="text-xs">
+                                                                Alt Text (optional)
+                                                            </Label>
+                                                            <Input
+                                                                id={`alt-${index}`}
+                                                                placeholder="Description for this image"
+                                                                value={metadata.alt}
+                                                                onChange={(e) => updateFileMetadata(index, { alt: e.target.value })}
+                                                                className="text-sm"
+                                                            />
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <input
+                                                                id={`primary-${index}`}
+                                                                type="checkbox"
+                                                                checked={metadata.isPrimary}
+                                                                onChange={(e) => updateFileMetadata(index, { isPrimary: e.target.checked })}
+                                                                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                                            />
+                                                            <Label htmlFor={`primary-${index}`} className="text-sm cursor-pointer">
+                                                                Set as primary image
+                                                            </Label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="image-alt">Alt Text (optional)</Label>
-                                    <Input
-                                        id="image-alt"
-                                        placeholder="Description of the image"
-                                        value={form.alt || ''}
-                                        onChange={(e) => setForm((prev) => ({ ...prev, alt: e.target.value }))}
-                                    />
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <input
-                                        id="is-primary"
-                                        type="checkbox"
-                                        checked={form.isPrimary}
-                                        onChange={(e) => setForm((prev) => ({ ...prev, isPrimary: e.target.checked }))}
-                                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                    />
-                                    <Label htmlFor="is-primary">Set as primary image</Label>
-                                </div>
-                                <Button type="submit" isLoading={uploading} disabled={!selectedFile || uploading}>
-                                    {uploading ? 'Uploading...' : 'Upload Image'}
-                                </Button>
-                            </form>
-                        ) : (
-                            <form onSubmit={handleUrlSubmit} className="space-y-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="image-url">Image URL</Label>
-                                    <Input
-                                        id="image-url"
-                                        type="url"
-                                        placeholder="https://example.com/image.jpg"
-                                        value={form.url || ''}
-                                        onChange={(e) => setForm((prev) => ({ ...prev, url: e.target.value }))}
-                                        required
-                                    />
-                                    <p className="text-xs text-gray-500">
-                                        Enter the full URL of the image.
-                                    </p>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label htmlFor="image-alt">Alt Text (optional)</Label>
-                                    <Input
-                                        id="image-alt"
-                                        placeholder="Description of the image"
-                                        value={form.alt || ''}
-                                        onChange={(e) => setForm((prev) => ({ ...prev, alt: e.target.value }))}
-                                    />
-                                </div>
-
-                                <div className="flex items-center gap-2">
-                                    <input
-                                        id="is-primary-url"
-                                        type="checkbox"
-                                        checked={form.isPrimary}
-                                        onChange={(e) => setForm((prev) => ({ ...prev, isPrimary: e.target.checked }))}
-                                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                    />
-                                    <Label htmlFor="is-primary-url">Set as primary image</Label>
-                                </div>
-
-                                <Button type="submit" isLoading={saving}>
-                                    Add Image
-                                </Button>
-                            </form>
-                        )}
+                            )}
+                            <Button type="submit" isLoading={uploading} disabled={selectedFiles.length === 0 || uploading}>
+                                {uploading ? `Uploading... ${Math.round(uploadProgress)}%` : `Upload ${selectedFiles.length > 0 ? `${selectedFiles.length} ` : ''}Image${selectedFiles.length !== 1 ? 's' : ''}`}
+                            </Button>
+                        </form>
                     </CardContent>
                 </Card>
 

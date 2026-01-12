@@ -599,8 +599,8 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
                 totalPrice={totalPrice}
                 onAddToCart={handleAddToCart}
                 onBuyNow={handleBuyNow}
-                addToCartLoading={addingToCart || uploadingFiles}
-                buyNowLoading={buyNowLoading || uploadingFiles}
+                addToCartLoading={addingToCart}
+                buyNowLoading={buyNowLoading}
                 isInCart={matchingProduct ? isProductInCart(matchingProduct.name) : false}
                 stock={matchingProduct?.stock ?? null}
                 isOutOfStock={matchingProduct ? matchingProduct.stock <= 0 : false}

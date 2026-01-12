@@ -1,13 +1,14 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Breadcrumbs from "../components/Breadcrumbs";
 import CartItem from "../components/CartItem";
 import BillingSummary from "../components/BillingSummary";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { useCart } from "@/contexts/CartContext";
 import { BarsSpinner } from "@/app/components/shared/BarsSpinner";
-import { toastError } from "@/lib/utils/toast";
+import { toastError, toastWarning } from "@/lib/utils/toast";
 import { useConfirm } from "@/lib/hooks/use-confirm";
 import { ShoppingCart } from "lucide-react";
 import Link from "next/link";
@@ -27,25 +28,41 @@ function CartPageContent() {
     } = useCart();
 
     const { confirm, ConfirmDialog } = useConfirm();
+    const router = useRouter();
 
-    // Calculate MRP (Maximum Retail Price) for cart items
+    // Selection state - track which items are selected
+    const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+
+    // Select all items by default on mount
+    useEffect(() => {
+        if (items.length > 0 && selectedItems.size === 0) {
+            setSelectedItems(new Set(items.map(item => item.id)));
+        }
+    }, [items, selectedItems.size]);
+
+    // Filter selected items
+    const selectedItemsList = useMemo(() => {
+        return items.filter(item => selectedItems.has(item.id));
+    }, [items, selectedItems]);
+
+    // Calculate MRP (Maximum Retail Price) for selected items only
     const mrp = useMemo(() => {
-        return items.reduce((sum, item) => {
+        return selectedItemsList.reduce((sum, item) => {
             const product = item.product as any;
             const mrpPrice = Number(product?.mrp || 0);
             return sum + mrpPrice * item.quantity;
         }, 0);
-    }, [items]);
+    }, [selectedItemsList]);
 
-    // Calculate subtotal (selling price) for cart items
+    // Calculate subtotal (selling price) for selected items only
     const subtotal = useMemo(() => {
-        return items.reduce((sum, item) => {
+        return selectedItemsList.reduce((sum, item) => {
             const price = Number(item.product?.sellingPrice || item.product?.basePrice || 0);
             const variantModifier = Number(item.variant?.priceModifier || 0);
             const itemPrice = price + variantModifier;
             return sum + itemPrice * item.quantity;
         }, 0);
-    }, [items]);
+    }, [selectedItemsList]);
 
     // Cart-level billing values (no extra discount/coupon on cart page)
     const discount = 0;
@@ -83,9 +100,49 @@ function CartPageContent() {
                 const success = await removeItem(id);
                 if (!success) {
                     toastError('Failed to remove item from cart. Please try again.');
+                } else {
+                    // Remove from selection if it was selected
+                    setSelectedItems(prev => {
+                        const next = new Set(prev);
+                        next.delete(id);
+                        return next;
+                    });
                 }
             },
         });
+    };
+
+    const handleSelectChange = (id: string, selected: boolean) => {
+        setSelectedItems(prev => {
+            const next = new Set(prev);
+            if (selected) {
+                next.add(id);
+            } else {
+                next.delete(id);
+            }
+            return next;
+        });
+    };
+
+    const handleSelectAll = () => {
+        if (selectedItems.size === items.length) {
+            // Deselect all
+            setSelectedItems(new Set());
+        } else {
+            // Select all
+            setSelectedItems(new Set(items.map(item => item.id)));
+        }
+    };
+
+    const handleGoToCheckout = () => {
+        if (selectedItems.size === 0) {
+            toastWarning('Please select at least one item to checkout.');
+            return;
+        }
+
+        // Pass selected item IDs as URL params
+        const selectedIds = Array.from(selectedItems).join(',');
+        router.push(`/checkout?items=${selectedIds}`);
     };
 
     const breadcrumbs = [
@@ -124,6 +181,23 @@ function CartPageContent() {
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                         {/* Left Column - Cart Items */}
                         <div className="lg:col-span-2">
+                            {/* Select All / Deselect All */}
+                            {items.length > 0 && (
+                                <div className="mb-4 flex items-center justify-between bg-white rounded-lg border border-gray-200 p-3">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedItems.size === items.length && items.length > 0}
+                                            onChange={handleSelectAll}
+                                            className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                        />
+                                        <span className="text-sm font-medium text-gray-700">
+                                            Select All ({selectedItems.size} of {items.length} selected)
+                                        </span>
+                                    </label>
+                                </div>
+                            )}
+
                             {items.length === 0 ? (
                                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 sm:p-12 text-center">
                                     <div className="w-16 h-16 mx-auto mb-5 rounded-full bg-gray-50 flex items-center justify-center">
@@ -150,6 +224,9 @@ function CartPageContent() {
                                             onRemove={handleRemoveItem}
                                             isUpdating={updatingItemId === item.id}
                                             isRemoving={removingItemId === item.id}
+                                            isSelected={selectedItems.has(item.id)}
+                                            onSelectChange={handleSelectChange}
+                                            showCheckbox={true}
                                         />
                                     ))}
                                 </div>
@@ -167,9 +244,19 @@ function CartPageContent() {
                                     shipping={shippingFee}
                                     tax={tax}
                                     grandTotal={grandTotal}
-                                    itemCount={items.length}
+                                    itemCount={selectedItemsList.length}
                                     showCheckoutActions={false}
                                 />
+                                <button
+                                    onClick={handleGoToCheckout}
+                                    disabled={selectedItems.size === 0}
+                                    className={`w-full mt-4 px-6 py-3 rounded-lg text-white transition-colors font-medium ${selectedItems.size > 0
+                                        ? "bg-[#1EADD8] hover:bg-blue-700"
+                                        : "bg-gray-400 cursor-not-allowed"
+                                        }`}
+                                >
+                                    Go to Checkout ({selectedItemsList.length} {selectedItemsList.length === 1 ? 'item' : 'items'})
+                                </button>
                             </div>
                         )}
                     </div>

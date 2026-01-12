@@ -57,7 +57,8 @@ async function listTempFiles(): Promise<Array<{ key: string; lastModified: Date 
 
         if (response.Contents) {
             for (const object of response.Contents) {
-                if (object.Key && object.Key.includes("/temp/") && object.LastModified) {
+                // Include all files in orders-file folder
+                if (object.Key && object.LastModified) {
                     tempFiles.push({
                         key: object.Key,
                         lastModified: object.LastModified,
@@ -130,9 +131,9 @@ async function deleteFiles(keys: string[]): Promise<number> {
  * Main cleanup function
  */
 async function cleanupTempFiles() {
-    console.log("🧹 Starting S3 temporary file cleanup...");
+    console.log("🧹 Starting S3 order file cleanup...");
     console.log(`📅 Deleting files older than ${DAYS_TO_KEEP} days`);
-    console.log(`📁 Scanning folder: ${TEMP_FOLDER_PREFIX}temp/`);
+    console.log(`📁 Scanning folder: ${TEMP_FOLDER_PREFIX}`);
     console.log("");
 
     try {

@@ -7,7 +7,7 @@ type BarsSpinnerProps = {
 
 export const BarsSpinner = ({ size = 24, className }: BarsSpinnerProps) => {
     return (
-        <div className="flex h-[800px] items-center justify-center">
+        <div className="inline-flex items-center justify-center">
             <svg
                 width={size}
                 height={size}

@@ -6,7 +6,7 @@
  * and related models (images, specifications, attributes, tags, variants).
  */
 
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState, useRef, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
@@ -16,10 +16,14 @@ import { Alert } from '@/app/components/ui/alert';
 import {
     getProduct,
     updateProduct,
+    uploadProductImageApi,
     type CreateProductData,
     type Product,
+    type ProductImage,
 } from '@/lib/api/products.service';
 import { getCategories, type Category, type PaginatedCategories } from '@/lib/api/categories.service';
+import { Upload, X } from 'lucide-react';
+import Image from 'next/image';
 
 interface EditProductFormProps {
     productId: string;
@@ -35,6 +39,10 @@ export function EditProductForm({ productId }: EditProductFormProps) {
     const [categories, setCategories] = useState<Category[]>([]);
     const [categoriesLoading, setCategoriesLoading] = useState(false);
     const [categorySearch, setCategorySearch] = useState('');
+    const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+    const [fileMetadata, setFileMetadata] = useState<Map<number, { alt: string; isPrimary: boolean }>>(new Map());
+    const [uploadingImages, setUploadingImages] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Load product + categories
     useEffect(() => {
@@ -556,79 +564,271 @@ export function EditProductForm({ productId }: EditProductFormProps) {
                     <section className="space-y-4">
                         <h2 className="text-sm font-semibold text-gray-900">Images</h2>
                         <p className="text-sm text-muted-foreground">
-                            Manage product images. Mark one as primary; others will be used as
-                            gallery images.
+                            Upload multiple images or add image URLs. Mark one as primary; others will be used as gallery images.
                         </p>
-                        <div className="space-y-3">
-                            {images.map((img, index) => (
-                                <div
-                                    key={index}
-                                    className="grid gap-3 rounded-md border p-3 md:grid-cols-[1fr,1fr,auto]"
-                                >
-                                    <div className="space-y-1">
-                                        <Label>Image URL</Label>
-                                        <Input
-                                            value={img.url}
-                                            onChange={(e) => {
-                                                const next = [...images];
-                                                next[index] = {
-                                                    ...next[index],
-                                                    url: e.target.value ?? '',
+
+                        {/* File Upload Section */}
+                        <div className="space-y-4 border rounded-lg p-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="image-files">Upload Images</Label>
+                                <Input
+                                    id="image-files"
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
+                                    multiple
+                                    onChange={(e) => {
+                                        const files = Array.from(e.target.files || []);
+
+                                        // Validate file types
+                                        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+                                        const invalidFiles = files.filter(file => !allowedTypes.includes(file.type));
+
+                                        if (invalidFiles.length > 0) {
+                                            setError('Invalid file type. Please upload JPG, PNG, WebP, or GIF images.');
+                                            return;
+                                        }
+
+                                        // Validate file sizes (10MB each)
+                                        const oversizedFiles = files.filter(file => file.size > 10 * 1024 * 1024);
+                                        if (oversizedFiles.length > 0) {
+                                            setError('File size must be less than 10MB per image.');
+                                            return;
+                                        }
+
+                                        setSelectedFiles(prev => [...prev, ...files]);
+                                        setError(null);
+
+                                        // Initialize metadata for new files
+                                        const newMetadata = new Map(fileMetadata);
+                                        files.forEach((_, index) => {
+                                            const globalIndex = selectedFiles.length + index;
+                                            newMetadata.set(globalIndex, {
+                                                alt: '',
+                                                isPrimary: images.length === 0 && globalIndex === 0,
+                                            });
+                                        });
+                                        setFileMetadata(newMetadata);
+                                    }}
+                                />
+                                <p className="text-xs text-gray-500">
+                                    Supported formats: JPG, PNG, WebP, GIF. Max size: 10MB per image
+                                </p>
+                            </div>
+
+                            {/* Selected Files with Metadata */}
+                            {selectedFiles.length > 0 && (
+                                <div className="space-y-3">
+                                    {selectedFiles.map((file, index) => {
+                                        const metadata = fileMetadata.get(index) || { alt: '', isPrimary: false };
+                                        const isFirstFile = index === 0 && images.length === 0;
+
+                                        return (
+                                            <div key={index} className="rounded-md border p-3 shadow-sm">
+                                                <div className="flex items-start justify-between mb-2">
+                                                    <p className="text-sm font-medium text-gray-800">
+                                                        {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
+                                                    </p>
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => {
+                                                            const newFiles = selectedFiles.filter((_, i) => i !== index);
+                                                            setSelectedFiles(newFiles);
+
+                                                            // Update metadata map indices
+                                                            const newMetadata = new Map<number, { alt: string; isPrimary: boolean }>();
+                                                            newFiles.forEach((_, i) => {
+                                                                const oldIndex = i < index ? i : i + 1;
+                                                                const oldMeta = fileMetadata.get(oldIndex) || { alt: '', isPrimary: false };
+                                                                newMetadata.set(i, oldMeta);
+                                                            });
+                                                            setFileMetadata(newMetadata);
+                                                        }}
+                                                    >
+                                                        <X className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <div>
+                                                        <Label htmlFor={`alt-text-${index}`}>Alt Text (optional)</Label>
+                                                        <Input
+                                                            id={`alt-text-${index}`}
+                                                            placeholder="Description for this image"
+                                                            value={metadata.alt}
+                                                            onChange={(e) => {
+                                                                const newMetadata = new Map(fileMetadata);
+                                                                const current = newMetadata.get(index) || { alt: '', isPrimary: false };
+                                                                newMetadata.set(index, { ...current, alt: e.target.value });
+                                                                setFileMetadata(newMetadata);
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <input
+                                                            id={`is-primary-${index}`}
+                                                            type="checkbox"
+                                                            checked={metadata.isPrimary || isFirstFile}
+                                                            onChange={(e) => {
+                                                                const newMetadata = new Map(fileMetadata);
+                                                                const current = newMetadata.get(index) || { alt: '', isPrimary: false };
+                                                                newMetadata.set(index, { ...current, isPrimary: e.target.checked });
+
+                                                                // If setting as primary, unset others
+                                                                if (e.target.checked) {
+                                                                    newMetadata.forEach((meta, idx) => {
+                                                                        if (idx !== index) {
+                                                                            newMetadata.set(idx, { ...meta, isPrimary: false });
+                                                                        }
+                                                                    });
+                                                                }
+                                                                setFileMetadata(newMetadata);
+                                                            }}
+                                                            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                                        />
+                                                        <Label htmlFor={`is-primary-${index}`} className="cursor-pointer">
+                                                            Set as primary image
+                                                        </Label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+
+                            {selectedFiles.length > 0 && (
+                                <Button
+                                    type="button"
+                                    onClick={async () => {
+                                        if (selectedFiles.length === 0) return;
+
+                                        setUploadingImages(true);
+                                        try {
+                                            const uploadedImages: ProductImage[] = [];
+                                            for (let i = 0; i < selectedFiles.length; i++) {
+                                                const file = selectedFiles[i];
+                                                if (!file) continue;
+
+                                                const metadata = fileMetadata.get(i) || { alt: '', isPrimary: false };
+                                                const newImage = await uploadProductImageApi(productId, file, {
+                                                    alt: metadata.alt.trim() || undefined,
+                                                    isPrimary: metadata.isPrimary || (i === 0 && images.length === 0),
+                                                });
+                                                uploadedImages.push(newImage);
+                                            }
+
+                                            // Add uploaded images to form data
+                                            setFormData((prev) => {
+                                                if (!prev) return prev;
+                                                const existingImages = prev.images || [];
+                                                return {
+                                                    ...prev,
+                                                    images: [
+                                                        ...existingImages,
+                                                        ...uploadedImages.map(img => ({
+                                                            url: img.url,
+                                                            alt: img.alt || '',
+                                                            isPrimary: img.isPrimary,
+                                                            displayOrder: existingImages.length + uploadedImages.indexOf(img),
+                                                        })),
+                                                    ],
                                                 };
-                                                setFormData((prev) =>
-                                                    prev ? { ...prev, images: next } : prev,
-                                                );
-                                            }}
-                                            required
-                                        />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <Label>Alt text</Label>
-                                        <Input
-                                            value={img.alt || ''}
-                                            onChange={(e) => {
-                                                const next = [...images];
-                                                next[index] = { ...next[index], alt: e.target.value };
-                                                setFormData((prev) =>
-                                                    prev ? { ...prev, images: next } : prev,
-                                                );
-                                            }}
-                                        />
-                                    </div>
-                                    <div className="flex flex-col justify-between gap-2">
-                                        <div className="flex items-center gap-2">
-                                            <input
-                                                type="checkbox"
-                                                checked={!!img.isPrimary}
-                                                onChange={() => {
-                                                    const next = images.map((image, i) => ({
-                                                        ...image,
-                                                        isPrimary: i === index,
-                                                    }));
+                                            });
+
+                                            // Clear selected files
+                                            setSelectedFiles([]);
+                                            setFileMetadata(new Map());
+                                            if (fileInputRef.current) {
+                                                fileInputRef.current.value = '';
+                                            }
+                                        } catch (err) {
+                                            setError(err instanceof Error ? err.message : 'Failed to upload images');
+                                        } finally {
+                                            setUploadingImages(false);
+                                        }
+                                    }}
+                                    isLoading={uploadingImages}
+                                    disabled={selectedFiles.length === 0 || uploadingImages}
+                                >
+                                    {uploadingImages ? 'Uploading...' : `Upload ${selectedFiles.length} Image${selectedFiles.length !== 1 ? 's' : ''}`}
+                                </Button>
+                            )}
+                        </div>
+
+                        {/* Existing Images */}
+                        {images.length > 0 && (
+                            <div className="space-y-3">
+                                <Label>Product Images ({images.length})</Label>
+                                {images.map((img, index) => (
+                                    <div
+                                        key={index}
+                                        className="grid gap-3 rounded-md border p-3 md:grid-cols-[auto,1fr,1fr,auto]"
+                                    >
+                                        {img.url && (
+                                            <div className="relative w-20 h-20 rounded overflow-hidden border">
+                                                <Image
+                                                    src={img.url}
+                                                    alt={img.alt || 'Product image'}
+                                                    fill
+                                                    className="object-cover"
+                                                    unoptimized={img.url?.includes('amazonaws.com') || img.url?.includes('s3.')}
+                                                />
+                                            </div>
+                                        )}
+                                       
+                                        <div className="space-y-1">
+                                            <Label>Alt text</Label>
+                                            <Input
+                                                value={img.alt || ''}
+                                                onChange={(e) => {
+                                                    const next = [...images];
+                                                    next[index] = { ...next[index], alt: e.target.value };
                                                     setFormData((prev) =>
                                                         prev ? { ...prev, images: next } : prev,
                                                     );
                                                 }}
                                             />
-                                            <span className="text-xs">Primary</span>
                                         </div>
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => {
-                                                const next = images.filter((_, i) => i !== index);
-                                                setFormData((prev) =>
-                                                    prev ? { ...prev, images: next } : prev,
-                                                );
-                                            }}
-                                        >
-                                            Remove
-                                        </Button>
+                                        <div className="flex flex-col justify-between gap-2">
+                                            <div className="flex items-center gap-2">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={!!img.isPrimary}
+                                                    onChange={() => {
+                                                        const next = images.map((image, i) => ({
+                                                            ...image,
+                                                            isPrimary: i === index,
+                                                        }));
+                                                        setFormData((prev) =>
+                                                            prev ? { ...prev, images: next } : prev,
+                                                        );
+                                                    }}
+                                                />
+                                                <span className="text-xs">Primary</span>
+                                            </div>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => {
+                                                    const next = images.filter((_, i) => i !== index);
+                                                    setFormData((prev) =>
+                                                        prev ? { ...prev, images: next } : prev,
+                                                    );
+                                                }}
+                                            >
+                                                Remove
+                                            </Button>
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
-                        </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/*
+                        FUTURE FEATURE: Add Image URL
                         <Button
                             type="button"
                             variant="outline"
@@ -653,8 +853,8 @@ export function EditProductForm({ productId }: EditProductFormProps) {
                                 )
                             }
                         >
-                            Add Image
-                        </Button>
+                            Add Image URL
+                        </Button> */}
                     </section>
 
                     {/* Specifications */}

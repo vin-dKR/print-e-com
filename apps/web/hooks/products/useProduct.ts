@@ -2,8 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { getProduct, getProducts, Product } from '@/lib/api/products';
 import { addToWishlist, removeFromWishlist, checkWishlist } from '@/lib/api/wishlist';
-import { addToCart, AddToCartData } from '@/lib/api/cart';
-import { createOrder, CreateOrderData } from '@/lib/api/orders';
+import { addToCart, AddToCartData, clearCart } from '@/lib/api/cart';
 import { useAuth } from '@/contexts/AuthContext';
 
 export interface UseProductOptions {
@@ -143,8 +142,7 @@ export const useProduct = ({ productId }: UseProductOptions) => {
         }
     }, [isAuthenticated, productId, router]);
 
-    // Buy now - for now, adds to cart and redirects to checkout
-    // Can be enhanced later to create order directly if needed
+    // Buy now - clears cart, adds product, then redirects to checkout
     const handleBuyNow = useCallback(async (data: Omit<AddToCartData, 'productId'>): Promise<boolean> => {
         if (!isAuthenticated) {
             router.push('/auth/login');
@@ -155,7 +153,10 @@ export const useProduct = ({ productId }: UseProductOptions) => {
 
         setBuyNowLoading(true);
         try {
-            // Add to cart first
+            // Clear cart first to ensure only this product is in checkout
+            await clearCart();
+
+            // Add to cart
             const cartResponse = await addToCart({
                 productId,
                 ...data,

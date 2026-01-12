@@ -1,7 +1,13 @@
 import { Request, Response, NextFunction } from "express";
 import { sendSuccess } from "../utils/response.js";
 import { ValidationError, NotFoundError } from "../utils/errors.js";
-import { uploadToS3, deleteFromS3, getPublicUrl, generatePresignedUrl, generateFilename, extractKeyFromUrl } from "../services/s3.js";
+import {
+    uploadToS3,
+    deleteFromS3,
+    getPublicUrl,
+    generatePresignedUrl,
+    generateFilename,
+} from "../services/s3.js";
 import { prisma } from "../services/prisma.js";
 import { randomUUID } from "crypto";
 
@@ -23,8 +29,8 @@ export const uploadDesign = async (req: Request, res: Response, next: NextFuncti
         // Generate filename
         const filename = generateFilename(req.file.originalname, "design");
 
-        // Upload to S3 temp folder
-        const subfolder = `${userId}/temp`;
+        // Upload to S3 orders-file folder (permanent storage)
+        const subfolder = `${userId}`;
         const key = await uploadToS3(
             req.file,
             "orders-file",
@@ -83,7 +89,7 @@ export const uploadOrderFiles = async (req: Request, res: Response, next: NextFu
             throw new ValidationError("No files uploaded");
         }
 
-        const subfolder = `${userId}/temp`;
+        const subfolder = `${userId}`;
 
         const uploadResults = await Promise.all(
             files.map(async (file) => {
@@ -177,7 +183,7 @@ export const uploadReviewImages = async (req: Request, res: Response, next: Next
         }
 
         // Upload to S3 in reviews folder
-        const subfolder = productId ? `${userId}/${productId}` : `${userId}/temp`;
+        const subfolder = productId ? `${userId}/${productId}` : `${userId}`;
         const uploadResults = await Promise.all(
             files.map(async (file, index) => {
                 const filename = generateFilename(file.originalname, "review");
@@ -252,6 +258,342 @@ export const deleteOrderFile = async (req: Request, res: Response, next: NextFun
         await deleteFromS3(fileKey);
 
         return sendSuccess(res, null, "File deleted successfully");
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * Admin: Upload single product image
+ * Used by `/admin/upload/product-image`
+ */
+export const uploadProductImage = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        if (!req.file) {
+            throw new ValidationError("No file uploaded");
+        }
+
+        const productId = req.body.productId as string | undefined;
+        const alt = (req.body.alt as string | undefined) || null;
+        const isPrimaryFlag = req.body.isPrimary !== undefined
+            ? req.body.isPrimary === "true" || req.body.isPrimary === true
+            : false;
+
+        if (!productId) {
+            throw new ValidationError("Product ID is required");
+        }
+
+        const product = await prisma.product.findUnique({
+            where: { id: productId },
+        });
+
+        if (!product) {
+            throw new NotFoundError("Product not found");
+        }
+
+        // Upload to S3 in product images folder
+        const filename = generateFilename(req.file.originalname, "product");
+        const key = await uploadToS3(
+            req.file,
+            "images",
+            `products/${productId}`,
+            filename,
+            true // public
+        );
+
+        const url = getPublicUrl(key);
+
+        // Determine display order (append to end)
+        const maxOrder = await prisma.productImage.findFirst({
+            where: { productId },
+            orderBy: { displayOrder: "desc" },
+            select: { displayOrder: true },
+        });
+        const displayOrder = maxOrder ? maxOrder.displayOrder + 1 : 0;
+
+        // If setting as primary, unset existing primary
+        if (isPrimaryFlag) {
+            await prisma.productImage.updateMany({
+                where: { productId, isPrimary: true },
+                data: { isPrimary: false },
+            });
+        }
+
+        const image = await prisma.productImage.create({
+            data: {
+                productId,
+                url,
+                alt,
+                isPrimary: isPrimaryFlag,
+                displayOrder,
+            },
+        });
+
+        return sendSuccess(
+            res,
+            {
+                url,
+                key,
+                filename,
+                size: req.file.size,
+                mimetype: req.file.mimetype,
+                image,
+            },
+            "Product image uploaded successfully",
+            201
+        );
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * Admin: Upload multiple product images
+ * Used by `/admin/upload/product-images`
+ */
+export const uploadProductImages = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        if (!req.files) {
+            throw new ValidationError("No files uploaded");
+        }
+
+        const productId = req.body.productId as string | undefined;
+
+        if (!productId) {
+            throw new ValidationError("Product ID is required");
+        }
+
+        const product = await prisma.product.findUnique({
+            where: { id: productId },
+        });
+
+        if (!product) {
+            throw new NotFoundError("Product not found");
+        }
+
+        // Normalize files array
+        let files: Express.Multer.File[] = [];
+        if (Array.isArray(req.files)) {
+            files = req.files;
+        } else if (typeof req.files === "object") {
+            files = Object.values(req.files).flat();
+        }
+
+        if (files.length === 0) {
+            throw new ValidationError("No files uploaded");
+        }
+
+        // Get current max displayOrder to append new images
+        const maxOrder = await prisma.productImage.findFirst({
+            where: { productId },
+            orderBy: { displayOrder: "desc" },
+            select: { displayOrder: true },
+        });
+        let displayOrderBase = maxOrder ? maxOrder.displayOrder + 1 : 0;
+
+        const results: {
+            key: string;
+            url: string;
+            filename: string;
+            size: number;
+            mimetype: string;
+            image: any;
+        }[] = [];
+
+        // Check if product already has a primary image
+        const existingPrimary = await prisma.productImage.findFirst({
+            where: { productId, isPrimary: true },
+            select: { id: true },
+        });
+
+        for (let index = 0; index < files.length; index++) {
+            const file = files[index];
+            if (!file) continue;
+
+            const filename = generateFilename(file.originalname, "product");
+            const key = await uploadToS3(
+                file,
+                "images",
+                `products/${productId}`,
+                filename,
+                true
+            );
+            const url = getPublicUrl(key);
+
+            const image = await prisma.productImage.create({
+                data: {
+                    productId,
+                    url,
+                    alt: null,
+                    isPrimary: !existingPrimary && index === 0, // If no primary yet, make first uploaded primary
+                    displayOrder: displayOrderBase + index,
+                },
+            });
+
+            results.push({
+                key,
+                url,
+                filename,
+                size: file.size,
+                mimetype: file.mimetype,
+                image,
+            });
+        }
+
+        return sendSuccess(
+            res,
+            {
+                images: results.map((r) => r.image),
+                files: results.map(({ image, ...fileInfo }) => fileInfo),
+            },
+            "Product images uploaded successfully",
+            201
+        );
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * Admin: Delete product image
+ * Used by `/admin/upload/product-image/:imageId`
+ */
+export const deleteProductImage = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { imageId } = req.params;
+
+        if (!imageId) {
+            throw new ValidationError("Image ID is required");
+        }
+
+        const image = await prisma.productImage.findUnique({
+            where: { id: imageId },
+        });
+
+        if (!image) {
+            throw new NotFoundError("Product image not found");
+        }
+
+        // Optionally delete from S3 as well if you store keys separately.
+        // For now, we only delete the database record.
+        await prisma.productImage.delete({
+            where: { id: imageId },
+        });
+
+        return sendSuccess(res, null, "Product image deleted successfully");
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * Admin: Upload category image
+ * Used by `/admin/upload/category-image` and `/admin/upload/category-image/:categoryId`
+ */
+export const uploadCategoryImage = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        if (!req.file) {
+            throw new ValidationError("No file uploaded");
+        }
+
+        const categoryId = (req.params.categoryId as string | undefined) || (req.body.categoryId as string | undefined);
+        const alt = (req.body.alt as string | undefined) || null;
+        const isPrimaryFlag = req.body.isPrimary !== undefined
+            ? req.body.isPrimary === "true" || req.body.isPrimary === true
+            : false;
+
+        if (!categoryId) {
+            throw new ValidationError("Category ID is required");
+        }
+
+        const category = await prisma.category.findUnique({
+            where: { id: categoryId },
+        });
+
+        if (!category) {
+            throw new NotFoundError("Category not found");
+        }
+
+        const filename = generateFilename(req.file.originalname, "category");
+        const key = await uploadToS3(
+            req.file,
+            "images",
+            `categories/${categoryId}`,
+            filename,
+            true
+        );
+        const url = getPublicUrl(key);
+
+        // Determine display order
+        const maxOrder = await prisma.categoryImage.findFirst({
+            where: { categoryId },
+            orderBy: { displayOrder: "desc" },
+            select: { displayOrder: true },
+        });
+        const displayOrder = maxOrder ? maxOrder.displayOrder + 1 : 0;
+
+        // If setting as primary, unset other primary images
+        if (isPrimaryFlag) {
+            await prisma.categoryImage.updateMany({
+                where: { categoryId, isPrimary: true },
+                data: { isPrimary: false },
+            });
+        }
+
+        const image = await prisma.categoryImage.create({
+            data: {
+                categoryId,
+                url,
+                alt,
+                isPrimary: isPrimaryFlag,
+                displayOrder,
+            },
+        });
+
+        return sendSuccess(
+            res,
+            {
+                url,
+                key,
+                filename,
+                size: req.file.size,
+                mimetype: req.file.mimetype,
+                image,
+            },
+            "Category image uploaded successfully",
+            201
+        );
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * Admin: Delete category image
+ * Used by `/admin/upload/category-image/:imageId`
+ */
+export const deleteCategoryImage = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { imageId } = req.params;
+
+        if (!imageId) {
+            throw new ValidationError("Image ID is required");
+        }
+
+        const image = await prisma.categoryImage.findUnique({
+            where: { id: imageId },
+        });
+
+        if (!image) {
+            throw new NotFoundError("Category image not found");
+        }
+
+        // Optionally delete from S3 as well if you store keys separately.
+        await prisma.categoryImage.delete({
+            where: { id: imageId },
+        });
+
+        return sendSuccess(res, null, "Category image deleted successfully");
     } catch (error) {
         next(error);
     }

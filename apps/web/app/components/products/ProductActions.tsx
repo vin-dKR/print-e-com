@@ -2,6 +2,7 @@
 
 import { ShoppingBag } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { BarsSpinner } from "../shared/BarsSpinner";
 
 interface ProductActionsProps {
     stock: number;
@@ -44,15 +45,17 @@ export default function ProductActions({
                 <button
                     onClick={handleAddToCartClick}
                     disabled={addToCartDisabled}
-                    className="flex-1 px-4 py-3 bg-[#008ECC] text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed cursor-pointer"
+                    className="flex-1 px-4 py-3 bg-[#008ECC] text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2"
                 >
+                    {addToCartLoading && <BarsSpinner size={16} />}
                     {stock === 0 ? "Out of Stock" : !hasFiles ? "Upload File First" : addToCartLoading ? "Adding..." : isInCart ? "Go to Cart" : "Add to Cart"}
                 </button>
                 <button
                     onClick={onBuyNow}
                     disabled={buyNowDisabled}
-                    className="flex-1 px-4 py-3 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed cursor-pointer"
+                    className="flex-1 px-4 py-3 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2"
                 >
+                    {buyNowLoading && <BarsSpinner size={16} />}
                     {!hasFiles ? "Upload File First" : buyNowLoading ? "Processing..." : "Buy Now"}
                 </button>
             </div>
@@ -66,14 +69,15 @@ export default function ProductActions({
                 disabled={addToCartDisabled}
                 className="flex-1 px-8 py-4 bg-[#008ECC] text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-3 cursor-pointer"
             >
-                <ShoppingBag size={20} />
+                {addToCartLoading ? <BarsSpinner size={20} /> : <ShoppingBag size={20} />}
                 {stock === 0 ? "Out of Stock" : !hasFiles ? "Upload File First" : addToCartLoading ? "Adding..." : isInCart ? "Go to Cart" : "Add to Cart"}
             </button>
             <button
                 onClick={onBuyNow}
                 disabled={buyNowDisabled}
-                className="flex-1 px-8 py-4 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed cursor-pointer"
+                className="flex-1 px-8 py-4 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2"
             >
+                {buyNowLoading && <BarsSpinner size={20} />}
                 {!hasFiles ? "Upload File First" : buyNowLoading ? "Processing..." : "Buy Now"}
             </button>
         </div>

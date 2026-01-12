@@ -1,7 +1,7 @@
 /**
  * Script to populate nullable fields added in migration
  * Run this after running db:push or db:migrate
- * 
+ *
  * Usage: bun prisma/populate-migration-fields.ts
  */
 
@@ -29,15 +29,12 @@ function generateSlug(name: string): string {
 }
 
 async function populateFields() {
-    console.log("🔄 Populating migration fields...");
 
     try {
         // 1. Populate product slugs
         const productsWithoutSlug = await prisma.product.findMany({
             where: { slug: null },
         });
-
-        console.log(`📦 Found ${productsWithoutSlug.length} products without slugs`);
 
         for (const product of productsWithoutSlug) {
             const slug = generateSlug(product.name);
@@ -55,7 +52,6 @@ async function populateFields() {
                 data: { slug: uniqueSlug },
             });
 
-            console.log(`✅ Updated product "${product.name}" with slug: ${uniqueSlug}`);
         }
 
         // 2. Populate order subtotals (set to total for existing orders)
@@ -63,7 +59,6 @@ async function populateFields() {
             where: { subtotal: null },
         });
 
-        console.log(`📋 Found ${ordersWithoutSubtotal.length} orders without subtotals`);
 
         for (const order of ordersWithoutSubtotal) {
             await prisma.order.update({
@@ -71,10 +66,8 @@ async function populateFields() {
                 data: { subtotal: order.total }, // Set subtotal = total for existing orders
             });
 
-            console.log(`✅ Updated order ${order.id} with subtotal: ${order.total}`);
         }
 
-        console.log("🎉 Migration field population completed!");
     } catch (error) {
         console.error("❌ Error populating fields:", error);
         throw error;

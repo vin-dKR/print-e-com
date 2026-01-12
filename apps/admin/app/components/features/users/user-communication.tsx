@@ -64,8 +64,6 @@ export function UserCommunication({ userId, user, onSuccess }: UserCommunication
         try {
             // TODO: Implement actual email sending API endpoint
             // For now, just show a success message
-            console.log('Sending email:', { userId, subject: emailSubject, body: emailBody, template: emailTemplate });
-
             // Simulate API call
             await new Promise(resolve => setTimeout(resolve, 1000));
 

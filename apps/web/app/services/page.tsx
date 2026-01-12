@@ -112,6 +112,7 @@ export default function ServicesPage() {
                                                 alt={category.name}
                                                 fill
                                                 className="object-cover group-hover:scale-110 transition-transform duration-300"
+                                                unoptimized={imageUrl.includes('amazonaws.com') || imageUrl.includes('s3.')}
                                             />
                                         ) : (
                                             <div className="absolute inset-0 flex items-center justify-center">

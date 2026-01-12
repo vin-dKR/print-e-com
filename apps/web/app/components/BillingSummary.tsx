@@ -152,29 +152,6 @@ export default function BillingSummary({
                 </>
             )}
 
-            {/* Cart page - Show "Go to Checkout" button */}
-            {!showCheckoutActions && (
-                <Link
-                    href="/checkout"
-                    className="block w-full px-6 py-3 bg-[#1EADD8] text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-center mt-6"
-                >
-                    Go to Checkout
-                    <svg
-                        width="20"
-                        height="20"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="inline-block ml-2"
-                    >
-                        <line x1="5" y1="12" x2="19" y2="12"></line>
-                        <polyline points="12 5 19 12 12 19"></polyline>
-                    </svg>
-                </Link>
-            )}
         </div>
     );
 }

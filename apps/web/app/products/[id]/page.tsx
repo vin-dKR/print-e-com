@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Breadcrumbs from "../../components/Breadcrumbs";
 import ProductRating from "../../components/ProductRating";
 import PriceDisplay from "../../components/PriceDisplay";
-import ProductDocumentUpload from "../../components/products/ProductDocumentUpload";
+import ProductDocumentUpload, { FileDetail } from "../../components/products/ProductDocumentUpload";
 import ProductWishlistButton from "../../components/products/ProductWishlistButton";
 import ProductShareButton from "../../components/products/ProductShareButton";
 import ProductActions from "../../components/products/ProductActions";
@@ -17,8 +17,7 @@ import { BarsSpinner } from "../../components/shared/BarsSpinner";
 import { useProduct } from "@/hooks/products/useProduct";
 import { useCart } from "@/contexts/CartContext";
 import { Star } from "lucide-react";
-import { uploadOrderFilesToS3 } from "@/lib/api/uploads";
-import { toastError, toastSuccess, toastPromise } from "@/lib/utils/toast";
+import { toastError, toastSuccess } from "@/lib/utils/toast";
 import ReviewList from "../../components/reviews/ReviewList";
 
 export default function ProductDetailsPage({ params }: { params: Promise<{ id: string }> }) {
@@ -49,7 +48,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
     } = useProduct({ productId: id });
 
     // Check if product is already in cart
-    const { isProductInCart } = useCart();
+    const { isProductInCart, refetch: refetchCart } = useCart();
     const isInCart = product ? isProductInCart(product.name) : false;
 
     // Local UI state
@@ -58,6 +57,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
     const [quantity, setQuantity] = useState(1);
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+    const [uploadedFileDetails, setUploadedFileDetails] = useState<FileDetail[]>([]);
     const [uploadingFiles, setUploadingFiles] = useState(false);
     const [minQuantityFromFiles, setMinQuantityFromFiles] = useState<number>(1);
 
@@ -70,9 +70,12 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
     }, [product, selectedVariant]);
 
     // Handle file upload with quantity calculation
-    // Files are stored in memory - uploaded to S3 only when adding to cart
-    const handleFileSelect = async (files: File[], totalQuantity: number) => {
+    // Files are uploaded to S3 immediately when selected
+    const handleFileSelect = async (files: File[], totalQuantity: number, fileDetails?: FileDetail[]) => {
         setUploadedFiles(files);
+        if (fileDetails) {
+            setUploadedFileDetails(fileDetails);
+        }
 
         // Set minimum quantity based on files
         if (totalQuantity > 0) {
@@ -97,37 +100,43 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
         setQuantity(Math.max(newQuantity, minQty));
     };
 
-    // Handle add to cart - upload files to S3 first, then add to cart
+    // Handle add to cart - use already uploaded S3 keys
     const onAddToCart = async () => {
         if (!product) return;
 
-        // Upload files to S3 if files are present (before adding to cart)
+        // Get S3 keys from already uploaded files (files are uploaded immediately when selected)
         let s3Keys: string[] = [];
-        if (uploadedFiles.length > 0) {
-            setUploadingFiles(true);
-            try {
-                const uploadResponse = await toastPromise(
-                    uploadOrderFilesToS3(uploadedFiles),
-                    {
-                        loading: 'Uploading files...',
-                        success: 'Files uploaded successfully!',
-                        error: 'Failed to upload files. Please try again.',
-                    }
-                );
-                if (uploadResponse.success && uploadResponse.data) {
-                    s3Keys = uploadResponse.data.files.map(f => f.key);
-                } else {
-                    toastError('Failed to upload files. Please try again.');
-                    setUploadingFiles(false);
+        if (uploadedFileDetails.length > 0) {
+            // Wait for any files that are still uploading
+            const stillUploading = uploadedFileDetails.some(fd => fd.uploadStatus === 'uploading');
+            if (stillUploading) {
+                toastError('Please wait for all files to finish uploading');
+                return;
+            }
+
+            // If some files failed to upload, show error
+            const failedUploads = uploadedFileDetails.filter(fd => fd.uploadStatus === 'error');
+            if (failedUploads.length > 0) {
+                toastError('Some files failed to upload. Please remove them and try again.');
+                return;
+            }
+
+            // Extract S3 keys from uploaded files
+            s3Keys = uploadedFileDetails
+                .filter(fd => fd.uploadStatus === 'uploaded' && fd.s3Key)
+                .map(fd => fd.s3Key!)
+                .filter(Boolean);
+
+            // If we have files but no S3 keys, check if they're pending
+            if (s3Keys.length === 0 && uploadedFileDetails.length > 0) {
+                const pendingFiles = uploadedFileDetails.filter(fd => fd.uploadStatus === 'pending');
+                if (pendingFiles.length > 0) {
+                    toastError('Files are still being processed. Please wait a moment and try again.');
                     return;
                 }
-            } catch (error) {
-                console.error('Error uploading files:', error);
-                toastError('Failed to upload files. Please try again.');
-                setUploadingFiles(false);
+                // If no pending files but no keys, something went wrong
+                toastError('Files are still being processed. Please wait a moment and try again.');
                 return;
-            } finally {
-                setUploadingFiles(false);
             }
         }
 
@@ -142,43 +151,50 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
             // Reset uploaded files after adding to cart
             setUploadedFiles([]);
             toastSuccess("Product added to cart successfully!");
-            // Trigger a page refresh to update cart count
+            // Update cart context instead of reloading page
+            await refetchCart();
         } else {
             toastError("Failed to add product to cart. Please try again.");
         }
     };
 
-    // Handle buy now - upload files to S3 first, then proceed
+    // Handle buy now - use already uploaded S3 keys
     const onBuyNow = async () => {
         if (!product) return;
 
-        // Upload files to S3 if files are present
+        // Get S3 keys from already uploaded files (files are uploaded immediately when selected)
         let s3Keys: string[] = [];
-        if (uploadedFiles.length > 0) {
-            setUploadingFiles(true);
-            try {
-                const uploadResponse = await toastPromise(
-                    uploadOrderFilesToS3(uploadedFiles),
-                    {
-                        loading: 'Uploading files...',
-                        success: 'Files uploaded successfully!',
-                        error: 'Failed to upload files. Please try again.',
-                    }
-                );
-                if (uploadResponse.success && uploadResponse.data) {
-                    s3Keys = uploadResponse.data.files.map(f => f.key);
-                } else {
-                    toastError('Failed to upload files. Please try again.');
-                    setUploadingFiles(false);
+        if (uploadedFileDetails.length > 0) {
+            // Wait for any files that are still uploading
+            const stillUploading = uploadedFileDetails.some(fd => fd.uploadStatus === 'uploading');
+            if (stillUploading) {
+                toastError('Please wait for all files to finish uploading');
+                return;
+            }
+
+            // If some files failed to upload, show error
+            const failedUploads = uploadedFileDetails.filter(fd => fd.uploadStatus === 'error');
+            if (failedUploads.length > 0) {
+                toastError('Some files failed to upload. Please remove them and try again.');
+                return;
+            }
+
+            // Extract S3 keys from uploaded files
+            s3Keys = uploadedFileDetails
+                .filter(fd => fd.uploadStatus === 'uploaded' && fd.s3Key)
+                .map(fd => fd.s3Key!)
+                .filter(Boolean);
+
+            // If we have files but no S3 keys, check if they're pending
+            if (s3Keys.length === 0 && uploadedFileDetails.length > 0) {
+                const pendingFiles = uploadedFileDetails.filter(fd => fd.uploadStatus === 'pending');
+                if (pendingFiles.length > 0) {
+                    toastError('Files are still being processed. Please wait a moment and try again.');
                     return;
                 }
-            } catch (error) {
-                console.error('Error uploading files:', error);
-                toastError('Failed to upload files. Please try again.');
-                setUploadingFiles(false);
+                // If no pending files but no keys, something went wrong
+                toastError('Files are still being processed. Please wait a moment and try again.');
                 return;
-            } finally {
-                setUploadingFiles(false);
             }
         }
 
@@ -189,7 +205,11 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
             customDesignUrl: s3Keys.length > 0 ? s3Keys : undefined,
         });
 
-        if (!success) {
+        if (success) {
+            // Reset uploaded files after buy now
+            setUploadedFiles([]);
+            setUploadedFileDetails([]);
+        } else {
             toastError("Failed to proceed. Please try again.");
         }
         // If success, user will be redirected to checkout
@@ -799,8 +819,8 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                             stock={product.stock}
                             onAddToCart={onAddToCart}
                             onBuyNow={onBuyNow}
-                            addToCartLoading={cartLoading || uploadingFiles}
-                            buyNowLoading={buyNowLoading || uploadingFiles}
+                            addToCartLoading={cartLoading}
+                            buyNowLoading={buyNowLoading}
                             isMobile
                             isInCart={isInCart}
                             hasFiles={uploadedFiles.length > 0}

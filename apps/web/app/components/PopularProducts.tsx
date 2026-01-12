@@ -2,12 +2,20 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/AuthContext";
+import { useCart } from "@/contexts/CartContext";
 import { getProducts, type Product } from "../../lib/api/products";
-import { toastInfo } from "@/lib/utils/toast";
+import { addToCart } from "@/lib/api/cart";
+import { toastError, toastPromise } from "@/lib/utils/toast";
 
 export default function PopularProducts() {
+    const router = useRouter();
+    const { isAuthenticated } = useAuth();
+    const { refetch: refetchCart, isProductInCart } = useCart();
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
+    const [addingToCartId, setAddingToCartId] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchPopularProducts = async () => {
@@ -32,10 +40,51 @@ export default function PopularProducts() {
         fetchPopularProducts();
     }, []);
 
-    const handleAddToCart = (productId: string) => {
-        // TODO
-        // Handle add to cart logic (will be implemented in Phase 2)
-        toastInfo("Add to cart functionality is not implemented yet");
+    const handleAddToCart = async (e: React.MouseEvent<HTMLButtonElement>, productId: string) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const product = products.find(p => p.id === productId);
+        if (!product) return;
+
+        const isInCart = isProductInCart(product.name);
+
+        // If already in cart, navigate to cart page
+        if (isInCart) {
+            router.push('/cart');
+            return;
+        }
+
+        if (!isAuthenticated) {
+            router.push('/auth/login');
+            return;
+        }
+
+        setAddingToCartId(productId);
+        try {
+            const response = await toastPromise(
+                addToCart({
+                    productId: productId,
+                    quantity: 1,
+                }),
+                {
+                    loading: 'Adding to cart...',
+                    success: 'Product added to cart successfully!',
+                    error: 'Failed to add to cart. Please try again.',
+                }
+            );
+
+            if (response.success) {
+                await refetchCart();
+            } else {
+                toastError(response.error || 'Failed to add to cart');
+            }
+        } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : 'Failed to add to cart. Please try again.';
+            toastError(errorMessage);
+        } finally {
+            setAddingToCartId(null);
+        }
     };
 
     // Loading skeleton
@@ -145,23 +194,47 @@ export default function PopularProducts() {
 
                                 {/* Add to Cart Button */}
                                 <button
-                                    onClick={() => handleAddToCart(product.id)}
-                                    className="absolute bottom-4 right-4 w-10 h-10 bg-[#008ECC] hover:bg-blue-700 rounded-xl flex items-center justify-center text-white shadow-sm hover:shadow transition-all duration-200"
-                                    aria-label="Add to cart"
+                                    onClick={(e) => handleAddToCart(e, product.id)}
+                                    disabled={addingToCartId === product.id}
+                                    className={`absolute bottom-4 right-4 w-10 h-10 ${isProductInCart(product.name)
+                                        ? 'bg-green-500 hover:bg-green-600'
+                                        : 'bg-[#008ECC] hover:bg-blue-700'
+                                        } rounded-xl flex items-center justify-center text-white shadow-sm hover:shadow transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed`}
+                                    aria-label={isProductInCart(product.name) ? "Go to cart" : "Add to cart"}
                                 >
-                                    <svg
-                                        width="20"
-                                        height="20"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        strokeWidth="2"
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                    >
-                                        <line x1="12" y1="5" x2="12" y2="19"></line>
-                                        <line x1="5" y1="12" x2="19" y2="12"></line>
-                                    </svg>
+                                    {addingToCartId === product.id ? (
+                                        <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                    ) : isProductInCart(product.name) ? (
+                                        <svg
+                                            width="20"
+                                            height="20"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="2"
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                        >
+                                            <polyline points="20 6 9 17 4 12"></polyline>
+                                        </svg>
+                                    ) : (
+                                        <svg
+                                            width="20"
+                                            height="20"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="2"
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                        >
+                                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                                        </svg>
+                                    )}
                                 </button>
                             </div>
                         ))}

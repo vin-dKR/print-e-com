@@ -33,7 +33,7 @@ if (!BUCKET_NAME || !process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_AC
  * Upload file to S3
  * @param file - File buffer or Multer file object
  * @param folder - 'images' or 'orders-file'
- * @param subfolder - Subfolder path (e.g., 'products/{productId}' or '{userId}/temp')
+ * @param subfolder - Subfolder path (e.g., 'products/{productId}' or '{userId}/')
  * @param filename - Filename with extension
  * @param isPublic - Whether the file should be publicly accessible
  * @returns S3 key (path) of the uploaded file

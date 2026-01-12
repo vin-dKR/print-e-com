@@ -1,17 +1,22 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Upload, File, AlertTriangle, X, Image as ImageIcon, FileText } from "lucide-react";
+import { Upload, File, AlertTriangle, X, Image as ImageIcon, FileText, Loader2 } from "lucide-react";
+import { uploadOrderFilesToS3, deleteOrderFile } from "@/lib/api/uploads";
+import { toastError, toastSuccess } from "@/lib/utils/toast";
 
 export interface FileDetail {
     file: File;
     type: 'image' | 'pdf';
     pageCount: number;
     id: string;
+    s3Key?: string; // S3 key if file has been uploaded
+    uploadStatus?: 'pending' | 'uploading' | 'uploaded' | 'error'; // Upload status
+    uploadAbortController?: AbortController; // For canceling uploads
 }
 
 interface ProductDocumentUploadProps {
-    onFileSelect: (files: File[], totalQuantity: number) => void;
+    onFileSelect: (files: File[], totalQuantity: number, fileDetails?: FileDetail[]) => void;
     onQuantityChange?: (quantity: number) => void;
     acceptedTypes?: string;
     maxSizeMB?: number;
@@ -32,6 +37,7 @@ export default function ProductDocumentUpload({
     const [isProcessing, setIsProcessing] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const uploadAbortControllersRef = useRef<Map<string, AbortController>>(new Map());
 
     // Valid image types
     const validImageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
@@ -59,27 +65,32 @@ export default function ProductDocumentUpload({
                         // Use pdfjs-dist for accurate page counting
                         const pdfjsLib = await import('pdfjs-dist');
 
-                        // Set worker source - use CDN with proper protocol
-                        if (typeof window !== 'undefined') {
-                            pdfjsLib.GlobalWorkerOptions.workerSrc =
-                                `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-                        } else {
-                            pdfjsLib.GlobalWorkerOptions.workerSrc =
-                                `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+                        // Try to set worker, but if it fails, PDF.js will use main thread
+                        // Use jsdelivr CDN which is more reliable
+                        try {
+                            if (typeof window !== 'undefined' && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
+                                pdfjsLib.GlobalWorkerOptions.workerSrc =
+                                    `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+                            }
+                        } catch (workerError) {
+                            // If worker setup fails, PDF.js will use main thread automatically
+                            console.warn('Worker setup failed, using main thread:', workerError);
                         }
 
+                        // Load PDF - will use main thread if worker fails
                         const pdf = await pdfjsLib.getDocument({
                             data: arrayBuffer,
                             useWorkerFetch: false,
                             isEvalSupported: false,
+                            verbosity: 0,
                         }).promise;
 
                         const pageCount = pdf.numPages;
                         console.log(`PDF ${file.name} has ${pageCount} pages`);
                         resolve(pageCount);
                     } catch (pdfError) {
-                        console.error('PDF.js error:', pdfError);
-                        // Fallback: try regex approach
+                        console.warn('PDF.js worker error, falling back to regex method:', pdfError);
+                        // Fallback: try regex approach (more reliable, no worker needed)
                         try {
                             const typedArray = new Uint8Array(arrayBuffer);
                             const text = new TextDecoder('utf-8', { fatal: false }).decode(typedArray.slice(0, 100000));
@@ -102,9 +113,13 @@ export default function ProductDocumentUpload({
                                 return;
                             }
 
-                            reject(new Error('Unable to count PDF pages. Please check the PDF file is valid.'));
+                            // If all methods fail, default to 1 page (better UX than error)
+                            console.warn(`Could not determine page count for ${file.name}, defaulting to 1`);
+                            resolve(1);
                         } catch (regexError) {
-                            reject(new Error(`Failed to process PDF: ${pdfError instanceof Error ? pdfError.message : 'Unknown error'}`));
+                            // Final fallback: assume 1 page
+                            console.warn(`All PDF counting methods failed for ${file.name}, defaulting to 1 page`);
+                            resolve(1);
                         }
                     }
                 } catch (err) {
@@ -147,6 +162,7 @@ export default function ProductDocumentUpload({
                     type: 'image',
                     pageCount: 1,
                     id: `${Date.now()}-${Math.random()}`,
+                    uploadStatus: 'pending',
                 });
                 totalQuantity += 1;
             } else if (isPDF) {
@@ -158,6 +174,7 @@ export default function ProductDocumentUpload({
                         type: 'pdf',
                         pageCount,
                         id: `${Date.now()}-${Math.random()}`,
+                        uploadStatus: 'pending',
                     });
                     totalQuantity += pageCount;
                 } catch (err) {
@@ -196,9 +213,14 @@ export default function ProductDocumentUpload({
             setUploadedFiles(allFileDetails);
             setTotalQuantity(finalTotalQuantity);
 
-            // Call callbacks - files are NOT uploaded to S3 yet
-            // They will be uploaded only after order confirmation
-            onFileSelect(allFiles, finalTotalQuantity);
+            // Upload files to S3 immediately
+            // Upload each file individually so we can track and cancel them
+            newFileDetails.forEach((fileDetail) => {
+                uploadFileToS3(fileDetail);
+            });
+
+            // Call callbacks - files will be uploaded to S3
+            onFileSelect(allFiles, finalTotalQuantity, allFileDetails);
             if (onQuantityChange) {
                 onQuantityChange(finalTotalQuantity);
             }
@@ -213,15 +235,120 @@ export default function ProductDocumentUpload({
         }
     };
 
-    const handleRemove = (fileId: string) => {
-        const updatedFiles = uploadedFiles.filter(fd => fd.id !== fileId);
+    // Upload a single file to S3
+    const uploadFileToS3 = async (fileDetail: FileDetail) => {
+        // Create abort controller for this upload
+        const abortController = new AbortController();
+        uploadAbortControllersRef.current.set(fileDetail.id, abortController);
+
+        // Update status to uploading
+        setUploadedFiles((prev) => {
+            const updated: FileDetail[] = prev.map((fd) =>
+                fd.id === fileDetail.id
+                    ? { ...fd, uploadStatus: 'uploading' as const, uploadAbortController: abortController }
+                    : fd
+            );
+            // Notify parent of updated file details
+            const files = updated.map((fd) => fd.file);
+            const totalQuantity = updated.reduce((sum, fd) => sum + fd.pageCount, 0);
+            onFileSelect(files, totalQuantity, updated);
+            return updated;
+        });
+
+        try {
+            const response = await uploadOrderFilesToS3([fileDetail.file]);
+
+            // Check if upload was aborted
+            if (abortController.signal.aborted) {
+                return; // Upload was cancelled, exit silently
+            }
+
+            if (response.success && response.data && response.data.files.length > 0) {
+                const uploadedFile = response.data.files[0];
+                if (uploadedFile?.key) {
+                    // Update status to uploaded and store S3 key
+                    setUploadedFiles((prev) => {
+                        const updated: FileDetail[] = prev.map((fd) =>
+                            fd.id === fileDetail.id
+                                ? { ...fd, uploadStatus: 'uploaded' as const, s3Key: uploadedFile.key }
+                                : fd
+                        );
+                        // Notify parent of updated file details
+                        const files = updated.map((fd) => fd.file);
+                        const totalQuantity = updated.reduce((sum, fd) => sum + fd.pageCount, 0);
+                        onFileSelect(files, totalQuantity, updated);
+                        return updated;
+                    });
+                } else {
+                    throw new Error('Upload failed - no key returned');
+                }
+            } else {
+                throw new Error('Upload failed');
+            }
+        } catch (err) {
+            // Check if upload was aborted
+            if (abortController.signal.aborted) {
+                // Upload was cancelled, remove the file
+                setUploadedFiles((prev) => prev.filter((fd) => fd.id !== fileDetail.id));
+                const updatedFiles = uploadedFiles.filter((fd) => fd.id !== fileDetail.id);
+                const updatedQuantity = updatedFiles.reduce((sum, fd) => sum + fd.pageCount, 0);
+                setTotalQuantity(updatedQuantity);
+                const files = updatedFiles.map((fd) => fd.file);
+                onFileSelect(files, updatedQuantity, updatedFiles);
+                if (onQuantityChange) {
+                    onQuantityChange(updatedQuantity);
+                }
+                return;
+            }
+
+            // Upload failed
+            setUploadedFiles((prev) => {
+                const updated: FileDetail[] = prev.map((fd) =>
+                    fd.id === fileDetail.id ? { ...fd, uploadStatus: 'error' as const } : fd
+                );
+                // Notify parent of updated file details
+                const files = updated.map((fd) => fd.file);
+                const totalQuantity = updated.reduce((sum, fd) => sum + fd.pageCount, 0);
+                onFileSelect(files, totalQuantity, updated);
+                return updated;
+            });
+            toastError(`Failed to upload ${fileDetail.file.name}`);
+        } finally {
+            // Clean up abort controller
+            uploadAbortControllersRef.current.delete(fileDetail.id);
+        }
+    };
+
+    const handleRemove = async (fileId: string) => {
+        const fileToRemove = uploadedFiles.find((fd) => fd.id === fileId);
+        if (!fileToRemove) return;
+
+        // If file is currently uploading, cancel the upload
+        if (fileToRemove.uploadStatus === 'uploading' && fileToRemove.uploadAbortController) {
+            fileToRemove.uploadAbortController.abort();
+            uploadAbortControllersRef.current.delete(fileId);
+        }
+
+        // If file is already uploaded to S3, delete it
+        if (fileToRemove.uploadStatus === 'uploaded' && fileToRemove.s3Key) {
+            try {
+                await deleteOrderFile(fileToRemove.s3Key);
+                toastSuccess('File removed from storage');
+            } catch (err) {
+                console.error('Failed to delete file from S3:', err);
+                // Continue with removal even if S3 delete fails
+            }
+        }
+
+        // Remove file from state
+        const updatedFiles = uploadedFiles.filter((fd) => fd.id !== fileId);
         const updatedQuantity = updatedFiles.reduce((sum, fd) => sum + fd.pageCount, 0);
 
         setUploadedFiles(updatedFiles);
         setTotalQuantity(updatedQuantity);
 
-        const files = updatedFiles.map(fd => fd.file);
-        onFileSelect(files, updatedQuantity);
+        const files = updatedFiles.map((fd) => fd.file);
+        onFileSelect(files, updatedQuantity, updatedFiles);
         if (onQuantityChange) {
             onQuantityChange(updatedQuantity);
         }
@@ -298,6 +425,18 @@ export default function ProductDocumentUpload({
                                                 {fileDetail.type === 'pdf'
                                                     ? `${fileDetail.pageCount} page${fileDetail.pageCount !== 1 ? 's' : ''}`
                                                     : '1 page'}
+                                                {fileDetail.uploadStatus === 'uploading' && (
+                                                    <span className="ml-2 text-blue-600 flex items-center gap-1">
+                                                        <Loader2 size={12} className="animate-spin" />
+                                                        Uploading...
+                                                    </span>
+                                                )}
+                                                {fileDetail.uploadStatus === 'uploaded' && (
+                                                    <span className="ml-2 text-green-600">✓ Uploaded</span>
+                                                )}
+                                                {fileDetail.uploadStatus === 'error' && (
+                                                    <span className="ml-2 text-red-600">✗ Upload failed</span>
+                                                )}
                                             </p>
                                         </div>
                                     </div>

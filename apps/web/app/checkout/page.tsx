@@ -1,28 +1,30 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import Breadcrumbs from "../components/Breadcrumbs";
 import BillingAddressForm from "../components/BillingAddressForm";
 import ShippingMethod from "../components/ShippingMethod";
-import PaymentMethod from "../components/PaymentMethod";
 import CollapsibleSection from "../components/CollapsibleSection";
 import BillingSummary from "../components/BillingSummary";
 import OrderReview from "../components/OrderReview";
 import DiscountCodeSection from "../components/DiscountCodeSection";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { useCheckout } from "@/hooks/checkout/useCheckout";
+import { useCart } from "@/contexts/CartContext";
 import { BarsSpinner } from "@/app/components/shared/BarsSpinner";
 import { createRazorpayOrderFromCart, verifyRazorpayPayment } from "@/lib/api/payments";
 import CheckoutFilesReview from "../components/CheckoutFilesReview";
 import { toastWarning, toastError, toastSuccess, toastPromise } from "@/lib/utils/toast";
 
 function CheckoutPageContent() {
+    const searchParams = useSearchParams();
     const {
-        cartItems,
-        mrp,
-        subtotal,
+        cartItems: allCartItems,
+        mrp: allMrp,
+        subtotal: allSubtotal,
         deliveryFee,
-        itemCount,
+        itemCount: allItemCount,
         selectedAddressId,
         setSelectedAddressId,
         addressError,
@@ -34,13 +36,50 @@ function CheckoutPageContent() {
         couponError,
         applyCoupon,
         removeCoupon,
-        tax,
-        grandTotal,
+        tax: allTax,
+        grandTotal: allGrandTotal,
         loading,
         error,
     } = useCheckout();
 
+    const { removeItem } = useCart();
     const [isPaying, setIsPaying] = useState(false);
+
+    // Get selected item IDs from URL params
+    const selectedItemIds = useMemo(() => {
+        const itemsParam = searchParams.get('items');
+        if (!itemsParam) return null;
+        return new Set(itemsParam.split(',').filter(Boolean));
+    }, [searchParams]);
+
+    // Filter cart items to only show selected items
+    const cartItems = useMemo(() => {
+        if (!selectedItemIds) {
+            // If no selection, show all items (backward compatibility)
+            return allCartItems;
+        }
+        return allCartItems.filter(item => selectedItemIds.has(item.id));
+    }, [allCartItems, selectedItemIds]);
+
+    // Recalculate totals for selected items only
+    const mrp = useMemo(() => {
+        return cartItems.reduce((sum, item) => {
+            const product = item.product as any;
+            const mrpPrice = Number(product?.mrp || 0);
+            return sum + mrpPrice * item.quantity;
+        }, 0);
+    }, [cartItems]);
+
+    const subtotal = useMemo(() => {
+        return cartItems.reduce((sum, item) => {
+            const price = Number(item.product?.sellingPrice || item.product?.basePrice || 0);
+            const variantModifier = Number(item.variant?.priceModifier || 0);
+            const itemPrice = price + variantModifier;
+            return sum + itemPrice * item.quantity;
+        }, 0);
+    }, [cartItems]);
+
+    const itemCount = cartItems.length;
 
     // Track selected shipping method
     const [selectedShippingId, setSelectedShippingId] = useState<string>("standard");
@@ -79,7 +118,7 @@ function CheckoutPageContent() {
         return selectedOption?.price || deliveryFee;
     }, [selectedShippingId, shippingOptions, deliveryFee]);
 
-    // Recalculate tax and total with selected shipping
+    // Recalculate tax and total with selected shipping (for selected items only)
     const calculatedTax = useMemo(() => {
         const taxableAmount = (subtotal || 0) - discountAmount;
         return taxableAmount * 0.18;
@@ -175,7 +214,17 @@ function CheckoutPageContent() {
 
                         // Files are already uploaded to S3 and stored in cart items
                         // Order items are created with S3 URLs from cart items during payment verification
-                        // Just redirect to order page
+
+                        // Remove only ordered items from cart (not the entire cart)
+                        try {
+                            // Remove each ordered item from cart
+                            const removePromises = cartItems.map(item => removeItem(item.id));
+                            await Promise.all(removePromises);
+                        } catch (clearError) {
+                            console.error("Failed to remove ordered items from cart:", clearError);
+                            // Don't block the redirect if removal fails
+                        }
+
                         toastSuccess('Order placed successfully!');
                         setTimeout(() => {
                             window.location.href = `/orders/${orderId}`;
@@ -274,8 +323,6 @@ function CheckoutPageContent() {
                             onSelect={setSelectedShippingId}
                         />
 
-                        {/* Payment Method */}
-                        <PaymentMethod />
                     </div>
 
                     {/* Right Column - Order Summary */}

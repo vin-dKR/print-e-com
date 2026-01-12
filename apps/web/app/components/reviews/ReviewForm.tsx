@@ -4,7 +4,7 @@ import { useState, useRef } from "react";
 import { Star, Upload, X, Image as ImageIcon, AlertCircle, CheckCircle2 } from "lucide-react";
 import { createReview, CreateReviewData } from "@/lib/api/reviews";
 import { uploadReviewImages } from "@/lib/api/uploads";
-import { toastError, toastSuccess, toastPromise } from "@/lib/utils/toast";
+import { toastError, toastSuccess, toastPromise, toastInfo } from "@/lib/utils/toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { BarsSpinner } from "../shared/BarsSpinner";
 
@@ -161,34 +161,65 @@ export default function ReviewForm({ productId, onSuccess, onCancel }: ReviewFor
             };
 
             // Submit review
-            const response = await toastPromise(
-                createReview(productId, reviewData),
-                {
-                    loading: "Submitting review...",
-                    success: "Review submitted successfully! It will be visible after admin approval.",
-                    error: "Failed to submit review",
-                }
-            );
+            try {
+                const response = await toastPromise(
+                    createReview(productId, reviewData),
+                    {
+                        loading: "Submitting review...",
+                        success: "Review submitted successfully! Your review will be visible on the product page after admin approval.",
+                        error: (err: any) => {
+                            // Extract error message from API response
+                            // The API client throws an error object with a 'message' property
+                            if (err?.message) {
+                                return err.message;
+                            }
+                            if (err?.error) {
+                                return err.error;
+                            }
+                            if (typeof err === 'string') {
+                                return err;
+                            }
+                            return "Failed to submit review";
+                        },
+                    }
+                );
 
-            if (response.success) {
-                // Reset form
-                setRating(0);
-                setTitle("");
-                setComment("");
-                setImages([]);
-                setImagePreviews([]);
-                setErrors({});
+                if (response.success) {
+                    // Show additional info message about admin approval
+                    setTimeout(() => {
+                        toastInfo("Your review is pending admin approval and will be visible on the product page once approved.", 6000);
+                    }, 500);
 
-                if (onSuccess) {
-                    onSuccess();
+                    // Reset form
+                    setRating(0);
+                    setTitle("");
+                    setComment("");
+                    setImages([]);
+                    setImagePreviews([]);
+                    setErrors({});
+
+                    if (onSuccess) {
+                        onSuccess();
+                    }
                 }
-            } else {
-                throw new Error(response.error || "Failed to submit review");
+            } catch (err) {
+                // toastPromise should have already shown the error toast
+                // But if it didn't, show it here as a fallback
+                const errorMessage = err instanceof Error
+                    ? err.message
+                    : (err && typeof err === 'object' && 'message' in err)
+                        ? (err as any).message
+                        : "Failed to submit review";
+
+                // Only show if toastPromise didn't handle it (shouldn't happen, but safety net)
+                console.error('Review submission error:', err);
+            } finally {
+                setIsSubmitting(false);
             }
         } catch (err) {
+            // Outer catch for any unexpected errors
             const errorMessage = err instanceof Error ? err.message : "Failed to submit review";
             toastError(errorMessage);
-        } finally {
             setIsSubmitting(false);
         }
     };

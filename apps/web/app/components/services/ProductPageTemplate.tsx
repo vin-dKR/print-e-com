@@ -1,18 +1,16 @@
 'use client';
 
 import React from 'react';
-import { ProductHeader } from './ProductHeader';
 import { ProductGallery } from './ProductGallery';
 import { ProductFeatures } from './ProductFeatures';
-import { ProductFileUpload } from './print/FileUpload';
 import { PriceBreakdown } from './print/PriceBreakdown';
 import { Button } from './print/Button';
 import { ShoppingCart } from 'lucide-react';
 import { ProductData, BreadcrumbItem } from '@/types';
-import { Breadcrumb } from '../ui/Breadcrumb';
 import Breadcrumbs from '../Breadcrumbs';
 import { useRouter } from 'next/navigation';
 import ProductDocumentUpload from '../products/ProductDocumentUpload';
+import { BarsSpinner } from '../shared/BarsSpinner';
 
 interface ProductPageTemplateProps {
     productData: Partial<ProductData>;
@@ -93,7 +91,7 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
 
                 {/* Main Product Section - Matching product detail layout */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 mb-12">
-                    {/* Left Column - Product Images & Configuration (7/12 on desktop) */}
+                    {/* Left Column - Product Images (7/12 on desktop) */}
                     <div className="lg:col-span-7 space-y-4 sm:space-y-5">
                         {/* Product Gallery */}
                         <div className="bg-white p-3 sm:p-4 rounded-2xl border border-gray-100 shadow-sm">
@@ -102,38 +100,9 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
                                 fallbackIcon={<ShoppingCart className="w-24 h-24 text-[#008ECC]" />}
                             />
                         </div>
-
-                        {/* File Upload Section */}
-                        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-100 shadow-sm">
-                            <ProductDocumentUpload
-                                onFileSelect={(files: File[], totalQuantity: number) => {
-                                    // Use the new callback if provided, otherwise use legacy callback
-                                    if (onFileSelectWithQuantity) {
-                                        onFileSelectWithQuantity(files, totalQuantity);
-                                    } else {
-                                        // Legacy: pass first file to onFileSelect
-                                        const firstFile: File | null = files.length > 0 && files[0] ? files[0] : null;
-                                        onFileSelect(firstFile);
-                                    }
-                                }}
-                                onQuantityChange={(calculatedQuantity: number) => {
-                                    // Call the quantity change callback if provided
-                                    if (onQuantityChange && calculatedQuantity > 0) {
-                                        onQuantityChange(calculatedQuantity);
-                                    }
-                                }}
-                                maxSizeMB={50}
-                            />
-                        </div>
-
-                        {/* Configuration Options */}
-                        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-100 shadow-sm">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Customize Your Order</h3>
-                            {children}
-                        </div>
                     </div>
 
-                    {/* Right Column - Product Info & Pricing (5/12 on desktop) */}
+                    {/* Right Column - Product Info, Pricing, Upload & Customization (5/12 on desktop) */}
                     <div className="lg:col-span-5">
                         <div className="sticky top-24 space-y-4 sm:space-y-6">
                             {/* Product Title */}
@@ -193,6 +162,35 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
                                 </div>
                             )}
 
+                            {/* File Upload Section */}
+                            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-100 shadow-sm">
+                                <ProductDocumentUpload
+                                    onFileSelect={(files: File[], totalQuantity: number) => {
+                                        // Use the new callback if provided, otherwise use legacy callback
+                                        if (onFileSelectWithQuantity) {
+                                            onFileSelectWithQuantity(files, totalQuantity);
+                                        } else {
+                                            // Legacy: pass first file to onFileSelect
+                                            const firstFile: File | null = files.length > 0 && files[0] ? files[0] : null;
+                                            onFileSelect(firstFile);
+                                        }
+                                    }}
+                                    onQuantityChange={(calculatedQuantity: number) => {
+                                        // Call the quantity change callback if provided
+                                        if (onQuantityChange && calculatedQuantity > 0) {
+                                            onQuantityChange(calculatedQuantity);
+                                        }
+                                    }}
+                                    maxSizeMB={50}
+                                />
+                            </div>
+
+                            {/* Configuration Options */}
+                            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-100 shadow-sm">
+                                <h3 className="text-lg font-semibold text-gray-900 mb-4">Customize Your Order</h3>
+                                {children}
+                            </div>
+
                             {/* Action Buttons */}
                             <div className="space-y-3">
                                 <Button
@@ -238,12 +236,7 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
                         disabled={!areRequiredFieldsFilled || outOfStock || addToCartLoading}
                         className="flex-1 px-4 py-3 bg-blue-500 text-white rounded-lg font-medium hover:bg-[#008ECC] active:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-400 flex items-center justify-center gap-2"
                     >
-                        {addToCartLoading && (
-                            <svg className="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                        )}
+                        {addToCartLoading && <BarsSpinner size={16} />}
                         {outOfStock
                             ? 'Out of Stock'
                             : isInCart
@@ -258,12 +251,7 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
                         disabled={!areRequiredFieldsFilled || outOfStock || buyNowLoading}
                         className="flex-1 px-4 py-3 bg-orange-500 text-white rounded-lg font-medium hover:bg-orange-600 active:bg-orange-700 transition-all duration-200 shadow-sm hover:shadow disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-400 flex items-center justify-center gap-2"
                     >
-                        {buyNowLoading && (
-                            <svg className="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                        )}
+                        {buyNowLoading && <BarsSpinner size={16} />}
                         {buyNowLoading ? 'Processing...' : outOfStock ? 'Out of Stock' : 'Buy Now'}
                     </button>
                 </div>

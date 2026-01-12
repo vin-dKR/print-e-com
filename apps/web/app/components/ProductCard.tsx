@@ -28,6 +28,7 @@ export default function ProductCard({
 }: ProductCardProps) {
     const router = useRouter();
     const { isAuthenticated } = useAuth();
+    const { refetch: refetchCart } = useCart();
     const { isProductInCart } = useCart();
     const [isFavorite, setIsFavorite] = useState(false);
     const [isLoadingWishlist, setIsLoadingWishlist] = useState(false);
@@ -65,8 +66,6 @@ export default function ProductCard({
             return;
         }
 
-        console.log('Add to cart clicked for product:', id); // Debug log
-
         if (!isAuthenticated) {
             router.push('/auth/login');
             return;
@@ -74,7 +73,6 @@ export default function ProductCard({
 
         setIsAddingToCart(true);
         try {
-            console.log('Calling addToCart API with:', { productId: id, quantity: 1 }); // Debug log
             const response = await toastPromise(
                 addToCart({
                     productId: id,
@@ -87,20 +85,13 @@ export default function ProductCard({
                 }
             );
 
-            console.log('Add to cart response:', response); // Debug log
 
             if (response.success) {
-                // Show success feedback and reload to update UI
-                console.log('Added to cart successfully');
-                setTimeout(() => {
-                    window.location.reload();
-                }, 1000);
+                await refetchCart();
             } else {
-                console.error('Add to cart failed:', response.error);
                 toastError(response.error || 'Failed to add to cart');
             }
         } catch (err) {
-            console.error('Error adding to cart:', err);
             const errorMessage = err instanceof Error ? err.message : 'Failed to add to cart. Please try again.';
             toastError(errorMessage);
         } finally {

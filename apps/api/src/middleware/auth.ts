@@ -35,7 +35,6 @@ export const customerAuth = async (
         // Try Supabase first
         if (supabase) {
             const { data: { user }, error } = await supabase.auth.getUser(token);
-            // console.log("---", user)
 
             if (!error && user) {
                 // Find or create user in our database
@@ -84,7 +83,6 @@ export const customerAuth = async (
                 email: user.email,
                 type: "customer",
             };
-            console.log("--this is the id of the token user", req.user)
             return next();
         } catch (jwtError) {
             throw new UnauthorizedError("Invalid or expired token");
@@ -118,7 +116,6 @@ export const adminAuth = async (
             if (supabaseError) {
                 // Supabase token validation failed - try JWT fallback
                 // Log the error for debugging but don't throw yet
-                console.log('[AUTH] Supabase token validation failed:', supabaseError.message);
             } else if (user) {
                 const dbUser = await prisma.user.findUnique({
                     where: { supabaseId: user.id },

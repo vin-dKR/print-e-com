@@ -40,14 +40,23 @@ const nextConfig = {
         protocol: 'http',
         hostname: 'localhost',
       },
-      // Fallback: allow all HTTPS domains (should match everything else)
+      // Common external image domains - add more as needed
       {
         protocol: 'https',
-        hostname: '**',
+        hostname: 'www.novaprint.ca',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.novaprint.ca',
+        pathname: '/**',
       },
     ],
     // Allow unoptimized images as fallback if optimization fails
     unoptimized: false,
+    dangerouslyAllowSVG: true,
+    contentDispositionType: 'attachment',
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
 };
 

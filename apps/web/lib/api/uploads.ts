@@ -2,7 +2,7 @@
  * Uploads API functions
  */
 
-import { uploadFile, ApiResponse } from '../api-client';
+import { uploadFile, del, ApiResponse } from '../api-client';
 
 export interface UploadFileResult {
     key: string; // S3 key (path)
@@ -47,5 +47,12 @@ export async function uploadReviewImages(
         files,
         additionalData
     );
+}
+
+/**
+ * Delete order file from S3
+ */
+export async function deleteOrderFile(fileKey: string): Promise<ApiResponse<null>> {
+    return del<null>(`/upload/order-file/${encodeURIComponent(fileKey)}`);
 }
 

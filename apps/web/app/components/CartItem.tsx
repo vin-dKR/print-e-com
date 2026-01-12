@@ -6,6 +6,7 @@ import PriceDisplay from "./PriceDisplay";
 import { CartItem as CartItemType } from "@/lib/api/cart";
 import Image from "next/image";
 import { FileText } from "lucide-react";
+import { getPublicS3Url, isImageFile, getFilenameFromS3Key } from "@/lib/utils/s3";
 
 interface CartItemProps {
     item: CartItemType;
@@ -13,6 +14,9 @@ interface CartItemProps {
     onRemove: (id: string) => void;
     isUpdating?: boolean;
     isRemoving?: boolean;
+    isSelected?: boolean;
+    onSelectChange?: (id: string, selected: boolean) => void;
+    showCheckbox?: boolean;
 }
 
 export default function CartItem({
@@ -21,6 +25,9 @@ export default function CartItem({
     onRemove,
     isUpdating = false,
     isRemoving = false,
+    isSelected = false,
+    onSelectChange,
+    showCheckbox = false,
 }: CartItemProps) {
     const product = item.product;
     const variant = item.variant;
@@ -48,6 +55,19 @@ export default function CartItem({
 
     return (
         <div className="border-b border-gray-100 pb-4 flex gap-4 relative">
+            {/* Selection Checkbox */}
+            {showCheckbox && onSelectChange && (
+                <div className="shrink-0 pt-2">
+                    <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={(e) => onSelectChange(item.id, e.target.checked)}
+                        className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                        aria-label={`Select ${productName}`}
+                    />
+                </div>
+            )}
+
             {/* Delete Button */}
             <button
                 onClick={() => onRemove(item.id)}
@@ -62,7 +82,13 @@ export default function CartItem({
 
             {/* Product Image */}
             <Link href={`/products/${item.productId}`} className="shrink-0">
-                <Image src={productImage} alt={productName} width={100} height={100} />
+                <Image
+                    src={productImage}
+                    alt={productName}
+                    width={100}
+                    height={100}
+                    unoptimized={productImage.includes('amazonaws.com') || productImage.includes('s3.')}
+                />
             </Link>
 
             {/* Product Details */}
@@ -83,6 +109,36 @@ export default function CartItem({
                             <div className="text-xs font-semibold text-blue-900 mb-1.5 flex items-center gap-1">
                                 <FileText className="h-3 w-3" />
                                 Uploaded Files ({uploadedFileUrls.length})
+                            </div>
+                            <div className="flex flex-wrap gap-2 mt-2">
+                                {uploadedFileUrls.slice(0, 3).map((s3Key, idx) => {
+                                    const publicUrl = getPublicS3Url(s3Key);
+                                    const isImage = isImageFile(s3Key);
+
+                                    return (
+                                        <div key={idx} className="relative w-10 h-10 rounded border border-blue-200 overflow-hidden bg-white">
+                                            {isImage ? (
+                                                <Image
+                                                    src={publicUrl}
+                                                    alt={getFilenameFromS3Key(s3Key)}
+                                                    fill
+                                                    className="object-cover"
+                                                    unoptimized={publicUrl.includes('amazonaws.com') || publicUrl.includes('s3.')}
+                                                    sizes="40px"
+                                                />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center bg-gray-50">
+                                                    <FileText className="h-4 w-4 text-gray-500" />
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                                {uploadedFileUrls.length > 3 && (
+                                    <div className="relative w-10 h-10 rounded border border-blue-200 bg-gray-100 flex items-center justify-center">
+                                        <span className="text-xs font-semibold text-gray-600">+{uploadedFileUrls.length - 3}</span>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}
