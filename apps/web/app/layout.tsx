@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import Header from "./components/shared/Header";
-import Footer from "./components/shared/Footer";
+import ConditionalLayout from "./components/shared/ConditionalLayout";
 import { AuthProvider } from "../contexts/AuthContext";
 import { ProductConfigProvider } from "@/contexts/ProductConfigContext";
 import { CartProvider } from "@/contexts/CartContext";
@@ -24,11 +23,9 @@ export default function RootLayout({
                     <AuthProvider>
                         <CartProvider>
                             <ProductConfigProvider>
-                                <Header />
-                                <main className="flex-1 bg-white">
+                                <ConditionalLayout>
                                     {children}
-                                </main>
-                                <Footer />
+                                </ConditionalLayout>
                             </ProductConfigProvider>
                         </CartProvider>
                     </AuthProvider>

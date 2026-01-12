@@ -31,6 +31,7 @@ export default function CategoryProducts() {
                 // Take first 8 categories for the main display (show 4 on mobile, 8 on desktop)
                 setCategories(data.slice(0, 8));
             } catch (err: any) {
+                console.log("----", err)
                 console.error('Failed to fetch categories:', err);
                 setError(err.message || 'Failed to load categories');
             } finally {
@@ -80,11 +81,11 @@ export default function CategoryProducts() {
 
     if (loading) {
         return (
-            <section className="py-10 bg-white">
-                <div className="w-full mx-auto px-10">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 2xl:grid-cols-4 gap-4 sm:gap-4 md:gap-5 lg:gap-8 2xl:gap-10">
+            <section className="py-6 md:py-8 bg-white">
+                <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 2xl:grid-cols-4 gap-3 sm:gap-3 md:gap-4 lg:gap-5 2xl:gap-6 w-full">
                         {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-                            <div key={i} className={`relative h-100 rounded-4xl overflow-hidden bg-gray-200 animate-pulse ${i > 4 ? 'hidden 2xl:block' : ''} ${i > 3 && i <= 6 ? 'hidden md:block 2xl:block' : ''}`} />
+                            <div key={i} className={`relative aspect-square md:aspect-4/3 lg:aspect-square w-full min-w-0 rounded-2xl md:rounded-3xl lg:rounded-4xl overflow-hidden bg-gray-200 animate-pulse ${i > 4 ? 'hidden 2xl:block' : ''} ${i > 3 && i <= 6 ? 'hidden md:block 2xl:block' : ''}`} />
                         ))}
                     </div>
                 </div>
@@ -105,20 +106,20 @@ export default function CategoryProducts() {
     }
 
     return (
-        <section className="py-10 bg-white">
-            <div className="w-full mx-auto px-10">
-                <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-2xl font-bold text-gray-900">Our Services</h2>
+        <section className="py-6 md:py-8 bg-white">
+            <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="flex items-center justify-between mb-4 md:mb-5">
+                    <h2 className="text-xl md:text-2xl font-bold text-gray-900">Our Services</h2>
                     <Link
                         href="/services"
-                        className="text-blue-600 hover:text-blue-700 font-medium flex items-center gap-2 transition-colors"
+                        className="text-blue-600 hover:text-blue-700 font-medium flex items-center gap-2 transition-colors text-sm md:text-base"
                     >
                         See All
-                        <ArrowRight className="w-4 h-4" />
+                        <ArrowRight className="w-3 h-3 md:w-4 md:h-4" />
                     </Link>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 2xl:grid-cols-4 gap-4 sm:gap-4 md:gap-5 lg:gap-8 2xl:gap-10">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 2xl:grid-cols-4 gap-3 sm:gap-3 md:gap-4 lg:gap-5 2xl:gap-6 w-full">
                     {categories.map((category, index) => {
                         const imageUrl = getCategoryImage(category);
                         const color = getCategoryColor(index);
@@ -131,7 +132,7 @@ export default function CategoryProducts() {
                             <Link
                                 href={`/services/${category.slug}`}
                                 key={category.id}
-                                className={`relative group aspect-square md:aspect-[4/3] lg:aspect-square 2xl:h-100 rounded-2xl md:rounded-3xl lg:rounded-4xl overflow-hidden cursor-pointer ${isMobileHidden
+                                className={`relative group aspect-square md:aspect-4/3 lg:aspect-square w-full min-w-0 rounded-2xl md:rounded-3xl lg:rounded-4xl overflow-hidden cursor-pointer ${isMobileHidden
                                     ? isLargeOnly
                                         ? 'hidden 2xl:block'
                                         : 'hidden md:block'

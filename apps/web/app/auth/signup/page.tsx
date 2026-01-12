@@ -92,7 +92,7 @@ export default function SignupPage() {
             onFacebookAuth={handleFacebookSignup}
             error={error}
         >
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-2 sm:space-y-2.5">
                 <AuthFormInput
                     type="text"
                     name="name"
@@ -148,14 +148,14 @@ export default function SignupPage() {
                 />
 
                 {/* Terms & Conditions */}
-                <div className="flex items-start gap-2">
+                <div className="flex items-start gap-1.5 pt-0.5">
                     <input
                         type="checkbox"
                         checked={agreeToTerms}
                         onChange={(e) => setAgreeToTerms(e.target.checked)}
-                        className="w-4 h-4 mt-1 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        className="w-3.5 h-3.5 mt-0.5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 shrink-0"
                     />
-                    <label className="text-sm text-gray-700">
+                    <label className="text-xs text-gray-700 leading-tight">
                         I agree to the{" "}
                         <Link href="/terms" className="text-blue-600 hover:underline">
                             Terms & Conditions
@@ -173,7 +173,7 @@ export default function SignupPage() {
             </form>
 
             {/* Login Link */}
-            <div className="mt-6 text-center text-sm text-gray-600">
+            <div className="mt-2 sm:mt-2.5 text-center text-xs text-gray-600">
                 Already have an account?{" "}
                 <Link href="/auth/login" className="text-blue-600 hover:text-blue-700 font-medium hover:underline">
                     Sign In

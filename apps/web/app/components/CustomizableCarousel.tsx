@@ -28,8 +28,8 @@ export default function CustomizableCarousel() {
     };
 
     return (
-        <section className="py-10 bg-white relative">
-            <div className="w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-30">
+        <section className="py-6 md:py-8 bg-white relative">
+            <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="relative">
                     {/* Carousel Container */}
                     <div className="relative h-[300px] sm:h-[400px] md:h-[500px] rounded-2xl overflow-hidden bg-white border border-gray-100 shadow-sm">

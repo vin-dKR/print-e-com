@@ -6,6 +6,7 @@ import CustomizableCarousel from "../components/CustomizableCarousel";
 import Testimonials from "../components/Testimonials";
 import NewArrivalProducts from "../components/NewArrivalProducts";
 import BottomNavigation from "../components/shared/BottomNavigation";
+import Footer from "../components/shared/Footer";
 
 export default function Home() {
     return (
@@ -15,7 +16,7 @@ export default function Home() {
             <NewArrivalProducts />
             <PopularProducts />
             <BestSeller />
-            <CustomizableCarousel />
+            {/* <CustomizableCarousel /> */}
             <Testimonials />
             <BottomNavigation />
         </div>

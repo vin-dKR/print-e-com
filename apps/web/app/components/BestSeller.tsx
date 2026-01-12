@@ -90,16 +90,16 @@ export default function BestSeller() {
     // Loading skeleton
     if (loading) {
         return (
-            <section className="py-10 bg-white">
-                <div className="w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-30">
-                    <div className="flex items-center justify-between mb-6">
+            <section className="py-6 md:py-8 bg-white">
+                <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="flex items-center justify-between mb-4 md:mb-5">
                         <div className="h-8 w-48 bg-gray-200 rounded animate-pulse"></div>
                         <div className="h-6 w-24 bg-gray-200 rounded animate-pulse"></div>
                     </div>
                     <div className="overflow-x-auto scrollbar-hide">
-                        <div className="flex gap-4 sm:gap-6 pb-4">
+                        <div className="flex gap-3 sm:gap-4 md:gap-5 pb-4">
                             {Array(6).fill(0).map((_, i) => (
-                                <div key={i} className="shrink-0 w-64 h-80 bg-gray-200 rounded-2xl animate-pulse"></div>
+                                <div key={i} className="shrink-0 w-48 sm:w-56 md:w-64 h-64 sm:h-72 md:h-80 bg-gray-200 rounded-xl md:rounded-2xl animate-pulse"></div>
                             ))}
                         </div>
                     </div>
@@ -114,10 +114,10 @@ export default function BestSeller() {
     }
 
     return (
-        <section className="py-10 bg-white">
-            <div className="w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-30">
-                <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900">Best Seller</h2>
+        <section className="py-6 md:py-8 bg-white">
+            <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="flex items-center justify-between mb-4 md:mb-5">
+                    <h2 className="text-xl md:text-2xl font-semibold text-gray-900">Best Seller</h2>
                     <Link
                         href="/products?sort=bestseller"
                         className="flex items-center gap-2 text-[#008ECC] hover:text-blue-700 font-medium transition-colors text-sm sm:text-base"

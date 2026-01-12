@@ -1320,11 +1320,19 @@ export const previewProductFromPricingRule = async (
                 };
             });
 
+        // Build short description from actual specification values
+        const shortDescriptionParts = specifications.map(
+            (spec) => `${spec.key}: ${spec.value}`
+        );
+        const shortDescription = shortDescriptionParts.length > 0
+            ? shortDescriptionParts.join(", ")
+            : category.name;
+
         const previewData = {
             name: productName,
             slug: uniqueSlug,
             description: category.configuration?.pageDescription || category.description || "",
-            shortDescription: `${category.name} with selected specifications`,
+            shortDescription: shortDescription,
             basePrice: rule.basePrice ? Number(rule.basePrice) : 0,
             categoryId: category.id,
             categoryName: category.name,
@@ -1467,13 +1475,24 @@ export const publishPricingRuleAsProduct = async (
             }));
         }
 
+        // Build short description from specifications if not provided
+        let finalShortDescription = shortDescription;
+        if (!finalShortDescription) {
+            const shortDescriptionParts = productSpecifications.map(
+                (spec) => `${spec.key}: ${spec.value}`
+            );
+            finalShortDescription = shortDescriptionParts.length > 0
+                ? shortDescriptionParts.join(", ")
+                : category.name;
+        }
+
         // Create product
         const product = await prisma.product.create({
             data: {
                 name: productName,
                 slug: productSlug,
                 description: description || category.configuration?.pageDescription || category.description || "",
-                shortDescription: shortDescription || `${category.name} with selected specifications`,
+                shortDescription: finalShortDescription,
                 basePrice: rule.basePrice,
                 categoryId: category.id,
                 sku: sku || null,

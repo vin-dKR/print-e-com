@@ -29,7 +29,7 @@ export default function AuthFormInput({
 
     return (
         <div className={`relative ${className}`}>
-            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 {icon}
             </div>
             <input
@@ -39,17 +39,17 @@ export default function AuthFormInput({
                 onChange={onChange}
                 placeholder={placeholder}
                 required={required}
-                className="w-full pl-12 pr-12 py-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full pl-10 pr-10 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
             {showPasswordToggle && onTogglePassword && (
                 <button
                     type="button"
                     onClick={onTogglePassword}
-                    className="absolute inset-y-0 right-0 pr-4 flex items-center"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
                 >
                     <svg
-                        width="20"
-                        height="20"
+                        width="16"
+                        height="16"
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"

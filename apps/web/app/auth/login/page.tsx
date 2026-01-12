@@ -64,7 +64,7 @@ export default function LoginPage() {
             onFacebookAuth={handleFacebookLogin}
             error={error}
         >
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-2 sm:space-y-2.5">
                 <AuthFormInput
                     type="email"
                     value={email}
@@ -87,19 +87,19 @@ export default function LoginPage() {
                 />
 
                 {/* Remember Me & Forgot Password */}
-                <div className="flex items-center justify-between">
-                    <label className="flex items-center gap-2 cursor-pointer">
+                <div className="flex items-center justify-between pt-0.5">
+                    <label className="flex items-center gap-1.5 cursor-pointer">
                         <input
                             type="checkbox"
                             checked={rememberMe}
                             onChange={(e) => setRememberMe(e.target.checked)}
-                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            className="w-3.5 h-3.5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                         />
-                        <span className="text-sm text-gray-700">Remember me</span>
+                        <span className="text-xs text-gray-700">Remember me</span>
                     </label>
                     <Link
                         href="/auth/forgot-password"
-                        className="text-sm text-blue-600 hover:text-blue-700 hover:underline"
+                        className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
                     >
                         Forgot Password?
                     </Link>
@@ -111,7 +111,7 @@ export default function LoginPage() {
             </form>
 
             {/* Register Link */}
-            <div className="mt-6 text-center text-sm text-gray-600">
+            <div className="mt-2 sm:mt-2.5 text-center text-xs text-gray-600">
                 Don't have an account?{" "}
                 <Link href="/auth/signup" className="text-blue-600 hover:text-blue-700 font-medium hover:underline">
                     Register

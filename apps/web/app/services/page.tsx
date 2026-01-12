@@ -43,14 +43,14 @@ export default function ServicesPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50 py-12">
+            <div className="min-h-screen bg-gray-50 py-6 md:py-8 lg:py-10">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-5 lg:gap-6 w-full">
                         {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-                            <div key={i} className="bg-white rounded-xl shadow-sm p-6 animate-pulse">
-                                <div className="h-48 bg-gray-200 rounded-lg mb-4" />
-                                <div className="h-6 bg-gray-200 rounded mb-2" />
-                                <div className="h-4 bg-gray-200 rounded w-3/4" />
+                            <div key={i} className="bg-white rounded-lg md:rounded-xl shadow-sm p-3 sm:p-4 md:p-5 lg:p-6 animate-pulse w-full min-w-0 flex flex-col">
+                                <div className="h-32 sm:h-36 md:h-40 lg:h-44 xl:h-48 bg-gray-200 rounded-lg mb-3 md:mb-4 flex-shrink-0" />
+                                <div className="h-4 sm:h-5 md:h-6 bg-gray-200 rounded mb-1.5 md:mb-2" />
+                                <div className="h-3 sm:h-4 bg-gray-200 rounded w-3/4" />
                             </div>
                         ))}
                     </div>
@@ -78,12 +78,12 @@ export default function ServicesPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 py-12">
+        <div className="min-h-screen bg-gray-50 py-6 md:py-8 lg:py-10">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 {/* Header */}
-                <div className="mb-8">
-                    <h1 className="text-4xl font-bold text-gray-900 mb-2">Our Services</h1>
-                    <p className="text-gray-600">
+                <div className="mb-6 md:mb-8">
+                    <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 mb-2">Our Services</h1>
+                    <p className="text-sm md:text-base text-gray-600">
                         Explore our wide range of printing and design services
                     </p>
                 </div>
@@ -94,7 +94,7 @@ export default function ServicesPage() {
                         <p className="text-gray-500">No services available at the moment.</p>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-5 lg:gap-6 w-full">
                         {categories.map((category) => {
                             const imageUrl = getCategoryImage(category);
 
@@ -102,10 +102,10 @@ export default function ServicesPage() {
                                 <Link
                                     key={category.id}
                                     href={`/services/${category.slug}`}
-                                    className="group bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer"
+                                    className="group bg-white rounded-lg md:rounded-xl shadow-sm overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer w-full min-w-0 flex flex-col"
                                 >
                                     {/* Image */}
-                                    <div className="relative h-48 w-full bg-gray-100 overflow-hidden">
+                                    <div className="relative h-32 sm:h-36 md:h-40 lg:h-44 xl:h-48 w-full bg-gray-100 overflow-hidden flex-shrink-0">
                                         {imageUrl ? (
                                             <Image
                                                 src={imageUrl}
@@ -116,24 +116,24 @@ export default function ServicesPage() {
                                             />
                                         ) : (
                                             <div className="absolute inset-0 flex items-center justify-center">
-                                                <ImageIcon className="w-16 h-16 text-gray-400" />
+                                                <ImageIcon className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 text-gray-400" />
                                             </div>
                                         )}
                                     </div>
 
                                     {/* Content */}
-                                    <div className="p-6">
-                                        <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
+                                    <div className="p-3 sm:p-4 md:p-5 lg:p-6">
+                                        <h3 className="text-base sm:text-lg md:text-xl font-bold text-gray-900 mb-1.5 md:mb-2 group-hover:text-blue-600 transition-colors">
                                             {category.name}
                                         </h3>
                                         {category.description && (
-                                            <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+                                            <p className="text-gray-600 text-xs sm:text-sm mb-3 md:mb-4 line-clamp-2">
                                                 {category.description}
                                             </p>
                                         )}
-                                        <div className="flex items-center text-blue-600 font-medium text-sm group-hover:gap-2 transition-all">
+                                        <div className="flex items-center text-blue-600 font-medium text-xs sm:text-sm group-hover:gap-2 transition-all">
                                             View Service
-                                            <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
+                                            <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 ml-1 group-hover:translate-x-1 transition-transform" />
                                         </div>
                                     </div>
                                 </Link>
