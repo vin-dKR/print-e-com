@@ -44,10 +44,10 @@ import {
 import Link from 'next/link';
 import { toastError, toastSuccess, toastWarning, toastPromise } from '@/lib/utils/toast';
 
-export function OrderDetail({ orderId }: { orderId: string }) {
+export function OrderDetail({ orderId, initialOrder }: { orderId: string; initialOrder?: Order }) {
     const router = useRouter();
-    const [order, setOrder] = useState<Order | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+    const [order, setOrder] = useState<Order | null>(initialOrder || null);
+    const [isLoading, setIsLoading] = useState(!initialOrder);
     const [error, setError] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState('overview');
     const [statusModalOpen, setStatusModalOpen] = useState(false);
@@ -56,8 +56,11 @@ export function OrderDetail({ orderId }: { orderId: string }) {
     const [refundModalOpen, setRefundModalOpen] = useState(false);
 
     useEffect(() => {
-        loadOrder();
-    }, [orderId]);
+        if (!initialOrder) {
+            loadOrder();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [orderId, initialOrder]);
 
     const loadOrder = async () => {
         try {

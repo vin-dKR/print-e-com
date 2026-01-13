@@ -17,16 +17,18 @@ import { formatCurrency, formatDate } from '@/lib/utils/format';
 import { ArrowLeft, Edit } from 'lucide-react';
 import Link from 'next/link';
 
-export function ProductDetail({ productId }: { productId: string }) {
+export function ProductDetail({ productId, initialProduct }: { productId: string; initialProduct?: Product }) {
     const router = useRouter();
-    const [product, setProduct] = useState<Product | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+    const [product, setProduct] = useState<Product | null>(initialProduct || null);
+    const [isLoading, setIsLoading] = useState(!initialProduct);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        void loadProduct();
+        if (!initialProduct) {
+            void loadProduct();
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [productId]);
+    }, [productId, initialProduct]);
 
     const loadProduct = async () => {
         try {
@@ -128,9 +130,8 @@ export function ProductDetail({ productId }: { productId: string }) {
                                 {product.images.map((img) => (
                                     <div
                                         key={img.id}
-                                        className={`h-14 w-14 rounded-md overflow-hidden border ${
-                                            img.isPrimary ? 'ring-2 ring-blue-500' : ''
-                                        }`}
+                                        className={`h-14 w-14 rounded-md overflow-hidden border ${img.isPrimary ? 'ring-2 ring-blue-500' : ''
+                                            }`}
                                     >
                                         {/* eslint-disable-next-line @next/next/no-img-element */}
                                         <img

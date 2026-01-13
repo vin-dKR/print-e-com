@@ -25,6 +25,7 @@ import {
     getOrderInvoice,
     exportOrders,
 } from "../controllers/orderController.js";
+import { getDashboardOverview } from "../controllers/dashboardController.js";
 import { adminAuth } from "../middleware/auth.js";
 import {
     deleteAdminUser,
@@ -115,6 +116,10 @@ const router: IRouter = Router();
  * These routes are for managing products, categories, and orders
  */
 router.use(adminAuth);
+
+// Product & Category Management (admin only)
+// Dashboard
+router.get("/dashboard/overview", getDashboardOverview);
 
 // Product & Category Management (admin only)
 router.get("/categories", getAdminCategories);

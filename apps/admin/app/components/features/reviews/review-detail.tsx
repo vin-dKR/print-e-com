@@ -46,6 +46,7 @@ import Link from 'next/link';
 
 interface ReviewDetailProps {
     reviewId: string;
+    initialReview?: Review;
 }
 
 interface ReviewDetailData extends Review {
@@ -62,12 +63,12 @@ interface ReviewDetailData extends Review {
     }>;
 }
 
-export function ReviewDetail({ reviewId }: ReviewDetailProps) {
+export function ReviewDetail({ reviewId, initialReview }: ReviewDetailProps) {
     const router = useRouter();
-    const [review, setReview] = useState<ReviewDetailData | null>(null);
+    const [review, setReview] = useState<ReviewDetailData | null>(initialReview ? (initialReview as ReviewDetailData) : null);
     const [product, setProduct] = useState<Product | null>(null);
     const [userInfo, setUserInfo] = useState<User | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(!initialReview);
     const [error, setError] = useState<string | null>(null);
     const [isActioning, setIsActioning] = useState(false);
     const [imageViewer, setImageViewer] = useState<{ images: string[]; index: number } | null>(null);
@@ -75,8 +76,29 @@ export function ReviewDetail({ reviewId }: ReviewDetailProps) {
     const { confirm, ConfirmDialog } = useConfirm();
 
     useEffect(() => {
-        loadReviewData();
-    }, [reviewId]);
+        if (!initialReview) {
+            loadReviewData();
+        } else {
+            // Still load product and user info if available
+            if (initialReview.productId) {
+                loadProductAndUser(initialReview.productId, initialReview.userId);
+            }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [reviewId, initialReview]);
+
+    const loadProductAndUser = async (productId: string, userId: string) => {
+        try {
+            const [productData, userData] = await Promise.all([
+                getProduct(productId).catch(() => null),
+                getUser(userId).catch(() => null),
+            ]);
+            if (productData) setProduct(productData);
+            if (userData) setUserInfo(userData);
+        } catch (err) {
+            console.error('Failed to load related data:', err);
+        }
+    };
 
     const loadReviewData = async () => {
         try {

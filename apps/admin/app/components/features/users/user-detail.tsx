@@ -31,17 +31,20 @@ interface UserDetailProps {
     userId: string;
 }
 
-export function UserDetail({ userId }: UserDetailProps) {
+export function UserDetail({ userId, initialUser }: UserDetailProps & { initialUser?: User & { statistics?: any } }) {
     const router = useRouter();
-    const [user, setUser] = useState<User & { statistics: any } | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+    const [user, setUser] = useState<(User & { statistics?: any }) | null>(initialUser || null);
+    const [isLoading, setIsLoading] = useState(!initialUser);
     const [error, setError] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState('overview');
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
     useEffect(() => {
-        loadUser();
-    }, [userId]);
+        if (!initialUser) {
+            loadUser();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [userId, initialUser]);
 
     const loadUser = async () => {
         try {

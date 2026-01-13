@@ -15,7 +15,7 @@ import { UserCommunication } from './user-communication';
 
 interface UserProfileProps {
     userId: string;
-    user: User & { statistics: any };
+    user: User & { statistics?: any };
 }
 
 export function UserProfile({ user }: UserProfileProps) {
