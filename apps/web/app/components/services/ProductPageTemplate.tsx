@@ -9,7 +9,7 @@ import { ShoppingCart } from 'lucide-react';
 import { ProductData, BreadcrumbItem } from '@/types';
 import Breadcrumbs from '../Breadcrumbs';
 import { useRouter } from 'next/navigation';
-import ProductDocumentUpload from '../products/ProductDocumentUpload';
+import ProductDocumentUpload, { FileDetail } from '../products/ProductDocumentUpload';
 import { BarsSpinner } from '../shared/BarsSpinner';
 
 interface ProductPageTemplateProps {
@@ -18,7 +18,7 @@ interface ProductPageTemplateProps {
     uploadedFile: File | null;
     onFileSelect: (file: File | null) => void;
     onFileRemove: () => void;
-    onFileSelectWithQuantity?: (files: File[], totalQuantity: number) => void;
+    onFileSelectWithQuantity?: (files: File[], pageCount: number, fileDetails?: FileDetail[]) => void;
     onQuantityChange?: (quantity: number) => void;
     priceItems: Array<{ label: string; value: number; description?: string }>;
     totalPrice: number;
@@ -165,10 +165,10 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
                             {/* File Upload Section */}
                             <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-100 shadow-sm">
                                 <ProductDocumentUpload
-                                    onFileSelect={(files: File[], totalQuantity: number) => {
+                                    onFileSelect={(files: File[], pageCount: number, fileDetails?: FileDetail[]) => {
                                         // Use the new callback if provided, otherwise use legacy callback
                                         if (onFileSelectWithQuantity) {
-                                            onFileSelectWithQuantity(files, totalQuantity);
+                                            onFileSelectWithQuantity(files, pageCount, fileDetails);
                                         } else {
                                             // Legacy: pass first file to onFileSelect
                                             const firstFile: File | null = files.length > 0 && files[0] ? files[0] : null;

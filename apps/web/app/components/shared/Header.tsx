@@ -46,6 +46,8 @@ export default function Header() {
     const [hoveredCategory, setHoveredCategory] = useState<string | null>(null);
     const [isCategoryVisible, setIsCategoryVisible] = useState(true);
     const [lastScrollY, setLastScrollY] = useState(0);
+    // Track user ID to force re-render when user changes
+    const [userId, setUserId] = useState<string | null>(user?.id || null);
 
     const userMenuRef = useRef<HTMLDivElement>(null);
     const categoryRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
@@ -90,6 +92,26 @@ export default function Header() {
             setActiveCategory(null);
         }
     }, [pathname]);
+
+    // Track user changes and force re-render
+    useEffect(() => {
+        const currentUserId = user?.id || null;
+        if (currentUserId !== userId) {
+            setUserId(currentUserId);
+            setIsUserMenuOpen(false);
+        }
+    }, [user?.id, userId]);
+
+    // Close user menu when auth state changes
+    useEffect(() => {
+        setIsUserMenuOpen(false);
+    }, [isAuthenticated]);
+
+    // Force re-render when user or cart changes by updating a state
+    useEffect(() => {
+        // This effect ensures the component re-renders when user or cart changes
+        // The key prop in ConditionalLayout will also force a remount, but this ensures reactivity
+    }, [user, cartItems.length, isAuthenticated]);
 
     // Hide/show category bar on scroll
     useEffect(() => {
@@ -287,7 +309,7 @@ export default function Header() {
                                         <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
                                         <span className="text-sm font-medium">Loading...</span>
                                     </div>
-                                ) : isAuthenticated ? (
+                                ) : isAuthenticated && user ? (
                                     // Authenticated User Menu
                                     <>
                                         <button
@@ -449,7 +471,7 @@ export default function Header() {
                     className={`bg-white border-t border-gray-100 transition-all duration-300 ${isCategoryVisible ? 'translate-y-0 opacity-100 pointer-events-auto' : '-translate-y-full opacity-0 pointer-events-none'
                         }`}
                 >
-                    <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-1.5 border-b border-gray-100">
+                    <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-1.5">
                         <div className="flex xl:justify-center overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 pb-2">
                             <div className="flex items-center gap-2 lg:gap-4 min-w-max">
                                 {categories.map((category) => {
@@ -568,7 +590,7 @@ export default function Header() {
                                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
                                     <span className="text-sm font-medium">Loading...</span>
                                 </div>
-                            ) : isAuthenticated ? (
+                            ) : isAuthenticated && user ? (
                                 <div className="mb-6 p-4 bg-gray-50 rounded-lg">
                                     <p className="font-medium">{user?.name || user?.email}</p>
                                     <p className="text-sm text-gray-600">Welcome back!</p>

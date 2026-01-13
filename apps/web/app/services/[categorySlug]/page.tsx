@@ -6,7 +6,9 @@ import { useRouter } from 'next/navigation';
 import { ProductPageTemplate } from '@/app/components/services/ProductPageTemplate';
 import { ChevronDown } from 'lucide-react';
 import { QuantitySelector } from '@/app/components/services/QuantitySelector';
-import ProductDocumentUpload from '@/app/components/products/ProductDocumentUpload';
+import { PageCountDisplay } from '@/app/components/services/PageCountDisplay';
+import { CopiesSelector } from '@/app/components/services/CopiesSelector';
+import ProductDocumentUpload, { FileDetail } from '@/app/components/products/ProductDocumentUpload';
 import { getCategoryBySlug, calculateCategoryPrice, getProductsBySpecifications, type Category, type CategorySpecification } from '@/lib/api/categories';
 import { addToCart } from '@/lib/api/cart';
 import { useAuth } from '@/contexts/AuthContext';
@@ -29,10 +31,18 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+    const [uploadedFileDetails, setUploadedFileDetails] = useState<FileDetail[]>([]);
     const [uploadingFiles, setUploadingFiles] = useState(false);
     const [minQuantityFromFiles, setMinQuantityFromFiles] = useState<number>(1);
     const [selectedSpecifications, setSelectedSpecifications] = useState<Record<string, any>>({});
-    const [quantity, setQuantity] = useState<number>(1);
+    const [pageCount, setPageCount] = useState(0); // Fixed, calculated from files
+    const [copies, setCopies] = useState(1); // Editable, default 1
+    const [quantity, setQuantity] = useState<number>(1); // Keep for backward compatibility with NUMBER spec type
+
+    // Calculate total quantity
+    const totalQuantity = useMemo(() => {
+        return pageCount * copies;
+    }, [pageCount, copies]);
     const [priceBreakdown, setPriceBreakdown] = useState<Array<{ label: string; value: number }>>([]);
     const [totalPrice, setTotalPrice] = useState<number>(0);
     const [calculatingPrice, setCalculatingPrice] = useState(false);
@@ -76,16 +86,18 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
         } else {
             setMatchingProduct(null);
         }
-    }, [selectedSpecifications, quantity, category, categorySlug]);
+    }, [selectedSpecifications, quantity, totalQuantity, category, categorySlug]);
 
     const calculatePrice = async () => {
         if (!category) return;
 
         try {
             setCalculatingPrice(true);
+            // Use totalQuantity (pageCount × copies) if files are uploaded, otherwise use quantity
+            const qtyToUse = pageCount > 0 ? totalQuantity : quantity;
             const result = await calculateCategoryPrice(categorySlug, {
                 specifications: selectedSpecifications,
-                quantity,
+                quantity: qtyToUse,
             });
             setPriceBreakdown(result.breakdown);
             setTotalPrice(result.totalPrice);
@@ -247,33 +259,39 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
         ];
     }, [category, categorySlug]);
 
-    // Handle file upload with quantity calculation
+    // Handle file upload with page count calculation
     // Files are stored in memory - uploaded to S3 only when adding to cart
-    const handleFileSelect = async (files: File[], totalQuantity: number) => {
+    const handleFileSelect = async (files: File[], calculatedPageCount: number, fileDetails?: FileDetail[]) => {
         setUploadedFiles(files);
-
-        // Set minimum quantity based on files
-        if (totalQuantity > 0) {
-            setMinQuantityFromFiles(totalQuantity);
-            // Auto-update quantity if current quantity is less than calculated
-            if (quantity < totalQuantity) {
-                setQuantity(totalQuantity);
-            }
-        } else {
-            setMinQuantityFromFiles(1);
-            // Reset to 1 if no files
-            if (quantity < 1) {
-                setQuantity(1);
-            }
+        if (fileDetails) {
+            setUploadedFileDetails(fileDetails);
         }
+
+        // Set page count (fixed, based on files)
+        if (calculatedPageCount > 0) {
+            setPageCount(calculatedPageCount);
+            setMinQuantityFromFiles(calculatedPageCount);
+        } else {
+            setPageCount(0);
+            setMinQuantityFromFiles(1);
+        }
+
+        // Reset copies to 1 when files change
+        setCopies(1);
 
         // Files will be uploaded to S3 when user adds to cart
     };
 
-    // Update quantity handler - prevent decreasing below minimum
-    const handleQuantityChange = (newQuantity: number) => {
-        const minQty = Math.max(1, minQuantityFromFiles);
-        setQuantity(Math.max(newQuantity, minQty));
+    // Helper function to get file type for display
+    const getFileType = (fileDetails: FileDetail[]): 'pdf' | 'image' | 'mixed' => {
+        if (fileDetails.length === 0) return 'pdf';
+        const hasPDF = fileDetails.some(fd => fd.type === 'pdf');
+        const hasImage = fileDetails.some(fd => fd.type === 'image');
+
+        if (hasPDF && hasImage) return 'mixed';
+        if (hasPDF) return 'pdf';
+        if (hasImage) return 'image';
+        return 'pdf'; // default
     };
 
     // Note: uploadFile function removed - files are now stored in memory only
@@ -405,10 +423,12 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
             }
 
             // Add to cart with S3 URLs
+            // Use totalQuantity (pageCount × copies) if files are uploaded, otherwise use quantity
+            const qtyToUse = pageCount > 0 ? totalQuantity : quantity;
             const response = await toastPromise(
                 addToCart({
                     productId: matchingProduct.id,
-                    quantity,
+                    quantity: qtyToUse,
                     customDesignUrl: s3Keys.length > 0 ? s3Keys : undefined,
                 }),
                 {
@@ -512,10 +532,12 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
             }
 
             // Add to cart with S3 URLs and redirect to checkout
+            // Use totalQuantity (pageCount × copies) if files are uploaded, otherwise use quantity
+            const qtyToUse = pageCount > 0 ? totalQuantity : quantity;
             const response = await toastPromise(
                 addToCart({
                     productId: matchingProduct.id,
-                    quantity,
+                    quantity: qtyToUse,
                     customDesignUrl: s3Keys.length > 0 ? s3Keys : undefined,
                 }),
                 {
@@ -577,23 +599,20 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
                 breadcrumbItems={breadcrumbItems}
                 uploadedFile={uploadedFiles[0] || null}
                 onFileSelect={(file) => {
+                    // Legacy callback for single file - convert to new format
                     if (file) {
-                        handleFileSelect([file], 1);
+                        handleFileSelect([file], 1, undefined);
                     } else {
-                        handleFileSelect([], 0);
+                        handleFileSelect([], 0, undefined);
                     }
                 }}
                 onFileSelectWithQuantity={handleFileSelect}
-                onQuantityChange={(calculatedQuantity) => {
-                    // Only auto-update if files are uploaded
-                    if (calculatedQuantity > 0) {
-                        setQuantity(calculatedQuantity);
-                    }
-                }}
                 onFileRemove={() => {
                     setUploadedFiles([]);
+                    setUploadedFileDetails([]);
+                    setPageCount(0);
                     setMinQuantityFromFiles(1);
-                    setQuantity(1);
+                    setCopies(1);
                 }}
                 priceItems={priceBreakdown}
                 totalPrice={totalPrice}
@@ -718,22 +737,45 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
                         return null;
                     })}
 
-                    {/* Quantity Selector (if not already included as a specification) */}
-                    {!visibleSpecifications.some(spec => spec.slug === 'quantity' && spec.type === 'NUMBER') && (
+                    {/* Page Count & Copies (if files are uploaded) */}
+                    {pageCount > 0 && (
+                        <>
+                            <PageCountDisplay
+                                pageCount={pageCount}
+                                fileType={getFileType(uploadedFileDetails)}
+                            />
+
+                            <CopiesSelector
+                                value={copies}
+                                onChange={setCopies}
+                                min={1}
+                                max={999}
+                            />
+
+                            {/* Total Quantity Display */}
+                            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                <p className="text-sm text-blue-900">
+                                    <span className="font-semibold">Total Quantity:</span> {totalQuantity} pages
+                                    <br />
+                                    <span className="text-xs text-blue-700">
+                                        ({pageCount} pages × {copies} {copies === 1 ? 'copy' : 'copies'})
+                                    </span>
+                                </p>
+                            </div>
+                        </>
+                    )}
+
+                    {/* Quantity Selector (if not already included as a specification and no files uploaded) */}
+                    {!visibleSpecifications.some(spec => spec.slug === 'quantity' && spec.type === 'NUMBER') && pageCount === 0 && (
                         <div className="space-y-2">
                             <QuantitySelector
                                 value={quantity}
-                                onChange={handleQuantityChange}
+                                onChange={setQuantity}
                                 label="Quantity"
-                                unit={uploadedFiles.length > 0 ? "pages" : ""}
-                                min={minQuantityFromFiles}
+                                unit=""
+                                min={1}
                                 max={1000}
                             />
-                            {uploadedFiles.length > 0 && minQuantityFromFiles > 1 && (
-                                <p className="text-xs text-blue-600">
-                                    Minimum quantity: {minQuantityFromFiles} (based on uploaded files)
-                                </p>
-                            )}
                         </div>
                     )}
                 </div>

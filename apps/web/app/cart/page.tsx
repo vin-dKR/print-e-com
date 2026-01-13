@@ -8,10 +8,12 @@ import BillingSummary from "../components/BillingSummary";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { useCart } from "@/contexts/CartContext";
 import { BarsSpinner } from "@/app/components/shared/BarsSpinner";
-import { toastError, toastWarning } from "@/lib/utils/toast";
+import { toastError, toastWarning, toastSuccess, toastPromise } from "@/lib/utils/toast";
 import { useConfirm } from "@/lib/hooks/use-confirm";
 import { ShoppingCart } from "lucide-react";
 import Link from "next/link";
+import { uploadOrderFilesToS3 } from "@/lib/api/uploads";
+import { updateCartItem } from "@/lib/api/cart";
 
 function CartPageContent() {
     const {
@@ -32,13 +34,18 @@ function CartPageContent() {
 
     // Selection state - track which items are selected
     const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+    // Track which item is currently uploading images
+    const [uploadingItemId, setUploadingItemId] = useState<string | null>(null);
+    // Track if we've initialized selection (to prevent re-selecting after unselect all)
+    const [hasInitializedSelection, setHasInitializedSelection] = useState(false);
 
-    // Select all items by default on mount
+    // Select all items by default on initial mount only
     useEffect(() => {
-        if (items.length > 0 && selectedItems.size === 0) {
+        if (items.length > 0 && !hasInitializedSelection && selectedItems.size === 0) {
             setSelectedItems(new Set(items.map(item => item.id)));
+            setHasInitializedSelection(true);
         }
-    }, [items, selectedItems.size]);
+    }, [items, hasInitializedSelection, selectedItems.size]);
 
     // Filter selected items
     const selectedItemsList = useMemo(() => {
@@ -118,6 +125,7 @@ function CartPageContent() {
             if (selected) {
                 next.add(id);
             } else {
+                // Allow unselecting all items (removed restriction)
                 next.delete(id);
             }
             return next;
@@ -125,14 +133,34 @@ function CartPageContent() {
     };
 
     const handleSelectAll = () => {
-        if (selectedItems.size === items.length) {
-            // Deselect all
-            setSelectedItems(new Set());
-        } else {
-            // Select all
-            setSelectedItems(new Set(items.map(item => item.id)));
-        }
+        // Always select all items
+        setSelectedItems(new Set(items.map(item => item.id)));
     };
+
+    const handleUnselectAll = () => {
+        // Allow unselecting all items
+        setSelectedItems(new Set());
+    };
+
+    // Helper function to check if item has images
+    const itemHasImages = (item: typeof items[0]): boolean => {
+        if (!item.customDesignUrl) return false;
+
+        if (Array.isArray(item.customDesignUrl)) {
+            return item.customDesignUrl.length > 0 &&
+                item.customDesignUrl.some(url => url && url.trim() !== '');
+        }
+
+        return typeof item.customDesignUrl === 'string' &&
+            item.customDesignUrl.trim() !== '';
+    };
+
+    // Check if all selected items have images
+    const allSelectedItemsHaveImages = useMemo(() => {
+        if (selectedItemsList.length === 0) return false;
+
+        return selectedItemsList.every(item => itemHasImages(item));
+    }, [selectedItemsList]);
 
     const handleGoToCheckout = () => {
         if (selectedItems.size === 0) {
@@ -140,9 +168,103 @@ function CartPageContent() {
             return;
         }
 
-        // Pass selected item IDs as URL params
+        // Check if all selected items have images
+        const itemsWithoutImages = selectedItemsList.filter(item => !itemHasImages(item));
+
+        if (itemsWithoutImages.length > 0) {
+            const itemNames = itemsWithoutImages
+                .map(item => item.product?.name || 'Unknown Product')
+                .join(', ');
+
+            toastError(
+                `Please add design files for: ${itemNames}. ` +
+                `You can upload images directly from the cart.`
+            );
+
+            // Optionally scroll to first item without images
+            const firstItemId = itemsWithoutImages[0]?.id;
+            if (firstItemId) {
+                const element = document.getElementById(`cart-item-${firstItemId}`);
+                element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+
+            return;
+        }
+
+        // All items have images, proceed to checkout
         const selectedIds = Array.from(selectedItems).join(',');
         router.push(`/checkout?items=${selectedIds}`);
+    };
+
+    // Image upload handler
+    const handleImageUpload = async (itemId: string, files: File[]) => {
+        if (files.length === 0) return;
+
+        setUploadingItemId(itemId);
+
+        try {
+            // Upload files to S3
+            const uploadResponse = await toastPromise(
+                uploadOrderFilesToS3(files),
+                {
+                    loading: 'Uploading images...',
+                    success: 'Images uploaded successfully!',
+                    error: 'Failed to upload images. Please try again.',
+                }
+            );
+
+            if (!uploadResponse.success || !uploadResponse.data) {
+                toastError('Failed to upload images. Please try again.');
+                return;
+            }
+
+            // Get S3 keys from upload response
+            const s3Keys = uploadResponse.data.files.map(f => f.key);
+
+            // Get existing customDesignUrl from cart item
+            const cartItem = items.find(item => item.id === itemId);
+            if (!cartItem) {
+                toastError('Cart item not found.');
+                return;
+            }
+
+            // Merge with existing images (if any)
+            const existingUrls = Array.isArray(cartItem.customDesignUrl)
+                ? cartItem.customDesignUrl
+                : cartItem.customDesignUrl
+                    ? [cartItem.customDesignUrl]
+                    : [];
+
+            const allUrls = [...existingUrls, ...s3Keys];
+
+            // Update cart item with new S3 keys
+            // Backend expects string, will convert to array internally
+            // Include quantity to satisfy backend validation
+            const updateResponse = await toastPromise(
+                updateCartItem(itemId, {
+                    quantity: cartItem.quantity, // Include quantity to satisfy backend validation
+                    customDesignUrl: allUrls.join(','),
+                }),
+                {
+                    loading: 'Updating cart item...',
+                    success: 'Images added successfully!',
+                    error: 'Failed to update cart item. Please try again.',
+                }
+            );
+
+            if (updateResponse.success) {
+                // Refresh cart to show updated images
+                await refetch();
+                toastSuccess('Design files added successfully!');
+            } else {
+                toastError('Failed to update cart item. Please try again.');
+            }
+        } catch (error) {
+            console.error('Image upload error:', error);
+            toastError('Failed to upload images. Please try again.');
+        } finally {
+            setUploadingItemId(null);
+        }
     };
 
     const breadcrumbs = [
@@ -181,20 +303,34 @@ function CartPageContent() {
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                         {/* Left Column - Cart Items */}
                         <div className="lg:col-span-2">
-                            {/* Select All / Deselect All */}
+                            {/* Select All / Unselect All */}
                             {items.length > 0 && (
-                                <div className="mb-4 flex items-center justify-between bg-white rounded-lg border border-gray-200 p-3">
-                                    <label className="flex items-center gap-2 cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            checked={selectedItems.size === items.length && items.length > 0}
-                                            onChange={handleSelectAll}
-                                            className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                                        />
-                                        <span className="text-sm font-medium text-gray-700">
-                                            Select All ({selectedItems.size} of {items.length} selected)
-                                        </span>
-                                    </label>
+                                <div className="mb-4 flex items-center justify-between bg-white rounded-2xl border border-gray-100 p-3">
+                                    <div className="flex items-center gap-3">
+                                        <button
+                                            onClick={handleSelectAll}
+                                            disabled={selectedItems.size === items.length}
+                                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${selectedItems.size === items.length
+                                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                                : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
+                                                }`}
+                                        >
+                                            Select All
+                                        </button>
+                                        <button
+                                            onClick={handleUnselectAll}
+                                            disabled={selectedItems.size === 0}
+                                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${selectedItems.size === 0
+                                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                                : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                                                }`}
+                                        >
+                                            Unselect All
+                                        </button>
+                                    </div>
+                                    <span className="text-sm text-gray-600">
+                                        {selectedItems.size} of {items.length} items selected
+                                    </span>
                                 </div>
                             )}
 
@@ -227,6 +363,9 @@ function CartPageContent() {
                                             isSelected={selectedItems.has(item.id)}
                                             onSelectChange={handleSelectChange}
                                             showCheckbox={true}
+                                            isCheckboxDisabled={false}
+                                            onImageUpload={handleImageUpload}
+                                            isUploadingImages={uploadingItemId === item.id}
                                         />
                                     ))}
                                 </div>
@@ -249,13 +388,18 @@ function CartPageContent() {
                                 />
                                 <button
                                     onClick={handleGoToCheckout}
-                                    disabled={selectedItems.size === 0}
-                                    className={`w-full mt-4 px-6 py-3 rounded-lg text-white transition-colors font-medium ${selectedItems.size > 0
+                                    disabled={selectedItems.size === 0 || !allSelectedItemsHaveImages}
+                                    className={`w-full mt-4 px-6 py-3 rounded-2xl text-white transition-colors font-medium ${selectedItems.size > 0 && allSelectedItemsHaveImages
                                         ? "bg-[#1EADD8] hover:bg-blue-700"
                                         : "bg-gray-400 cursor-not-allowed"
                                         }`}
                                 >
-                                    Go to Checkout ({selectedItemsList.length} {selectedItemsList.length === 1 ? 'item' : 'items'})
+                                    {selectedItems.size === 0
+                                        ? 'Select items to checkout'
+                                        : !allSelectedItemsHaveImages
+                                            ? 'Add images to all items'
+                                            : `Go to Checkout (${selectedItemsList.length} ${selectedItemsList.length === 1 ? 'item' : 'items'})`
+                                    }
                                 </button>
                             </div>
                         )}

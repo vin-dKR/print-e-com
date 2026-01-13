@@ -11,6 +11,8 @@ import ProductShareButton from "../../components/products/ProductShareButton";
 import ProductActions from "../../components/products/ProductActions";
 import SizeSelector from "../../components/SizeSelector";
 import QuantitySelector from "../../components/QuantitySelector";
+import { PageCountDisplay } from "../../components/services/PageCountDisplay";
+import { CopiesSelector } from "../../components/services/CopiesSelector";
 import ProductTabs from "../../components/ProductTabs";
 import RelatedProducts from "../../components/RelatedProducts";
 import { BarsSpinner } from "../../components/shared/BarsSpinner";
@@ -54,12 +56,18 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
     // Local UI state
     const [selectedSize, setSelectedSize] = useState<string | undefined>("");
     const [selectedVariant, setSelectedVariant] = useState<string | undefined>("");
-    const [quantity, setQuantity] = useState(1);
+    const [pageCount, setPageCount] = useState(0); // Fixed, calculated from files
+    const [copies, setCopies] = useState(1); // Editable, default 1
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
     const [uploadedFileDetails, setUploadedFileDetails] = useState<FileDetail[]>([]);
     const [uploadingFiles, setUploadingFiles] = useState(false);
     const [minQuantityFromFiles, setMinQuantityFromFiles] = useState<number>(1);
+
+    // Calculate total quantity
+    const totalQuantity = useMemo(() => {
+        return pageCount * copies;
+    }, [pageCount, copies]);
 
     // Set default variant when product loads
     useMemo(() => {
@@ -69,35 +77,39 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
         }
     }, [product, selectedVariant]);
 
-    // Handle file upload with quantity calculation
+    // Handle file upload with page count calculation
     // Files are uploaded to S3 immediately when selected
-    const handleFileSelect = async (files: File[], totalQuantity: number, fileDetails?: FileDetail[]) => {
+    const handleFileSelect = async (files: File[], calculatedPageCount: number, fileDetails?: FileDetail[]) => {
         setUploadedFiles(files);
         if (fileDetails) {
             setUploadedFileDetails(fileDetails);
         }
 
-        // Set minimum quantity based on files
-        if (totalQuantity > 0) {
-            setMinQuantityFromFiles(totalQuantity);
-            // Auto-update quantity if current quantity is less than calculated
-            if (quantity < totalQuantity) {
-                setQuantity(totalQuantity);
-            }
+        // Set page count (fixed, based on files)
+        if (calculatedPageCount > 0) {
+            setPageCount(calculatedPageCount);
+            setMinQuantityFromFiles(calculatedPageCount);
         } else {
+            setPageCount(0);
             setMinQuantityFromFiles(1);
-            if (quantity < 1) {
-                setQuantity(1);
-            }
         }
+
+        // Reset copies to 1 when files change
+        setCopies(1);
 
         // Files will be uploaded to S3 when user adds to cart
     };
 
-    // Handle quantity change - prevent decreasing below minimum
-    const handleQuantityChange = (newQuantity: number) => {
-        const minQty = Math.max(1, minQuantityFromFiles);
-        setQuantity(Math.max(newQuantity, minQty));
+    // Helper function to get file type for display
+    const getFileType = (fileDetails: FileDetail[]): 'pdf' | 'image' | 'mixed' => {
+        if (fileDetails.length === 0) return 'pdf';
+        const hasPDF = fileDetails.some(fd => fd.type === 'pdf');
+        const hasImage = fileDetails.some(fd => fd.type === 'image');
+
+        if (hasPDF && hasImage) return 'mixed';
+        if (hasPDF) return 'pdf';
+        if (hasImage) return 'image';
+        return 'pdf'; // default
     };
 
     // Handle add to cart - use already uploaded S3 keys
@@ -141,9 +153,10 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
         }
 
         // Add to cart with S3 URLs (handleAddToCart manages cartLoading state)
+        // Use totalQuantity (pageCount × copies) for cart
         const success = await handleAddToCart({
             variantId: selectedVariant,
-            quantity,
+            quantity: totalQuantity,
             customDesignUrl: s3Keys.length > 0 ? s3Keys : undefined,
         });
 
@@ -199,9 +212,10 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
         }
 
         // Add to cart with S3 URLs and redirect to checkout
+        // Use totalQuantity (pageCount × copies) for buy now
         const success = await handleBuyNow({
             variantId: selectedVariant,
-            quantity,
+            quantity: totalQuantity,
             customDesignUrl: s3Keys.length > 0 ? s3Keys : undefined,
         });
 
@@ -709,16 +723,6 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                                     {/* Upload Document */}
                                     <ProductDocumentUpload
                                         onFileSelect={handleFileSelect}
-                                        onQuantityChange={(calculatedQuantity) => {
-                                            // Update minimum quantity
-                                            if (calculatedQuantity > 0) {
-                                                setMinQuantityFromFiles(calculatedQuantity);
-                                                // Only auto-update if current quantity is less
-                                                if (quantity < calculatedQuantity) {
-                                                    setQuantity(calculatedQuantity);
-                                                }
-                                            }
-                                        }}
                                         maxSizeMB={50}
                                     />
 
@@ -731,31 +735,42 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                                         />
                                     )}
 
-                                    {/* Quantity Selector */}
-                                    <div>
-                                        <h3 className="font-medium text-gray-900 mb-3">Quantity</h3>
-                                        <QuantitySelector
-                                            quantity={quantity}
-                                            onQuantityChange={handleQuantityChange}
-                                            min={Math.max(product.minOrderQuantity || 1, minQuantityFromFiles)}
-                                            max={
-                                                product.maxOrderQuantity && product.maxOrderQuantity > 0
-                                                    ? Math.min(product.maxOrderQuantity, product.stock)
-                                                    : product.stock
-                                            }
-                                        />
-                                        <p className="mt-1 text-xs text-gray-500">
-                                            Min order: {Math.max(product.minOrderQuantity || 1, minQuantityFromFiles)}
-                                            {product.maxOrderQuantity
-                                                ? ` • Max per order: ${product.maxOrderQuantity}`
-                                                : ''}
-                                            {uploadedFiles.length > 0 && minQuantityFromFiles > 1 && (
-                                                <span className="block mt-1 text-blue-600">
-                                                    Minimum quantity: {minQuantityFromFiles} (based on uploaded files)
-                                                </span>
-                                            )}
-                                        </p>
-                                    </div>
+                                    {/* Page Count & Copies */}
+                                    {pageCount > 0 && (
+                                        <>
+                                            <PageCountDisplay
+                                                pageCount={pageCount}
+                                                fileType={getFileType(uploadedFileDetails)}
+                                            />
+
+                                            <CopiesSelector
+                                                value={copies}
+                                                onChange={setCopies}
+                                                min={1}
+                                                max={999}
+                                            />
+
+                                            {/* Total Quantity Display */}
+                                            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                                <p className="text-sm text-blue-900">
+                                                    <span className="font-semibold">Total Quantity:</span> {totalQuantity} pages
+                                                    <br />
+                                                    <span className="text-xs text-blue-700">
+                                                        ({pageCount} pages × {copies} {copies === 1 ? 'copy' : 'copies'})
+                                                    </span>
+                                                </p>
+                                            </div>
+                                        </>
+                                    )}
+
+                                    {/* Show message when no files uploaded */}
+                                    {pageCount === 0 && (
+                                        <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                                            <p className="text-sm text-gray-600">
+                                                Upload files to see page count and set copies
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 

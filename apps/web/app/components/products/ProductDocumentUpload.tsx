@@ -16,7 +16,7 @@ export interface FileDetail {
 }
 
 interface ProductDocumentUploadProps {
-    onFileSelect: (files: File[], totalQuantity: number, fileDetails?: FileDetail[]) => void;
+    onFileSelect: (files: File[], pageCount: number, fileDetails?: FileDetail[]) => void;
     onQuantityChange?: (quantity: number) => void;
     acceptedTypes?: string;
     maxSizeMB?: number;
@@ -46,6 +46,7 @@ export default function ProductDocumentUpload({
         if (pendingCallbackRef.current) {
             const { files, quantity, details } = pendingCallbackRef.current;
             pendingCallbackRef.current = null;
+            // Pass pageCount (quantity) instead of totalQuantity
             onFileSelect(files, quantity, details);
             if (onQuantityChange) {
                 onQuantityChange(quantity);
@@ -222,16 +223,17 @@ export default function ProductDocumentUpload({
             // Combine with existing files
             const allFileDetails = [...uploadedFiles, ...newFileDetails];
             const allFiles = allFileDetails.map(fd => fd.file);
-            const finalTotalQuantity = allFileDetails.reduce((sum, fd) => sum + fd.pageCount, 0);
+            const finalPageCount = allFileDetails.reduce((sum, fd) => sum + fd.pageCount, 0);
 
             setUploadedFiles(allFileDetails);
-            setTotalQuantity(finalTotalQuantity);
+            setTotalQuantity(finalPageCount);
 
             // Call callback immediately for initial file selection
+            // Pass pageCount (calculated from files) instead of totalQuantity
             // useEffect will handle subsequent updates
-            onFileSelect(allFiles, finalTotalQuantity, allFileDetails);
+            onFileSelect(allFiles, finalPageCount, allFileDetails);
             if (onQuantityChange) {
-                onQuantityChange(finalTotalQuantity);
+                onQuantityChange(finalPageCount);
             }
 
             // Upload files to S3 immediately
@@ -467,11 +469,11 @@ export default function ProductDocumentUpload({
                             ))}
                         </div>
 
-                        {/* Total Quantity Display */}
+                        {/* Page Count Display */}
                         {totalQuantity > 0 && (
                             <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                                 <div className="flex items-center justify-between mb-2">
-                                    <p className="text-sm font-semibold text-blue-900">Total Quantity</p>
+                                    <p className="text-sm font-semibold text-blue-900">Total Page Count</p>
                                     <p className="text-lg font-bold text-blue-900">{totalQuantity}</p>
                                 </div>
                                 <div className="text-xs text-blue-700">

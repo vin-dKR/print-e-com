@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState, useRef, useMemo } from "react";
 import QuantitySelector from "./QuantitySelector";
 import PriceDisplay from "./PriceDisplay";
 import { CartItem as CartItemType } from "@/lib/api/cart";
@@ -17,6 +18,9 @@ interface CartItemProps {
     isSelected?: boolean;
     onSelectChange?: (id: string, selected: boolean) => void;
     showCheckbox?: boolean;
+    isCheckboxDisabled?: boolean;
+    onImageUpload?: (itemId: string, files: File[]) => Promise<void>;
+    isUploadingImages?: boolean;
 }
 
 export default function CartItem({
@@ -28,7 +32,13 @@ export default function CartItem({
     isSelected = false,
     onSelectChange,
     showCheckbox = false,
+    isCheckboxDisabled = false,
+    onImageUpload,
+    isUploadingImages = false,
 }: CartItemProps) {
+    const [uploadError, setUploadError] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
     const product = item.product;
     const variant = item.variant;
     const productId = product?.id || item.productId;
@@ -39,6 +49,17 @@ export default function CartItem({
     const uploadedFileUrls = Array.isArray(item.customDesignUrl)
         ? item.customDesignUrl
         : (item.customDesignUrl ? [item.customDesignUrl] : []);
+
+    // Check if item has images
+    const hasImages = useMemo(() => {
+        if (!item.customDesignUrl) return false;
+        if (Array.isArray(item.customDesignUrl)) {
+            return item.customDesignUrl.length > 0 &&
+                item.customDesignUrl.some(url => url && url.trim() !== '');
+        }
+        return typeof item.customDesignUrl === 'string' &&
+            item.customDesignUrl.trim() !== '';
+    }, [item.customDesignUrl]);
 
     // Get product image
     const productImage = product?.images?.find(img => img.isPrimary)?.url ||
@@ -52,9 +73,60 @@ export default function CartItem({
 
     const size = variant?.name;
 
+    // Handle file selection
+    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = Array.from(e.target.files || []);
+        if (files.length === 0) return;
+
+        // Validate file types
+        const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'];
+        const invalidFiles = files.filter(f => !validTypes.includes(f.type) && !f.name.toLowerCase().endsWith('.pdf'));
+        if (invalidFiles.length > 0) {
+            setUploadError('Please upload only images (JPG, PNG, GIF, WEBP) or PDF files.');
+            return;
+        }
+
+        // Validate file sizes (max 50MB per file)
+        const maxSize = 50 * 1024 * 1024; // 50MB
+        const oversizedFiles = files.filter(f => f.size > maxSize);
+        if (oversizedFiles.length > 0) {
+            setUploadError(`File size must be less than 50MB. ${oversizedFiles.map(f => f.name).join(', ')}`);
+            return;
+        }
+
+        setUploadError(null);
+
+        try {
+            if (onImageUpload) {
+                await onImageUpload(item.id, files);
+            }
+        } catch (error) {
+            setUploadError('Failed to upload images. Please try again.');
+            console.error('Image upload error:', error);
+        } finally {
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
+        }
+    };
+
 
     return (
-        <div className="border-b border-gray-100 pb-4 flex gap-4 relative">
+        <div
+            id={`cart-item-${item.id}`}
+            className={`border-b border-gray-100 pb-4 flex gap-4 relative ${!hasImages ? 'bg-yellow-50 border-yellow-200' : ''
+                }`}
+        >
+            {/* Warning badge if no images */}
+            {!hasImages && (
+                <div className="absolute top-2 left-2 bg-yellow-100 border border-yellow-300 rounded px-2 py-1 flex items-center gap-1 z-10">
+                    <svg className="w-4 h-4 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <span className="text-xs font-medium text-yellow-800">Images Required</span>
+                </div>
+            )}
+
             {/* Selection Checkbox */}
             {showCheckbox && onSelectChange && (
                 <div className="shrink-0 pt-2">
@@ -62,7 +134,11 @@ export default function CartItem({
                         type="checkbox"
                         checked={isSelected}
                         onChange={(e) => onSelectChange(item.id, e.target.checked)}
-                        className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                        disabled={isCheckboxDisabled}
+                        className={`w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 ${isCheckboxDisabled
+                            ? 'cursor-not-allowed opacity-50'
+                            : 'cursor-pointer'
+                            }`}
                         aria-label={`Select ${productName}`}
                     />
                 </div>
@@ -140,6 +216,57 @@ export default function CartItem({
                                     </div>
                                 )}
                             </div>
+                        </div>
+                    )}
+
+                    {/* Image Upload Section - Show if no images */}
+                    {!hasImages && (
+                        <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                            <div className="flex items-center justify-between mb-2">
+                                <p className="text-sm font-medium text-yellow-900">
+                                    Design files required for checkout
+                                </p>
+                            </div>
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                multiple
+                                accept="image/*,.pdf"
+                                onChange={handleFileSelect}
+                                disabled={isUploadingImages}
+                                className="hidden"
+                                id={`file-input-${item.id}`}
+                            />
+                            <label
+                                htmlFor={`file-input-${item.id}`}
+                                className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${isUploadingImages
+                                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                    : 'bg-yellow-500 text-white hover:bg-yellow-600'
+                                    }`}
+                            >
+                                {isUploadingImages ? (
+                                    <>
+                                        <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        Uploading...
+                                    </>
+                                ) : (
+                                    <>
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                        </svg>
+                                        Add Images
+                                    </>
+                                )}
+                            </label>
+                            {uploadError && (
+                                <p className="mt-2 text-xs text-red-600">{uploadError}</p>
+                            )}
+                            <p className="mt-2 text-xs text-yellow-700">
+                                Upload images or PDF files (max 50MB per file)
+                            </p>
                         </div>
                     )}
 
