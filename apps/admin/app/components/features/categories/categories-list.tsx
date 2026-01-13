@@ -112,8 +112,8 @@ export function CategoriesList() {
                                 <Grid3x3 className="h-4 w-4" />
                             </Button>
                         </div>
-                        <div className="flex items-center gap-2 text-xs text-gray-500">
-                            <span>
+                        <div className="flex items-center gap-2 flex-nowrap text-xs text-[var(--color-foreground-secondary)]">
+                            <span className="whitespace-nowrap">
                                 {total.toLocaleString()} results • Page {page} of {Math.max(totalPages, 1)}
                             </span>
                             <Button
@@ -121,6 +121,7 @@ export function CategoriesList() {
                                 size="sm"
                                 disabled={page <= 1 || isLoading}
                                 onClick={() => setPage((p) => Math.max(1, p - 1))}
+                                className="flex-shrink-0"
                             >
                                 Previous
                             </Button>
@@ -129,6 +130,7 @@ export function CategoriesList() {
                                 size="sm"
                                 disabled={page >= totalPages || isLoading}
                                 onClick={() => setPage((p) => Math.min(totalPages || 1, p + 1))}
+                                className="flex-shrink-0"
                             >
                                 Next
                             </Button>

@@ -2,7 +2,7 @@
 
 /**
  * Dashboard Sidebar Component
- * Navigation sidebar for admin dashboard
+ * Apple-inspired navigation sidebar with subtle styling
  */
 
 import Link from 'next/link';
@@ -42,12 +42,12 @@ export function DashboardSidebar() {
     };
 
     return (
-        <div className="flex w-64 flex-col bg-white shadow-lg">
-            <div className="flex h-16 items-center border-b px-6">
-                <h2 className="text-xl font-bold text-gray-900">Admin Panel</h2>
+        <div className="flex w-64 flex-col bg-[var(--color-background-secondary)] border-r border-[var(--color-border)]">
+            <div className="flex h-16 items-center border-b border-[var(--color-border)] px-6">
+                <h2 className="text-lg font-semibold text-[var(--color-foreground)] tracking-tight">Admin Panel</h2>
             </div>
 
-            <nav className="flex-1 space-y-1 px-3 py-4">
+            <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto">
                 {navigation.map((item) => {
                     const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
                     return (
@@ -55,23 +55,26 @@ export function DashboardSidebar() {
                             key={item.name}
                             href={item.href}
                             className={cn(
-                                'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                                'flex items-center gap-3 rounded-[var(--radius)] px-3 py-2.5 text-sm font-medium transition-all duration-200',
                                 isActive
-                                    ? 'bg-primary text-primary-foreground'
-                                    : 'text-gray-700 hover:bg-gray-100'
+                                    ? 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)] shadow-sm'
+                                    : 'text-[var(--color-foreground-secondary)] hover:bg-[var(--color-accent)] hover:text-[var(--color-foreground)]'
                             )}
                         >
-                            <item.icon className="h-5 w-5" />
+                            <item.icon className={cn(
+                                'h-5 w-5 transition-colors',
+                                isActive ? 'text-[var(--color-primary-foreground)]' : 'text-[var(--color-foreground-tertiary)]'
+                            )} />
                             {item.name}
                         </Link>
                     );
                 })}
             </nav>
 
-            <div className="border-t p-4">
+            <div className="border-t border-[var(--color-border)] p-4">
                 <button
                     onClick={handleLogout}
-                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100"
+                    className="flex w-full items-center gap-3 rounded-[var(--radius)] px-3 py-2.5 text-sm font-medium text-[var(--color-foreground-secondary)] transition-all duration-200 hover:bg-[var(--color-accent)] hover:text-[var(--color-foreground)]"
                 >
                     <LogOut className="h-5 w-5" />
                     Logout

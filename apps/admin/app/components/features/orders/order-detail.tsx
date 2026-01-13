@@ -149,17 +149,23 @@ export function OrderDetail({ orderId, initialOrder }: { orderId: string; initia
     const canEdit = order.status !== 'SHIPPED' && order.status !== 'DELIVERED';
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-8 max-w-[1600px]">
             {/* Header */}
-            <div className="flex items-start justify-between">
-                <div>
-                    <Button variant="ghost" onClick={() => router.back()}>
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+                <div className="flex items-center gap-3">
+                    <Button
+                        variant="ghost"
+                        onClick={() => router.back()}
+                        className="flex-shrink-0"
+                    >
                         <ArrowLeft className="mr-2 h-4 w-4" />
                         Back
                     </Button>
-                    <div className="mt-4">
-                        <div className="flex items-center gap-3">
-                            <h1 className="text-3xl font-bold text-gray-900">Order Details</h1>
+                    <div>
+                        <div className="flex items-center gap-3 flex-wrap">
+                            <h1 className="text-3xl font-semibold text-[var(--color-foreground)] tracking-tight">
+                                Order Details
+                            </h1>
                             <Button
                                 variant="ghost"
                                 size="sm"
@@ -170,14 +176,16 @@ export function OrderDetail({ orderId, initialOrder }: { orderId: string; initia
                                 Copy ID
                             </Button>
                         </div>
-                        <p className="mt-1 text-sm text-gray-600 font-mono">{order.id}</p>
-                        <p className="mt-1 text-sm text-gray-500">
-                            Created: {formatDateTime(order.createdAt)} •
-                            Updated: {formatDateTime(order.updatedAt)}
-                        </p>
+                        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[var(--color-foreground-secondary)] font-mono">
+                            <span>{order.id}</span>
+                            <span>•</span>
+                            <span>Created: {formatDateTime(order.createdAt)}</span>
+                            <span>•</span>
+                            <span>Updated: {formatDateTime(order.updatedAt)}</span>
+                        </div>
                     </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-shrink-0">
                     <OrderStatusBadge status={order.status} />
                     <PaymentStatusBadge status={order.paymentStatus} />
                     <div className="flex gap-2">

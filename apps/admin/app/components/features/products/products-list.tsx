@@ -137,8 +137,8 @@ export function ProductsList() {
             <Card>
                 <CardContent className="p-0">
                     {/* Header: search + filters + pagination */}
-                    <div className="flex flex-col gap-3 px-4 py-3 border-b bg-gray-50/80">
-                        <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+                    <div className="flex flex-row items-center gap-3 px-4 py-3 border-b bg-gray-50/80">
+                        <div className="flex flex-col lg:flex-row lg:items-center gap-3 flex-1 min-w-0">
                             <input
                                 className="w-full lg:max-w-md rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
                                 placeholder="Search by name, slug, or SKU..."
@@ -203,12 +203,12 @@ export function ProductsList() {
                             </div>
                         </div>
 
-                        <div className="flex items-center justify-between text-xs text-gray-500">
-                            <span>
+                        <div className="flex items-center gap-4 flex-nowrap text-xs text-[var(--color-foreground-secondary)] flex-shrink-0">
+                            <span className="whitespace-nowrap">
                                 {totalItems.toLocaleString()} results • Page {page} of{' '}
                                 {Math.max(totalPages, 1)}
                             </span>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-shrink-0">
                                 <Button
                                     variant="outline"
                                     size="sm"

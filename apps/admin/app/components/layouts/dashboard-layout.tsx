@@ -1,6 +1,6 @@
 /**
  * Dashboard Layout Component
- * Main layout for admin dashboard with sidebar navigation
+ * Apple-inspired layout with clean structure and generous spacing
  */
 
 import { DashboardSidebar } from '@/app/components/features/dashboard/dashboard-sidebar';
@@ -8,11 +8,11 @@ import { DashboardHeader } from '@/app/components/features/dashboard/dashboard-h
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
     return (
-        <div className="flex h-screen overflow-hidden bg-gray-100">
+        <div className="flex h-screen overflow-hidden bg-[var(--color-background)]">
             <DashboardSidebar />
             <div className="flex flex-1 flex-col overflow-hidden">
                 <DashboardHeader />
-                <main className="flex-1 overflow-y-auto bg-gray-50 p-6">
+                <main className="flex-1 overflow-y-auto bg-[var(--color-background)] p-8 smooth-scroll">
                     {children}
                 </main>
             </div>

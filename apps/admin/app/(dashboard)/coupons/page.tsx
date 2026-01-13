@@ -11,15 +11,15 @@ import { Plus, Download } from 'lucide-react';
 
 export default function CouponsPage() {
     return (
-        <div className="space-y-6">
+        <div className="space-y-8 max-w-[1600px]">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Discount Management</h1>
-                    <p className="mt-2 text-sm text-gray-600">
+                    <h1 className="text-3xl font-semibold text-[var(--color-foreground)] tracking-tight">Discount Management</h1>
+                    <p className="mt-2 text-sm text-[var(--color-foreground-secondary)]">
                         Create and manage discount coupons and promotional offers
                     </p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-3">
                     <Button variant="outline">
                         <Download className="mr-2 h-4 w-4" />
                         Export

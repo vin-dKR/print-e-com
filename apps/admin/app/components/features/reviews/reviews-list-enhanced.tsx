@@ -379,26 +379,29 @@ export function ReviewsListEnhanced() {
                     <CardContent className="p-0">
                         <div className="border-b bg-gray-50/50 p-4">
                             <div className="mb-3 flex items-center justify-between gap-4 flex-wrap">
-                                <div className="relative flex-1 min-w-[250px]">
-                                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                                    <Input
-                                        type="text"
-                                        placeholder="Search reviews by title, comment, product, or user..."
-                                        value={searchInput}
-                                        onChange={(e) => setSearchInput(e.target.value)}
-                                        className="pl-10"
-                                    />
-                                </div>
-
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
                                     <Button
                                         variant="outline"
                                         size="sm"
                                         onClick={() => setShowFilters(!showFilters)}
+                                        className="h-10 flex-shrink-0"
                                     >
                                         <Filter className="h-4 w-4 mr-2" />
                                         Filters
                                     </Button>
+                                    <div className="relative flex-1 min-w-[250px]">
+                                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                                        <Input
+                                            type="text"
+                                            placeholder="Search reviews by title, comment, product, or user..."
+                                            value={searchInput}
+                                            onChange={(e) => setSearchInput(e.target.value)}
+                                            className="pl-10 h-10"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-2">
 
                                     <div className="text-sm text-gray-600">
                                         {totalItems > 0 ? (
@@ -763,16 +766,17 @@ export function ReviewsListEnhanced() {
 
                         {/* Pagination */}
                         {totalPages > 1 && (
-                            <div className="border-t p-4 flex items-center justify-between">
-                                <div className="text-sm text-gray-600">
+                            <div className="border-t p-4 flex items-center justify-between gap-4 flex-nowrap">
+                                <div className="text-sm text-[var(--color-foreground-secondary)] whitespace-nowrap">
                                     Showing page {page} of {totalPages}
                                 </div>
-                                <div className="flex gap-2">
+                                <div className="flex gap-2 flex-nowrap flex-shrink-0">
                                     <Button
                                         variant="outline"
                                         size="sm"
                                         onClick={() => setPage((p) => Math.max(1, p - 1))}
                                         disabled={page === 1 || isLoading}
+                                        className="flex-shrink-0"
                                     >
                                         Previous
                                     </Button>
@@ -781,6 +785,7 @@ export function ReviewsListEnhanced() {
                                         size="sm"
                                         onClick={() => setPage((p) => Math.min(totalPages || 1, p + 1))}
                                         disabled={page >= totalPages || isLoading}
+                                        className="flex-shrink-0"
                                     >
                                         Next
                                     </Button>

@@ -552,21 +552,22 @@ export function UsersList() {
                     </div>
 
                     {/* Pagination */}
-                    <div className="flex items-center justify-between px-4 py-3 border-t">
-                        <div className="text-sm text-gray-500">
+                    <div className="flex items-center justify-between gap-4 flex-nowrap px-4 py-3 border-t">
+                        <div className="text-sm text-[var(--color-foreground-secondary)] whitespace-nowrap">
                             Showing {users.length > 0 ? (page - 1) * 20 + 1 : 0} to {Math.min(page * 20, (page - 1) * 20 + users.length)} of{' '}
                             {totalPages * 20} results
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-nowrap flex-shrink-0">
                             <Button
                                 variant="outline"
                                 size="sm"
                                 disabled={page <= 1 || isLoading}
                                 onClick={() => setPage((p) => Math.max(1, p - 1))}
+                                className="flex-shrink-0"
                             >
                                 Previous
                             </Button>
-                            <span className="text-sm text-gray-500">
+                            <span className="text-sm text-[var(--color-foreground-secondary)] whitespace-nowrap">
                                 Page {page} of {Math.max(totalPages, 1)}
                             </span>
                             <Button
@@ -574,6 +575,7 @@ export function UsersList() {
                                 size="sm"
                                 disabled={page >= totalPages || isLoading}
                                 onClick={() => setPage((p) => Math.min(totalPages || 1, p + 1))}
+                                className="flex-shrink-0"
                             >
                                 Next
                             </Button>

@@ -65,8 +65,8 @@ export function OrderFilters({ filters, onFiltersChange }: OrderFiltersProps) {
     );
 
     return (
-        <div className="mb-4">
-            <div className="flex items-center justify-between mb-2">
+        <div className="">
+            <div className="flex items-center justify-between">
                 <Button
                     variant="outline"
                     onClick={() => setIsOpen(!isOpen)}

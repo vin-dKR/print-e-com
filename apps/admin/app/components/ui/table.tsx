@@ -1,6 +1,6 @@
 /**
  * Table Components
- * Reusable table components for data display
+ * Apple-inspired table with clean, minimal styling
  */
 
 import { type HTMLAttributes, forwardRef } from 'react';
@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils/cn';
 
 const Table = forwardRef<HTMLTableElement, HTMLAttributes<HTMLTableElement>>(
     ({ className, ...props }, ref) => (
-        <div className="relative w-full overflow-auto">
+        <div className="relative w-full overflow-auto rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-card)]">
             <table
                 ref={ref}
                 className={cn('w-full caption-bottom text-sm', className)}
@@ -23,7 +23,7 @@ const TableHeader = forwardRef<
     HTMLTableSectionElement,
     HTMLAttributes<HTMLTableSectionElement>
 >(({ className, ...props }, ref) => (
-    <thead ref={ref} className={cn('[&_tr]:border-b', className)} {...props} />
+    <thead ref={ref} className={cn('[&_tr]:border-b border-[var(--color-border)]', className)} {...props} />
 ));
 TableHeader.displayName = 'TableHeader';
 
@@ -46,7 +46,7 @@ const TableRow = forwardRef<
     <tr
         ref={ref}
         className={cn(
-            'border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted',
+            'border-b border-[var(--color-border)] transition-colors duration-150 hover:bg-[var(--color-accent)] data-[state=selected]:bg-[var(--color-accent)]',
             className
         )}
         {...props}
@@ -61,7 +61,7 @@ const TableHead = forwardRef<
     <th
         ref={ref}
         className={cn(
-            'h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0',
+            'h-12 px-4 text-left align-middle text-xs font-semibold text-[var(--color-foreground-secondary)] uppercase tracking-wider [&:has([role=checkbox])]:pr-0',
             className
         )}
         {...props}
@@ -75,7 +75,7 @@ const TableCell = forwardRef<
 >(({ className, ...props }, ref) => (
     <td
         ref={ref}
-        className={cn('p-4 align-middle [&:has([role=checkbox])]:pr-0', className)}
+        className={cn('p-4 align-middle text-sm text-[var(--color-foreground)] [&:has([role=checkbox])]:pr-0', className)}
         {...props}
     />
 ));

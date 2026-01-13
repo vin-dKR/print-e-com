@@ -1,6 +1,6 @@
 /**
  * Dashboard Overview Page
- * Main dashboard with statistics and recent activity
+ * Apple-inspired dashboard with clean layout and generous spacing
  * Server Component – data fetched on the server via helper.
  */
 
@@ -17,17 +17,12 @@ export default async function DashboardPage() {
     const data = await getDashboardOverview();
 
     return (
-        <div className="space-y-6">
-            <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-                    <p className="mt-2 text-sm text-gray-600">
-                        Overview of your e-print store
-                    </p>
-                </div>
-                <div className="flex items-center gap-3">
-                    <p className="text-xs text-gray-500">Loaded at {new Date().toLocaleString()}</p>
-                </div>
+        <div className="space-y-8 max-w-[1600px]">
+            <header className="flex flex-col gap-2">
+                <h1 className="text-3xl font-semibold text-[var(--color-foreground)] tracking-tight">Dashboard</h1>
+                <p className="text-sm text-[var(--color-foreground-secondary)]">
+                    Overview of your e-print store
+                </p>
             </header>
 
             {/* Top stats */}

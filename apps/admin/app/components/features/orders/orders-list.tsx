@@ -145,20 +145,24 @@ export function OrdersList() {
 
                     {/* Search and Filters */}
                     <div className="border-b bg-gray-50/50 p-4">
-                        <div className="mb-3 flex items-center justify-between gap-4">
-                            <div className="relative flex-1 max-w-md">
-                                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                                <Input
-                                    type="text"
-                                    placeholder="Search orders by ID, customer email, name, phone, product..."
-                                    value={searchInput}
-                                    onChange={(e) => setSearchInput(e.target.value)}
-                                    className="pl-10"
-                                />
+                        <div className="flex items-center justify-between gap-4 flex-nowrap">
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                                {/* Filters */}
+                                <OrderFilters filters={filters} onFiltersChange={setFilters} />
+                                <div className="relative flex-1 max-w-md min-w-0">
+                                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                                    <Input
+                                        type="text"
+                                        placeholder="Search orders by ID, customer email, name, phone, product..."
+                                        value={searchInput}
+                                        onChange={(e) => setSearchInput(e.target.value)}
+                                        className="pl-10"
+                                    />
+                                </div>
                             </div>
 
-                            <div className="flex items-center gap-2">
-                                <div className="text-sm text-gray-600">
+                            <div className="flex items-center gap-2 flex-nowrap flex-shrink-0">
+                                <div className="text-sm text-[var(--color-foreground-secondary)] whitespace-nowrap">
                                     {total > 0 ? (
                                         <>
                                             <span className="font-medium">{total}</span> result{total !== 1 ? 's' : ''} • Page{' '}
@@ -169,7 +173,7 @@ export function OrdersList() {
                                         'No results'
                                     )}
                                 </div>
-                                <div className="flex gap-2">
+                                <div className="flex items-center gap-2 flex-shrink-0">
                                     <Button
                                         variant="outline"
                                         size="sm"
@@ -199,8 +203,7 @@ export function OrdersList() {
                             </div>
                         </div>
 
-                        {/* Filters */}
-                        <OrderFilters filters={filters} onFiltersChange={setFilters} />
+
                     </div>
 
                     {/* Inline error, keeps search visible */}

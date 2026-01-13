@@ -1,6 +1,6 @@
 /**
  * Categories Page
- * List and manage categories
+ * Apple-inspired categories list page
  */
 
 import { CategoriesList } from '@/app/components/features/categories/categories-list';
@@ -10,11 +10,11 @@ import { Plus } from 'lucide-react';
 
 export default function CategoriesPage() {
     return (
-        <div className="space-y-6">
+        <div className="space-y-8 max-w-[1600px]">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Categories</h1>
-                    <p className="mt-2 text-sm text-gray-600">
+                    <h1 className="text-3xl font-semibold text-[var(--color-foreground)] tracking-tight">Categories</h1>
+                    <p className="mt-2 text-sm text-[var(--color-foreground-secondary)]">
                         Manage product categories
                     </p>
                 </div>

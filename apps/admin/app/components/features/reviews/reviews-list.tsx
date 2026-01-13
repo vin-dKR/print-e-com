@@ -163,8 +163,8 @@ export function ReviewsList() {
                                 />
                             </div>
 
-                            <div className="flex items-center gap-2">
-                                <div className="text-sm text-gray-600">
+                            <div className="flex items-center gap-2 flex-nowrap">
+                                <div className="text-sm text-[var(--color-foreground-secondary)] whitespace-nowrap">
                                     {totalItems > 0 ? (
                                         <>
                                             <span className="font-medium">{totalItems}</span> result{totalItems !== 1 ? 's' : ''} • Page{' '}
@@ -175,12 +175,13 @@ export function ReviewsList() {
                                         'No results'
                                     )}
                                 </div>
-                                <div className="flex gap-2">
+                                <div className="flex gap-2 flex-nowrap flex-shrink-0">
                                     <Button
                                         variant="outline"
                                         size="sm"
                                         onClick={() => setPage((p) => Math.max(1, p - 1))}
                                         disabled={page === 1 || isLoading}
+                                        className="flex-shrink-0"
                                     >
                                         Previous
                                     </Button>
@@ -189,6 +190,7 @@ export function ReviewsList() {
                                         size="sm"
                                         onClick={() => setPage((p) => Math.min(totalPages || 1, p + 1))}
                                         disabled={page >= totalPages || isLoading}
+                                        className="flex-shrink-0"
                                     >
                                         Next
                                     </Button>

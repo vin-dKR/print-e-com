@@ -1,6 +1,6 @@
 /**
  * Dashboard Stats Component
- * Displays key statistics cards
+ * Apple-inspired stat cards with clean, minimal design
  */
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
@@ -16,15 +16,15 @@ interface StatCardProps {
 
 function StatCard({ title, value, icon, change }: StatCardProps) {
     return (
-        <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{title}</CardTitle>
-                <div className="text-muted-foreground">{icon}</div>
+        <Card className="hover-lift">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                <CardTitle className="text-sm font-medium text-[var(--color-foreground-secondary)]">{title}</CardTitle>
+                <div className="text-[var(--color-foreground-tertiary)]">{icon}</div>
             </CardHeader>
             <CardContent>
-                <div className="text-2xl font-bold">{value}</div>
+                <div className="text-2xl font-semibold text-[var(--color-foreground)] tracking-tight">{value}</div>
                 {change && (
-                    <p className="text-xs text-muted-foreground mt-1">{change}</p>
+                    <p className="text-xs text-[var(--color-foreground-tertiary)] mt-2 leading-relaxed">{change}</p>
                 )}
             </CardContent>
         </Card>
@@ -45,7 +45,7 @@ export function DashboardStats({ stats, loading, error }: DashboardStatsProps) {
                     <CardTitle>Dashboard stats</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <p className="text-sm text-red-600">
+                    <p className="text-sm text-[var(--color-destructive)]">
                         Failed to load stats: {error}
                     </p>
                 </CardContent>
@@ -136,7 +136,7 @@ export function DashboardStats({ stats, loading, error }: DashboardStatsProps) {
         ];
 
     return (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
             {cards.map((card) => (
                 <StatCard key={card.title} {...card} />
             ))}
