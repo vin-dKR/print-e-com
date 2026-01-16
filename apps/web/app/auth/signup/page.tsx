@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import Link from "next/link";
 import AuthLayout from "../../components/auth/AuthLayout";
 import AuthFormInput from "../../components/auth/AuthFormInput";
@@ -12,9 +11,7 @@ import { useAuth } from "../../../contexts/AuthContext";
 import { signInWithGoogle, signInWithFacebook } from "../../../lib/supabase";
 
 export default function SignupPage() {
-    const router = useRouter();
-    const { register, isAuthenticated, user } = useAuth();
-    const [shouldRedirect, setShouldRedirect] = useState(false);
+    const { register } = useAuth();
     const [formData, setFormData] = useState({
         name: "",
         email: "",
@@ -28,13 +25,8 @@ export default function SignupPage() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // Handle redirect after successful registration and auth state update
-    useEffect(() => {
-        if (shouldRedirect && isAuthenticated && user) {
-            // Use window.location for a full page reload to ensure Header updates
-            window.location.href = "/home";
-        }
-    }, [shouldRedirect, isAuthenticated, user]);
+    // Note: Redirect is handled by AuthGuard component after authentication
+    // AuthGuard will check for saved redirect path and redirect accordingly
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -43,7 +35,6 @@ export default function SignupPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
-        setShouldRedirect(false);
 
         if (formData.password !== formData.confirmPassword) {
             setError("Passwords do not match");
@@ -69,8 +60,8 @@ export default function SignupPage() {
                 formData.name || undefined,
                 formData.phone || undefined
             );
-            // Set flag to trigger redirect after state updates
-            setShouldRedirect(true);
+            // AuthGuard will handle redirect after isAuthenticated becomes true
+            // No need to set shouldRedirect flag
         } catch (err: any) {
             setError(err.message || "Registration failed. Please try again.");
             setLoading(false);

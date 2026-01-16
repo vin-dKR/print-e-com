@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
+import { imageLoader } from "@/lib/utils/image-loader";
 
 interface ProductImageGalleryProps {
     images: string[];
@@ -79,27 +81,22 @@ export default function ProductImageGallery({ images, productName }: ProductImag
                         key={index}
                         onClick={() => handleThumbnailClick(index)}
                         onMouseEnter={() => handleThumbnailHover(index)}
-                        className={`min-w-16 h-16 lg:w-20 lg:h-20 rounded-lg overflow-hidden border-2 transition-all duration-200 flex-shrink-0 ${selectedImage === index
+                        className={`min-w-16 h-16 lg:w-20 lg:h-20 rounded-lg overflow-hidden border-2 transition-all duration-200 flex-shrink-0 relative ${selectedImage === index
                             ? "border-orange-500 ring-2 ring-orange-100"
                             : "border-gray-200 hover:border-gray-400"
                             }`}
                     >
-                        <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                        <div className="w-full h-full bg-gray-100 flex items-center justify-center relative">
                             {image.startsWith('http') || image.startsWith('/') ? (
-                                <img
+                                <Image
                                     src={image}
                                     alt={`${productName} thumbnail ${index + 1}`}
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => {
-                                        // Fallback if image fails to load
-                                        e.currentTarget.style.display = 'none';
-                                        const parent = e.currentTarget.parentElement;
-                                        if (parent) {
-                                            const fallback = document.createElement('div');
-                                            fallback.className = 'w-full h-full flex items-center justify-center bg-gray-200';
-                                            fallback.innerHTML = `<span class="text-xs text-gray-500">Img ${index + 1}</span>`;
-                                            parent.appendChild(fallback);
-                                        }
+                                    fill
+                                    className="object-cover"
+                                    sizes="(max-width: 1024px) 64px, 80px"
+                                    loader={imageLoader}
+                                    onError={() => {
+                                        // Error handling is done via CSS fallback
                                     }}
                                 />
                             ) : (
@@ -115,24 +112,15 @@ export default function ProductImageGallery({ images, productName }: ProductImag
                 <div className="aspect-square bg-gray-50 rounded-lg overflow-hidden border border-gray-200 shadow-sm">
                     <div className="w-full h-full flex items-center justify-center relative">
                         {mainImage?.startsWith('http') || mainImage?.startsWith('/') ? (
-                            <img
+                            <Image
                                 src={mainImage}
                                 alt={productName}
-                                className="w-full h-full object-contain"
-                                onError={(e) => {
-                                    // Fallback if image fails to load
-                                    e.currentTarget.style.display = 'none';
-                                    const parent = e.currentTarget.parentElement;
-                                    if (parent) {
-                                        const fallback = document.createElement('div');
-                                        fallback.className = 'w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-8';
-                                        fallback.innerHTML = `
-                                            <p class="text-gray-400 text-lg mb-2 font-medium">${productName}</p>
-                                            <p class="text-gray-500 text-sm">Image ${selectedImage + 1} of ${images.length}</p>
-                                            <p class="text-gray-400 text-xs mt-4">Image failed to load</p>
-                                        `;
-                                        parent.appendChild(fallback);
-                                    }
+                                fill
+                                className="object-contain"
+                                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                loader={imageLoader}
+                                onError={() => {
+                                    // Error handling is done via CSS fallback
                                 }}
                             />
                         ) : (

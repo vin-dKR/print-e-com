@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { imageLoader } from "@/lib/utils/image-loader";
 import { useAuth } from "@/contexts/AuthContext";
 import { addToCart } from "@/lib/api/cart";
 import { addToWishlist, removeFromWishlist, checkWishlist } from "@/lib/api/wishlist";
@@ -148,10 +150,13 @@ export default function ProductCard({
             {/* Product Image */}
             <Link href={`/products/${id}`} className="block relative aspect-square bg-gray-100">
                 {image ? (
-                    <img
+                    <Image
                         src={image}
                         alt={name}
-                        className="w-full h-full object-cover"
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                        loader={imageLoader}
                     />
                 ) : (
                     <div className="w-full h-full flex items-center justify-center bg-gray-100">

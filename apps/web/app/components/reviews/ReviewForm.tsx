@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useRef } from "react";
+import Image from "next/image";
+import { imageLoader } from "@/lib/utils/image-loader";
 import { Star, Upload, X, Image as ImageIcon, AlertCircle, CheckCircle2 } from "lucide-react";
 import { createReview, CreateReviewData } from "@/lib/api/reviews";
 import { uploadReviewImages } from "@/lib/api/uploads";
@@ -345,10 +347,13 @@ export default function ReviewForm({ productId, onSuccess, onCancel }: ReviewFor
                                     key={index}
                                     className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 group"
                                 >
-                                    <img
+                                    <Image
                                         src={preview}
                                         alt={`Preview ${index + 1}`}
-                                        className="w-full h-full object-cover"
+                                        fill
+                                        className="object-cover"
+                                        sizes="(max-width: 768px) 33vw, 150px"
+                                        loader={imageLoader}
                                     />
                                     <button
                                         type="button"

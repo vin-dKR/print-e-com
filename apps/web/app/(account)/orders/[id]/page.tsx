@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
+import { imageLoader } from "@/lib/utils/image-loader";
 import { use, useState, useEffect } from "react";
 import {
     Package,
@@ -282,12 +284,15 @@ function OrderDetailsPageContent({
                                         className="flex gap-3 sm:gap-4 p-3 sm:p-4 border border-gray-100 rounded-xl hover:border-gray-200 transition-all duration-300"
                                     >
                                         {/* Product Image */}
-                                        <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gray-100 rounded-lg flex items-center justify-center shrink-0 overflow-hidden">
+                                        <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gray-100 rounded-lg flex items-center justify-center shrink-0 overflow-hidden relative">
                                             {item.image ? (
-                                                <img
+                                                <Image
                                                     src={item.image}
                                                     alt={item.name}
-                                                    className="w-full h-full object-cover"
+                                                    fill
+                                                    className="object-cover"
+                                                    sizes="(max-width: 640px) 64px, 80px"
+                                                    loader={imageLoader}
                                                 />
                                             ) : (
                                                 <Package className="text-gray-400 w-6 h-6 sm:w-8 sm:h-8" />

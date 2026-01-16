@@ -10,10 +10,23 @@ interface Tab {
 
 interface ProductTabsProps {
     tabs: Tab[];
+    activeTab?: string;
+    onTabChange?: (tabId: string) => void;
 }
 
-export default function ProductTabs({ tabs }: ProductTabsProps) {
-    const [activeTab, setActiveTab] = useState(tabs[0]?.id || "");
+export default function ProductTabs({ tabs, activeTab: controlledActiveTab, onTabChange }: ProductTabsProps) {
+    const [internalActiveTab, setInternalActiveTab] = useState(tabs[0]?.id || "");
+
+    // Use controlled tab if provided, otherwise use internal state
+    const activeTab = controlledActiveTab !== undefined ? controlledActiveTab : internalActiveTab;
+
+    const handleTabChange = (tabId: string) => {
+        if (onTabChange) {
+            onTabChange(tabId);
+        } else {
+            setInternalActiveTab(tabId);
+        }
+    };
 
     const activeTabContent = tabs.find((tab) => tab.id === activeTab)?.content;
 
@@ -25,7 +38,7 @@ export default function ProductTabs({ tabs }: ProductTabsProps) {
                     {tabs.map((tab) => (
                         <button
                             key={tab.id}
-                            onClick={() => setActiveTab(tab.id)}
+                            onClick={() => handleTabChange(tab.id)}
                             className={`pb-4 px-2 font-medium text-sm transition-colors relative ${activeTab === tab.id
                                 ? "text-blue-600"
                                 : "text-gray-600 hover:text-gray-900"

@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
+import { imageLoader } from "@/lib/utils/image-loader";
 import { useState, useMemo } from "react";
 import { Package, Search, Filter } from "lucide-react";
 import { useOrders, displayStatusMap } from "@/hooks/orders/useOrders";
@@ -215,12 +217,15 @@ function OrdersPageContent() {
                                                     className="flex items-center gap-3 sm:gap-4 p-3 bg-gray-50 rounded-xl"
                                                 >
                                                     {/* Item Image */}
-                                            <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gray-200 rounded-lg flex items-center justify-center shrink-0 overflow-hidden">
+                                            <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gray-200 rounded-lg flex items-center justify-center shrink-0 overflow-hidden relative">
                                                 {item.image ? (
-                                                    <img
+                                                    <Image
                                                         src={item.image}
                                                         alt={item.name}
-                                                        className="w-full h-full object-cover"
+                                                        fill
+                                                        className="object-cover"
+                                                        sizes="(max-width: 640px) 56px, 64px"
+                                                        loader={imageLoader}
                                                     />
                                                 ) : (
                                                         <Package className="text-gray-400 w-6 h-6 sm:w-7 sm:h-7" />

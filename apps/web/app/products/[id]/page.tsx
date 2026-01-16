@@ -1,25 +1,28 @@
 "use client";
 
-import { useState, use, useMemo } from "react";
+import { useState, use, useMemo, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import Breadcrumbs from "../../components/Breadcrumbs";
 import ProductRating from "../../components/ProductRating";
 import PriceDisplay from "../../components/PriceDisplay";
+import { PriceBreakdown } from "../../components/services/print/PriceBreakdown";
 import ProductDocumentUpload, { FileDetail } from "../../components/products/ProductDocumentUpload";
 import ProductWishlistButton from "../../components/products/ProductWishlistButton";
 import ProductShareButton from "../../components/products/ProductShareButton";
 import ProductActions from "../../components/products/ProductActions";
 import SizeSelector from "../../components/SizeSelector";
-import QuantitySelector from "../../components/QuantitySelector";
 import { PageCountDisplay } from "../../components/services/PageCountDisplay";
 import { CopiesSelector } from "../../components/services/CopiesSelector";
+import { QuantityWithCopiesSelector } from "../../components/services/QuantityWithCopiesSelector";
 import ProductTabs from "../../components/ProductTabs";
 import RelatedProducts from "../../components/RelatedProducts";
 import { BarsSpinner } from "../../components/shared/BarsSpinner";
 import { useProduct } from "@/hooks/products/useProduct";
 import { useCart } from "@/contexts/CartContext";
-import { Star } from "lucide-react";
+import { Star, X } from "lucide-react";
 import { toastError, toastSuccess } from "@/lib/utils/toast";
+import { imageLoader } from "@/lib/utils/image-loader";
 import ReviewList from "../../components/reviews/ReviewList";
 
 export default function ProductDetailsPage({ params }: { params: Promise<{ id: string }> }) {
@@ -58,7 +61,32 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
     const [selectedVariant, setSelectedVariant] = useState<string | undefined>("");
     const [pageCount, setPageCount] = useState(0); // Fixed, calculated from files
     const [copies, setCopies] = useState(1); // Editable, default 1
+    const [quantity, setQuantity] = useState(1); // Regular quantity when no files uploaded
+    const [isCopiesMode, setIsCopiesMode] = useState(false); // Track if user is in copies mode
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
+    const [isImageExpanded, setIsImageExpanded] = useState(false);
+    const [activeTab, setActiveTab] = useState("details");
+    const tabsSectionRef = useRef<HTMLDivElement>(null);
+
+    // Handle ESC key to close modal and prevent body scroll
+    useEffect(() => {
+        const handleEscape = (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && isImageExpanded) {
+                setIsImageExpanded(false);
+            }
+        };
+
+        if (isImageExpanded) {
+            document.addEventListener('keydown', handleEscape);
+            document.body.style.overflow = 'hidden';
+        }
+
+        return () => {
+            document.removeEventListener('keydown', handleEscape);
+            document.body.style.overflow = 'unset';
+        };
+    }, [isImageExpanded]);
+
     const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
     const [uploadedFileDetails, setUploadedFileDetails] = useState<FileDetail[]>([]);
     const [uploadingFiles, setUploadingFiles] = useState(false);
@@ -66,8 +94,40 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
 
     // Calculate total quantity
     const totalQuantity = useMemo(() => {
-        return pageCount * copies;
-    }, [pageCount, copies]);
+        if (pageCount > 0) {
+            // When files are uploaded, use pageCount × copies
+            return pageCount * copies;
+        } else {
+            // When no files, use quantity × copies if in copies mode, otherwise use quantity
+            return isCopiesMode ? quantity * copies : quantity;
+        }
+    }, [pageCount, copies, quantity, isCopiesMode]);
+
+    // Calculate base price per page/unit
+    const basePrice = useMemo(() => {
+        return currentPrice || 0;
+    }, [currentPrice]);
+
+    // Calculate total price based on totalQuantity
+    const totalPrice = useMemo(() => {
+        return basePrice * totalQuantity;
+    }, [basePrice, totalQuantity]);
+
+    // Calculate PDF and image counts for breakdown
+    const { pdfPageCount, imageCount } = useMemo(() => {
+        let pdfPages = 0;
+        let images = 0;
+
+        uploadedFileDetails.forEach(detail => {
+            if (detail.type === 'pdf') {
+                pdfPages += detail.pageCount;
+            } else if (detail.type === 'image') {
+                images += 1; // Each image = 1 page
+            }
+        });
+
+        return { pdfPageCount: pdfPages, imageCount: images };
+    }, [uploadedFileDetails]);
 
     // Set default variant when product loads
     useMemo(() => {
@@ -415,7 +475,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
 
     return (
         <div className="min-h-screen bg-white py-8 pb-24 sm:pb-8">
-            <div className="w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-30">
+            <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8">
                 {/* Breadcrumbs - Hidden on mobile, shown on tablet and above */}
                 <div className="hidden sm:block mb-6">
                     <Breadcrumbs items={breadcrumbs} />
@@ -437,9 +497,9 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                 {/* Main Product Section */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 lg:gap-8 mb-12">
                     {/* Left Column - Product Images (5/12 on desktop) */}
-                    <div className="lg:col-span-5 space-y-4 sm:space-y-5">
+                    <div className="lg:col-span-6 space-y-4 sm:space-y-5">
                         {/* Desktop: Thumbnails and Main Image */}
-                        <div className="hidden lg:flex gap-4">
+                        <div className="hidden lg:flex gap-4 bg-white p-3 sm:p-4 rounded-2xl border border-gray-100 shadow-sm">
                             {/* Vertical Thumbnails */}
                             {productImages.length > 1 && (
                                 <div className="flex flex-col gap-3">
@@ -447,16 +507,21 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                                         <button
                                             key={index}
                                             onClick={() => setCurrentImageIndex(index)}
-                                            className={`shrink-0 w-20 h-20 rounded-lg border-2 overflow-hidden transition-all cursor-pointer ${currentImageIndex === index
+                                            className={`shrink-0 w-20 h-20 rounded-lg border-2 overflow-hidden transition-all cursor-pointer relative ${currentImageIndex === index
                                                 ? "border-blue-600 scale-105 shadow-md"
                                                 : "border-gray-200 hover:border-gray-300"
                                                 }`}
                                         >
-                                            <img
-                                                src={img}
-                                                alt={`Thumbnail ${index + 1}`}
-                                                className="w-full h-full object-cover"
-                                            />
+                                            {img && (
+                                                <Image
+                                                    src={img}
+                                                    alt={`Thumbnail ${index + 1}`}
+                                                    fill
+                                                    className="object-cover"
+                                                    sizes="80px"
+                                                    loader={imageLoader}
+                                                />
+                                            )}
                                         </button>
                                     ))}
                                 </div>
@@ -464,25 +529,18 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
 
                             {/* Main Image Container */}
                             <div className="flex-1">
-                                <div className="bg-white p-3 sm:p-4 rounded-2xl border border-gray-100 shadow-sm">
+                                <div className="">
                                     <div className="aspect-square relative overflow-hidden rounded-lg bg-gray-50">
                                         {productImages[currentImageIndex] ? (
-                                            <img
+                                            <Image
                                                 src={productImages[currentImageIndex]}
                                                 alt={product.name}
-                                                className="w-full h-full object-contain"
-                                                onError={(e) => {
-                                                    console.error('Image load error:', productImages[currentImageIndex]);
-                                                    const target = e.target as HTMLImageElement;
-                                                    target.style.display = 'none';
-                                                    // Show fallback
-                                                    const parent = target.parentElement;
-                                                    if (parent && !parent.querySelector('.image-fallback')) {
-                                                        const fallback = document.createElement('div');
-                                                        fallback.className = 'image-fallback w-full h-full flex items-center justify-center text-gray-400 bg-gray-100';
-                                                        fallback.textContent = product.name || 'Image not available';
-                                                        parent.appendChild(fallback);
-                                                    }
+                                                fill
+                                                className="object-contain"
+                                                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                                loader={imageLoader}
+                                                onError={() => {
+                                                    // Error handling is done via CSS fallback
                                                 }}
                                             />
                                         ) : (
@@ -491,18 +549,18 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                                             </div>
                                         )}
 
-                                        {/* Zoom Indicator */}
-                                        <button
-                                            className="absolute top-3 right-3 p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-lg hover:bg-white transition-colors cursor-pointer"
-                                            onClick={() => {
-                                                console.log("Open image zoom");
-                                            }}
-                                        >
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                <circle cx="11" cy="11" r="8"></circle>
-                                                <path d="m21 21-4.35-4.35"></path>
-                                            </svg>
-                                        </button>
+                                        {/* Expand Button */}
+                                        {productImages[currentImageIndex] && (
+                                            <button
+                                                className="absolute top-3 right-3 p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-lg hover:bg-white transition-colors cursor-pointer z-10"
+                                                onClick={() => setIsImageExpanded(true)}
+                                                aria-label="Expand image"
+                                            >
+                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+                                                </svg>
+                                            </button>
+                                        )}
 
                                         {/* Image Navigation Controls */}
                                         {productImages.length > 1 && (
@@ -554,21 +612,15 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                             <div className="bg-white p-3 rounded-2xl border border-gray-100 shadow-sm">
                                 <div className="aspect-square relative overflow-hidden rounded-lg bg-gray-50">
                                     {productImages[currentImageIndex] ? (
-                                        <img
+                                        <Image
                                             src={productImages[currentImageIndex]}
                                             alt={product.name}
-                                            className="w-full h-full object-contain"
-                                            onError={(e) => {
-                                                console.error('Image load error:', productImages[currentImageIndex]);
-                                                const target = e.target as HTMLImageElement;
-                                                target.style.display = 'none';
-                                                const parent = target.parentElement;
-                                                if (parent && !parent.querySelector('.image-fallback')) {
-                                                    const fallback = document.createElement('div');
-                                                    fallback.className = 'image-fallback w-full h-full flex items-center justify-center text-gray-400 bg-gray-100';
-                                                    fallback.textContent = product.name || 'Image not available';
-                                                    parent.appendChild(fallback);
-                                                }
+                                            fill
+                                            className="object-contain"
+                                            sizes="(max-width: 768px) 100vw, 50vw"
+                                            loader={imageLoader}
+                                            onError={() => {
+                                                // Error handling is done via CSS fallback
                                             }}
                                         />
                                     ) : (
@@ -599,6 +651,19 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                                             {currentImageIndex + 1} / {productImages.length}
                                         </div>
                                     )}
+
+                                    {/* Expand Button - Mobile */}
+                                    {productImages[currentImageIndex] && (
+                                        <button
+                                            className="absolute top-3 left-3 p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-lg hover:bg-white transition-colors cursor-pointer z-10"
+                                            onClick={() => setIsImageExpanded(true)}
+                                            aria-label="Expand image"
+                                        >
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+                                            </svg>
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -610,16 +675,21 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                                     <button
                                         key={index}
                                         onClick={() => setCurrentImageIndex(index)}
-                                        className={`shrink-0 w-16 h-16 rounded-lg border-2 overflow-hidden cursor-pointer transition-all ${currentImageIndex === index
+                                        className={`shrink-0 w-16 h-16 rounded-lg border-2 overflow-hidden cursor-pointer transition-all relative ${currentImageIndex === index
                                             ? "border-blue-600"
                                             : "border-gray-200"
                                             }`}
                                     >
-                                        <img
-                                            src={img}
-                                            alt={`Thumbnail ${index + 1}`}
-                                            className="w-full h-full object-cover"
-                                        />
+                                        {img && (
+                                            <Image
+                                                src={img}
+                                                alt={`Thumbnail ${index + 1}`}
+                                                fill
+                                                className="object-cover"
+                                                sizes="64px"
+                                                loader={imageLoader}
+                                            />
+                                        )}
                                     </button>
                                 ))}
                             </div>
@@ -627,7 +697,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                     </div>
 
                     {/* Right Column - Product Info (7/12 on desktop) */}
-                    <div className="lg:col-span-7">
+                    <div className="lg:col-span-6">
                         <div className="space-y-4 sm:space-y-5">
                             {/* Product Title and Actions */}
                             <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-100 shadow-sm">
@@ -638,10 +708,24 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                                 {/* Rating and Actions Row */}
                                 <div className="flex flex-wrap items-center justify-between gap-4">
                                     <div className="flex items-center gap-4">
-                                        <ProductRating
-                                            rating={product.rating ? Number(product.rating) : 0}
-                                            reviewCount={product.totalReviews || 0}
-                                        />
+                                        <button
+                                            onClick={() => {
+                                                setActiveTab("reviews");
+                                                // Scroll to tabs section after a brief delay to ensure tab is switched
+                                                setTimeout(() => {
+                                                    tabsSectionRef.current?.scrollIntoView({
+                                                        behavior: 'smooth',
+                                                        block: 'start'
+                                                    });
+                                                }, 100);
+                                            }}
+                                            className="cursor-pointer hover:opacity-80 transition-opacity"
+                                        >
+                                            <ProductRating
+                                                rating={product.rating ? Number(product.rating) : 0}
+                                                reviewCount={product.totalReviews || 0}
+                                            />
+                                        </button>
                                         <div className="hidden sm:flex items-center gap-4">
                                             <ProductWishlistButton
                                                 isWishlisted={isWishlisted}
@@ -675,6 +759,20 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                                     originalPrice={originalPrice}
                                     discount={discount}
                                 />
+
+                                {/* Price Breakdown */}
+                                {basePrice > 0 && totalQuantity > 0 && (
+                                    <div className="mt-4 pt-4 border-t border-gray-200">
+                                        <PriceBreakdown
+                                            items={[]}
+                                            total={totalPrice}
+                                            basePrice={basePrice}
+                                            pageCount={pageCount > 0 ? pageCount : undefined}
+                                            copies={pageCount > 0 ? copies : (isCopiesMode ? copies : undefined)}
+                                            quantity={totalQuantity}
+                                        />
+                                    </div>
+                                )}
 
                                 {/* Stock Status */}
                                 {product.stock <= 0 ? (
@@ -741,6 +839,8 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                                             <PageCountDisplay
                                                 pageCount={pageCount}
                                                 fileType={getFileType(uploadedFileDetails)}
+                                                pdfPageCount={pdfPageCount}
+                                                imageCount={imageCount}
                                             />
 
                                             <CopiesSelector
@@ -763,13 +863,18 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                                         </>
                                     )}
 
-                                    {/* Show message when no files uploaded */}
-                                    {pageCount === 0 && (
-                                        <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                                            <p className="text-sm text-gray-600">
-                                                Upload files to see page count and set copies
-                                            </p>
-                                        </div>
+                                    {/* Quantity/Copies Selector when no files uploaded - Only show if files were never uploaded */}
+                                    {pageCount === 0 && uploadedFiles.length === 0 && (
+                                        <QuantityWithCopiesSelector
+                                            quantity={quantity}
+                                            copies={copies}
+                                            onQuantityChange={setQuantity}
+                                            onCopiesChange={setCopies}
+                                            onModeChange={setIsCopiesMode}
+                                            min={1}
+                                            max={999}
+                                            label="Quantity"
+                                        />
                                     )}
                                 </div>
                             </div>
@@ -782,6 +887,20 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                                     onBuyNow={onBuyNow}
                                     addToCartLoading={cartLoading || uploadingFiles}
                                     buyNowLoading={buyNowLoading || uploadingFiles}
+                                    isInCart={isInCart}
+                                    hasFiles={uploadedFiles.length > 0}
+                                    totalPrice={totalPrice}
+                                />
+                            </div>
+                            <div className="sm:hidden">
+                                <ProductActions
+                                    stock={product.stock}
+                                    onAddToCart={onAddToCart}
+                                    onBuyNow={onBuyNow}
+                                    totalPrice={totalPrice}
+                                    addToCartLoading={cartLoading}
+                                    buyNowLoading={buyNowLoading}
+                                    isMobile
                                     isInCart={isInCart}
                                     hasFiles={uploadedFiles.length > 0}
                                 />
@@ -816,8 +935,12 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                 </div>
 
                 {/* Product Tabs */}
-                <div className="mb-12">
-                    <ProductTabs tabs={tabs} />
+                <div className="mb-12" ref={tabsSectionRef}>
+                    <ProductTabs
+                        tabs={tabs}
+                        activeTab={activeTab}
+                        onTabChange={setActiveTab}
+                    />
                 </div>
 
                 {/* Related Products */}
@@ -827,22 +950,81 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                     </div>
                 )}
 
-                {/* Fixed Mobile Action Bar */}
-                <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg sm:hidden z-50 pb-safe">
-                    <div className="flex p-4 gap-3">
-                        <ProductActions
-                            stock={product.stock}
-                            onAddToCart={onAddToCart}
-                            onBuyNow={onBuyNow}
-                            addToCartLoading={cartLoading}
-                            buyNowLoading={buyNowLoading}
-                            isMobile
-                            isInCart={isInCart}
-                            hasFiles={uploadedFiles.length > 0}
-                        />
+            </div>
+
+            {/* Expanded Image Modal */}
+            {isImageExpanded && productImages[currentImageIndex] && (
+                <div
+                    className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+                    onClick={() => setIsImageExpanded(false)}
+                >
+                    {/* Close Button */}
+                    <button
+                        onClick={() => setIsImageExpanded(false)}
+                        className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors z-10"
+                        aria-label="Close expanded view"
+                    >
+                        <X size={24} />
+                    </button>
+
+                    {/* Image Container */}
+                    <div
+                        className="relative w-full h-full max-w-7xl max-h-[90vh] flex items-center justify-center"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {productImages[currentImageIndex] && (
+                            <Image
+                                src={productImages[currentImageIndex]}
+                                alt={product?.name || 'Product image'}
+                                fill
+                                className="object-contain"
+                                sizes="100vw"
+                                loader={imageLoader}
+                            />
+                        )}
+
+                        {/* Navigation Controls in Modal */}
+                        {productImages.length > 1 && (
+                            <>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setCurrentImageIndex(prev =>
+                                            prev === 0 ? productImages.length - 1 : prev - 1
+                                        );
+                                    }}
+                                    className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-black/60 hover:bg-black/80 backdrop-blur-sm rounded-full text-white transition-colors z-20 border border-white/20 shadow-lg"
+                                    aria-label="Previous image"
+                                >
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                        <path d="M15 18l-6-6 6-6" />
+                                    </svg>
+                                </button>
+
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setCurrentImageIndex(prev =>
+                                            prev === productImages.length - 1 ? 0 : prev + 1
+                                        );
+                                    }}
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-black/60 hover:bg-black/80 backdrop-blur-sm rounded-full text-white transition-colors z-20 border border-white/20 shadow-lg"
+                                    aria-label="Next image"
+                                >
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                        <path d="M9 18l6-6-6-6" />
+                                    </svg>
+                                </button>
+
+                                {/* Image Counter in Modal */}
+                                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 bg-black/60 backdrop-blur-sm rounded-full text-white text-sm">
+                                    {currentImageIndex + 1} / {productImages.length}
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 }

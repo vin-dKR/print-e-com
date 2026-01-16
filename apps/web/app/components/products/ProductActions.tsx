@@ -13,6 +13,8 @@ interface ProductActionsProps {
     isMobile?: boolean;
     isInCart?: boolean;
     hasFiles?: boolean; // Whether files have been uploaded
+    totalPrice?: number; // Total price to display
+    calculatingPrice?: boolean; // Whether price is being calculated
 }
 
 export default function ProductActions({
@@ -24,6 +26,8 @@ export default function ProductActions({
     isMobile = false,
     isInCart = false,
     hasFiles = false,
+    totalPrice = 0,
+    calculatingPrice = false,
 }: ProductActionsProps) {
     const router = useRouter();
     const handleAddToCartClick = () => {
@@ -34,8 +38,8 @@ export default function ProductActions({
         }
     };
 
-    // Disable buttons if no files uploaded
-    const isDisabled = stock === 0 || !hasFiles;
+    // Disable buttons if no files uploaded or price is calculating
+    const isDisabled = stock === 0 || !hasFiles || calculatingPrice;
     const addToCartDisabled = isDisabled || addToCartLoading || (isInCart ? false : !hasFiles);
     const buyNowDisabled = isDisabled || buyNowLoading || !hasFiles;
 
@@ -48,7 +52,17 @@ export default function ProductActions({
                     className="flex-1 px-4 py-3 bg-[#008ECC] text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2"
                 >
                     {addToCartLoading && <BarsSpinner size={16} />}
-                    {stock === 0 ? "Out of Stock" : !hasFiles ? "Upload File First" : addToCartLoading ? "Adding..." : isInCart ? "Go to Cart" : "Add to Cart"}
+                    {stock === 0
+                        ? "Out of Stock"
+                        : !hasFiles
+                            ? "Upload File First"
+                            : addToCartLoading
+                                ? "Adding..."
+                                : isInCart
+                                    ? "Go to Cart"
+                                    : totalPrice > 0
+                                        ? `Add to Cart - ₹${totalPrice.toFixed(2)}`
+                                        : "Add to Cart"}
                 </button>
                 <button
                     onClick={onBuyNow}
@@ -70,7 +84,17 @@ export default function ProductActions({
                 className="flex-1 px-8 py-4 bg-[#008ECC] text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-3 cursor-pointer"
             >
                 {addToCartLoading ? <BarsSpinner size={20} /> : <ShoppingBag size={20} />}
-                {stock === 0 ? "Out of Stock" : !hasFiles ? "Upload File First" : addToCartLoading ? "Adding..." : isInCart ? "Go to Cart" : "Add to Cart"}
+                {stock === 0
+                    ? "Out of Stock"
+                    : !hasFiles
+                        ? "Upload File First"
+                        : addToCartLoading
+                            ? "Adding..."
+                            : isInCart
+                                ? "Go to Cart"
+                                : totalPrice > 0
+                                    ? `Add to Cart - ₹${totalPrice.toFixed(2)}`
+                                    : "Add to Cart"}
             </button>
             <button
                 onClick={onBuyNow}

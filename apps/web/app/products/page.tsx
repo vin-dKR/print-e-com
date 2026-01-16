@@ -312,7 +312,7 @@ function ProductsPageChild() {
 
     return (
         <div className="min-h-screen bg-white py-4 sm:py-8 pb-0 lg:pb-40">
-            <div className="w-full px-4 md:px-40">
+            <div className="w-full px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 max-w-7xl mx-auto">
                 {/* Mobile Header with Filter Button */}
                 <div className="lg:hidden mb-4">
                     <div className="flex items-center justify-between mb-4">
@@ -432,9 +432,9 @@ function ProductsPageChild() {
                     </>
                 )}
 
-                <div className="flex flex-col lg:flex-row gap-8">
+                <div className="flex flex-col md:flex-row gap-6 lg:gap-8">
                     {/* Left Sidebar - Filters (Desktop) */}
-                    <aside className="hidden lg:block w-64 shrink-0">
+                    <aside className="hidden md:block w-56 lg:w-64 shrink-0">
                         <div className="sticky top-24">
                             <ProductFilters
                                 selectedSizes={selectedSizes}
@@ -454,8 +454,8 @@ function ProductsPageChild() {
                     {/* Main Content - Product Grid */}
                     <main className="flex-1">
                         {/* Desktop Header */}
-                        <div className="hidden lg:block mb-6">
-                            <h1 className="text-4xl font-serif text-gray-900 mb-2">
+                        <div className="hidden md:block mb-4 lg:mb-6">
+                            <h1 className="text-2xl md:text-3xl lg:text-4xl font-serif text-gray-900 mb-2">
                                 {searchQuery ? 'Search Results' : 'Print Your Dream'}
                             </h1>
 
@@ -490,7 +490,7 @@ function ProductsPageChild() {
                         </div>
 
                         {/* Results Header */}
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 md:gap-4 mb-4 md:mb-6">
                             {/* Results Count */}
                             <div className="flex items-center gap-4">
                                 <p className="text-sm text-gray-600">
@@ -519,7 +519,7 @@ function ProductsPageChild() {
                             </div>
 
                             {/* Desktop Controls */}
-                            <div className="hidden lg:flex items-center gap-4">
+                            <div className="hidden md:flex items-center gap-3 lg:gap-4">
                                 {/* View Mode Toggle */}
                                 <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
                                     <button
@@ -555,7 +555,7 @@ function ProductsPageChild() {
                         {(selectedSizes.length > 0 || selectedPriceRanges.length > 0 ||
                             selectedTags.length > 0 ||
                             selectedCollections.length > 0 || categoryParam) && (
-                                <div className="hidden lg:flex flex-wrap gap-2 mb-4">
+                                <div className="hidden md:flex flex-wrap gap-2 mb-4">
                                     {/* Show category from URL param */}
                                     {categoryParam && (
                                         <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-700 text-sm rounded-full border border-blue-200">
@@ -634,7 +634,7 @@ function ProductsPageChild() {
                         {paginatedProducts.length > 0 ? (
                             <>
                                 <div className={viewMode === "grid"
-                                    ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"
+                                    ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 md:gap-4 lg:gap-5"
                                     : "space-y-4"
                                 }>
                                     {paginatedProducts.map((product) => (

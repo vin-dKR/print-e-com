@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../../contexts/AuthContext";
+import { getRedirectPath, clearRedirectPath } from "../../../lib/utils/auth-redirect";
 
 /**
  * AuthGuard Component
@@ -17,9 +18,23 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         // Wait for auth state to be determined
         if (loading) return;
 
-        // If user is authenticated, redirect to home
+        // If user is authenticated, check for saved redirect path
         if (isAuthenticated) {
-            router.replace("/home");
+            // Small delay to ensure auth state is fully updated
+            const timer = setTimeout(() => {
+                const redirectPath = getRedirectPath();
+                if (redirectPath) {
+                    console.log('[AuthGuard] Redirecting to saved path:', redirectPath);
+                    clearRedirectPath();
+                    // Use window.location for full page reload to ensure proper navigation
+                    window.location.href = redirectPath;
+                } else {
+                    console.log('[AuthGuard] No redirect path found, redirecting to /home');
+                    router.replace("/home");
+                }
+            }, 100);
+
+            return () => clearTimeout(timer);
         }
     }, [isAuthenticated, loading, router]);
 

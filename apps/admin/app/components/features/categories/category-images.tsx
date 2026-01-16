@@ -313,7 +313,7 @@ export function CategoryImages({ categoryId }: CategoryImagesProps) {
                                         key={image.id || `image-${index}-${image.url || 'temp'}-${index}`}
                                         className="group relative overflow-hidden rounded-lg border border-gray-200 bg-white"
                                     >
-                                        <div className="relative aspect-video w-full bg-gray-100">
+                                        <div className="relative aspect-square w-full bg-gray-100">
                                             <Image
                                                 src={image.url}
                                                 alt={image.alt || 'Category image'}

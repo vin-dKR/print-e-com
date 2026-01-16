@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { imageLoader } from "@/lib/utils/image-loader";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import { getProducts, type Product } from "../../lib/api/products";
@@ -150,16 +152,22 @@ export default function BestSeller() {
                                 {/* Product Image */}
                                 <Link href={`/products/${product.id}`} className="block relative aspect-square bg-gray-50 rounded-t-2xl overflow-hidden">
                                     {product.images && product.images.length > 0 ? (
-                                        <img
+                                        <Image
                                             src={product.images[0]?.url || ''}
                                             alt={product.images[0]?.alt || product.name || ''}
-                                            className="w-full h-full object-cover"
+                                            fill
+                                            className="object-cover"
+                                            sizes="(max-width: 768px) 50vw, 25vw"
+                                            loader={imageLoader}
                                         />
                                     ) : (
-                                        <img
+                                        <Image
                                             src={'/images/pagz-logo.png'}
-                                            alt={''}
-                                            className="w-full h-full object-cover"
+                                            alt={product.name || 'Product image'}
+                                            fill
+                                            className="object-cover"
+                                            sizes="(max-width: 768px) 50vw, 25vw"
+                                            loader={imageLoader}
                                         />
                                     )}
 

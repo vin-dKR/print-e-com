@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
-import { Expand, ChevronLeft, ChevronRight } from 'lucide-react';
+import { imageLoader } from '@/lib/utils/image-loader';
+import { X } from 'lucide-react';
 
 interface ProductGalleryProps {
     images: Array<{
@@ -22,6 +23,7 @@ export const ProductGallery: React.FC<ProductGalleryProps> = ({
     className,
 }) => {
     const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+    const [isExpanded, setIsExpanded] = useState(false);
 
     const nextImage = () => {
         setSelectedImageIndex((prev) => (prev + 1) % images.length);
@@ -31,80 +33,268 @@ export const ProductGallery: React.FC<ProductGalleryProps> = ({
         setSelectedImageIndex((prev) => (prev - 1 + images.length) % images.length);
     };
 
+    const openExpand = () => {
+        setIsExpanded(true);
+    };
+
+    const closeExpand = () => {
+        setIsExpanded(false);
+    };
+
+    // Handle ESC key to close modal
+    useEffect(() => {
+        const handleEscape = (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && isExpanded) {
+                closeExpand();
+            }
+        };
+
+        if (isExpanded) {
+            document.addEventListener('keydown', handleEscape);
+            document.body.style.overflow = 'hidden'; // Prevent body scroll
+        }
+
+        return () => {
+            document.removeEventListener('keydown', handleEscape);
+            document.body.style.overflow = 'unset';
+        };
+    }, [isExpanded]);
+
     return (
         <div className={cn('space-y-4', className)}>
-            {/* Main Image */}
-            <div className="relative h-64 sm:h-80 md:h-96 w-full rounded-2xl overflow-hidden bg-gradient-to-br from-blue-50 to-gray-100">
-                {images.length > 0 ? (
-                    <>
-                        <Image
-                            src={images[selectedImageIndex]?.src || ''}
-                            alt={images[selectedImageIndex]?.alt || ''}
-                            fill
-                            className="object-cover"
-                            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                            unoptimized={images[selectedImageIndex]?.src?.includes('amazonaws.com') || images[selectedImageIndex]?.src?.includes('s3.')}
-                        />
+            {/* Desktop: Thumbnails and Main Image */}
+            <div className="hidden lg:flex gap-4">
+                {/* Vertical Thumbnails */}
+                {images.length > 1 && (
+                    <div className="flex flex-col gap-3">
+                        {images.map((image, index) => (
+                            <button
+                                key={image.id}
+                                onClick={() => setSelectedImageIndex(index)}
+                                className={`shrink-0 w-20 h-20 rounded-lg border-2 overflow-hidden transition-all cursor-pointer relative ${selectedImageIndex === index
+                                    ? "border-blue-600 scale-105 shadow-md"
+                                    : "border-gray-200 hover:border-gray-300"
+                                    }`}
+                            >
+                                <Image
+                                    src={image.thumbnailSrc || image.src}
+                                    alt={`Thumbnail ${index + 1}`}
+                                    fill
+                                    className="object-cover"
+                                    sizes="80px"
+                                    loader={imageLoader}
+                                />
+                            </button>
+                        ))}
+                    </div>
+                )}
+
+                {/* Main Image Container */}
+                <div className="flex-1">
+                    <div className="aspect-square relative overflow-hidden rounded-lg bg-gray-50">
+                        {images[selectedImageIndex] ? (
+                            <Image
+                                src={images[selectedImageIndex].src}
+                                alt={images[selectedImageIndex].alt}
+                                fill
+                                className="object-contain"
+                                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                onError={() => {
+                                    // Error handling is done via CSS fallback
+                                }}
+                                loader={imageLoader}
+                            />
+                        ) : (
+                            <div className="w-full h-full flex items-center justify-center text-gray-400">
+                                {fallbackIcon || 'No image available'}
+                            </div>
+                        )}
+
+                        {/* Expand Button */}
+                        {images[selectedImageIndex] && (
+                            <button
+                                className="absolute top-3 right-3 p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-lg hover:bg-white transition-colors cursor-pointer z-10"
+                                onClick={openExpand}
+                                aria-label="Expand image"
+                            >
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+                                </svg>
+                            </button>
+                        )}
+
+                        {/* Image Navigation Controls */}
                         {images.length > 1 && (
                             <>
                                 <button
                                     onClick={prevImage}
-                                    className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/80 backdrop-blur-sm border border-gray-200 flex items-center justify-center hover:bg-white transition-colors"
+                                    className="absolute left-3 top-1/2 -translate-y-1/2 p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-lg hover:bg-white transition-colors cursor-pointer"
                                 >
-                                    <ChevronLeft className="w-5 h-5 text-gray-700" />
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <path d="M15 18l-6-6 6-6" />
+                                    </svg>
                                 </button>
+
                                 <button
                                     onClick={nextImage}
-                                    className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/80 backdrop-blur-sm border border-gray-200 flex items-center justify-center hover:bg-white transition-colors"
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-lg hover:bg-white transition-colors cursor-pointer"
                                 >
-                                    <ChevronRight className="w-5 h-5 text-gray-700" />
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <path d="M9 18l6-6-6-6" />
+                                    </svg>
                                 </button>
+
+                                {/* Image Counter */}
+                                <div className="absolute bottom-3 right-3 px-2 py-1 bg-black/60 backdrop-blur-sm rounded-full text-white text-xs">
+                                    {selectedImageIndex + 1} / {images.length}
+                                </div>
                             </>
                         )}
-                        <button className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/80 backdrop-blur-sm border border-gray-200 flex items-center justify-center hover:bg-white transition-colors">
-                            <Expand className="w-5 h-5 text-gray-700" />
-                        </button>
-                    </>
-                ) : (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                        {fallbackIcon || (
-                            <div className="text-center">
-                                <div className="w-16 h-16 sm:w-24 sm:h-24 text-[#008ECC] mx-auto mb-4">
-                                    {fallbackIcon}
-                                </div>
-                                <h3 className="font-hkgb text-lg sm:text-xl text-gray-900">
-                                    Product Preview
-                                </h3>
+                    </div>
+                </div>
+            </div>
+
+            {/* Mobile: Main Image */}
+            <div className="lg:hidden">
+                <div className="aspect-square relative overflow-hidden rounded-lg bg-gray-50">
+                    {images[selectedImageIndex] ? (
+                        <Image
+                            src={images[selectedImageIndex].src}
+                            alt={images[selectedImageIndex].alt}
+                            fill
+                            className="object-contain"
+                            sizes="(max-width: 768px) 100vw, 50vw"
+                            onError={() => {
+                                // Error handling is done via CSS fallback
+                            }}
+                            loader={imageLoader}
+                        />
+                    ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-400">
+                            {fallbackIcon || 'No image available'}
+                        </div>
+                    )}
+
+                    {/* Image Navigation Controls */}
+                    {images.length > 1 && (
+                        <>
+                            <button
+                                onClick={prevImage}
+                                className="absolute left-3 top-1/2 -translate-y-1/2 p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-lg hover:bg-white transition-colors cursor-pointer"
+                            >
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M15 18l-6-6 6-6" />
+                                </svg>
+                            </button>
+
+                            <button
+                                onClick={nextImage}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-lg hover:bg-white transition-colors cursor-pointer"
+                            >
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M9 18l6-6-6-6" />
+                                </svg>
+                            </button>
+
+                            {/* Image Counter */}
+                            <div className="absolute bottom-3 right-3 px-2 py-1 bg-black/60 backdrop-blur-sm rounded-full text-white text-xs">
+                                {selectedImageIndex + 1} / {images.length}
                             </div>
-                        )}
+                        </>
+                    )}
+                </div>
+
+                {/* Mobile Thumbnails */}
+                {images.length > 1 && (
+                    <div className="mt-4 flex gap-3 overflow-x-auto pb-2">
+                        {images.map((image, index) => (
+                            <button
+                                key={image.id}
+                                onClick={() => setSelectedImageIndex(index)}
+                                className={`shrink-0 w-20 h-20 rounded-lg border-2 overflow-hidden transition-all cursor-pointer relative ${selectedImageIndex === index
+                                    ? "border-blue-600 scale-105 shadow-md"
+                                    : "border-gray-200 hover:border-gray-300"
+                                    }`}
+                            >
+                                <Image
+                                    src={image.thumbnailSrc || image.src}
+                                    alt={`Thumbnail ${index + 1}`}
+                                    fill
+                                    className="object-cover"
+                                    sizes="80px"
+                                    loader={imageLoader}
+                                />
+                            </button>
+                        ))}
                     </div>
                 )}
             </div>
 
-            {/* Thumbnails */}
-            {images.length > 1 && (
-                <div className="grid grid-cols-4 sm:grid-cols-6 gap-3">
-                    {images.map((image, index) => (
-                        <button
-                            key={image.id}
-                            onClick={() => setSelectedImageIndex(index)}
-                            className={cn(
-                                'relative h-20 sm:h-24 rounded-lg border overflow-hidden transition-all duration-200',
-                                selectedImageIndex === index
-                                    ? 'border-[#008ECC] ring-2 ring-[#008ECC] ring-offset-2'
-                                    : 'border-gray-200 hover:border-gray-300'
-                            )}
-                        >
-                            <Image
-                                src={image.thumbnailSrc || image.src}
-                                alt={image.alt}
-                                fill
-                                className="object-cover"
-                                sizes="(max-width: 768px) 25vw, 16vw"
-                                unoptimized={(image.thumbnailSrc || image.src)?.includes('amazonaws.com') || (image.thumbnailSrc || image.src)?.includes('s3.')}
-                            />
-                        </button>
-                    ))}
+            {/* Expanded Image Modal */}
+            {isExpanded && images[selectedImageIndex] && (
+                <div
+                    className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+                    onClick={closeExpand}
+                >
+                    {/* Close Button */}
+                    <button
+                        onClick={closeExpand}
+                        className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors z-10"
+                        aria-label="Close expanded view"
+                    >
+                        <X size={24} />
+                    </button>
+
+                    {/* Image Container */}
+                    <div
+                        className="relative w-full h-full max-w-7xl max-h-[90vh] flex items-center justify-center"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <Image
+                            src={images[selectedImageIndex].src}
+                            alt={images[selectedImageIndex].alt}
+                            fill
+                            className="object-contain"
+                            sizes="100vw"
+                            loader={imageLoader}
+                        />
+
+                        {/* Navigation Controls in Modal */}
+                        {images.length > 1 && (
+                            <>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        prevImage();
+                                    }}
+                                    className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-black/60 hover:bg-black/80 backdrop-blur-sm rounded-full text-white transition-colors z-20 border border-white/20 shadow-lg"
+                                    aria-label="Previous image"
+                                >
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                        <path d="M15 18l-6-6 6-6" />
+                                    </svg>
+                                </button>
+
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        nextImage();
+                                    }}
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-black/60 hover:bg-black/80 backdrop-blur-sm rounded-full text-white transition-colors z-20 border border-white/20 shadow-lg"
+                                    aria-label="Next image"
+                                >
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                        <path d="M9 18l6-6-6-6" />
+                                    </svg>
+                                </button>
+
+                                {/* Image Counter in Modal */}
+                                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 bg-black/60 backdrop-blur-sm rounded-full text-white text-sm">
+                                    {selectedImageIndex + 1} / {images.length}
+                                </div>
+                            </>
+                        )}
+                    </div>
                 </div>
             )}
         </div>

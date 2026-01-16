@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { use } from 'react';
 import { useRouter } from 'next/navigation';
 import { ProductPageTemplate } from '@/app/components/services/ProductPageTemplate';
@@ -8,7 +8,8 @@ import { ChevronDown } from 'lucide-react';
 import { QuantitySelector } from '@/app/components/services/QuantitySelector';
 import { PageCountDisplay } from '@/app/components/services/PageCountDisplay';
 import { CopiesSelector } from '@/app/components/services/CopiesSelector';
-import ProductDocumentUpload, { FileDetail } from '@/app/components/products/ProductDocumentUpload';
+import { QuantityWithCopiesSelector } from '@/app/components/services/QuantityWithCopiesSelector';
+import { FileDetail } from '@/app/components/products/ProductDocumentUpload';
 import { getCategoryBySlug, calculateCategoryPrice, getProductsBySpecifications, type Category, type CategorySpecification } from '@/lib/api/categories';
 import { addToCart } from '@/lib/api/cart';
 import { useAuth } from '@/contexts/AuthContext';
@@ -17,6 +18,7 @@ import { ProductData, BreadcrumbItem } from '@/types';
 import { Option } from '@/types';
 import { uploadOrderFilesToS3 } from '@/lib/api/uploads';
 import { toastWarning, toastError, toastSuccess, toastPromise } from '@/lib/utils/toast';
+import { redirectToLoginWithReturn } from '@/lib/utils/auth-redirect';
 
 interface DynamicServicePageProps {
     params: Promise<{ categorySlug: string }>;
@@ -38,13 +40,38 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
     const [pageCount, setPageCount] = useState(0); // Fixed, calculated from files
     const [copies, setCopies] = useState(1); // Editable, default 1
     const [quantity, setQuantity] = useState<number>(1); // Keep for backward compatibility with NUMBER spec type
+    const [isCopiesMode, setIsCopiesMode] = useState(false); // Track if user is in copies mode
 
     // Calculate total quantity
     const totalQuantity = useMemo(() => {
-        return pageCount * copies;
-    }, [pageCount, copies]);
+        if (pageCount > 0) {
+            // When files are uploaded, use pageCount × copies
+            return pageCount * copies;
+        } else {
+            // When no files, use quantity × copies if in copies mode, otherwise use quantity
+            return isCopiesMode ? quantity * copies : quantity;
+        }
+    }, [pageCount, copies, quantity, isCopiesMode]);
+
+    // Calculate PDF and image counts for breakdown
+    const { pdfPageCount, imageCount } = useMemo(() => {
+        let pdfPages = 0;
+        let images = 0;
+
+        uploadedFileDetails.forEach(detail => {
+            if (detail.type === 'pdf') {
+                pdfPages += detail.pageCount;
+            } else if (detail.type === 'image') {
+                images += 1; // Each image = 1 page
+            }
+        });
+
+        return { pdfPageCount: pdfPages, imageCount: images };
+    }, [uploadedFileDetails]);
+
     const [priceBreakdown, setPriceBreakdown] = useState<Array<{ label: string; value: number }>>([]);
     const [totalPrice, setTotalPrice] = useState<number>(0);
+    const [basePricePerUnit, setBasePricePerUnit] = useState<number>(0);
     const [calculatingPrice, setCalculatingPrice] = useState(false);
     const [matchingProduct, setMatchingProduct] = useState<any | null>(null);
     const [checkingProduct, setCheckingProduct] = useState(false);
@@ -78,39 +105,42 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
         fetchCategory();
     }, [categorySlug]);
 
-    // Calculate price and check for products whenever selections or quantity change
-    useEffect(() => {
-        if (category && Object.keys(selectedSpecifications).length > 0) {
-            calculatePrice();
-            checkForProduct();
-        } else {
-            setMatchingProduct(null);
-        }
-    }, [selectedSpecifications, quantity, totalQuantity, category, categorySlug]);
-
-    const calculatePrice = async () => {
+    const calculatePrice = useCallback(async () => {
         if (!category) return;
 
         try {
             setCalculatingPrice(true);
-            // Use totalQuantity (pageCount × copies) if files are uploaded, otherwise use quantity
-            const qtyToUse = pageCount > 0 ? totalQuantity : quantity;
+            // Always use totalQuantity which already includes copies multiplication
             const result = await calculateCategoryPrice(categorySlug, {
                 specifications: selectedSpecifications,
-                quantity: qtyToUse,
+                quantity: totalQuantity,
             });
             setPriceBreakdown(result.breakdown);
             setTotalPrice(result.totalPrice);
+            // Calculate base price per unit from total price and quantity
+            if (totalQuantity > 0) {
+                setBasePricePerUnit(result.totalPrice / totalQuantity);
+            } else {
+                setBasePricePerUnit(0);
+            }
         } catch (err: any) {
-            console.error('Price calculation error:', err);
-            setPriceBreakdown([]);
-            setTotalPrice(0);
+            // Only log network errors, don't show toasts or redirect
+            if (err?.message?.includes('NetworkError') || err?.name === 'TypeError') {
+                console.warn('Price calculation network error (will retry):', err);
+            } else {
+                console.error('Price calculation error:', err);
+            }
+            // Don't clear price on network errors - keep previous values
+            if (!err?.message?.includes('NetworkError') && err?.name !== 'TypeError') {
+                setPriceBreakdown([]);
+                setTotalPrice(0);
+            }
         } finally {
             setCalculatingPrice(false);
         }
-    };
+    }, [category, categorySlug, selectedSpecifications, totalQuantity]);
 
-    const checkForProduct = async () => {
+    const checkForProduct = useCallback(async () => {
         if (!category) return;
 
         try {
@@ -119,12 +149,30 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
             // Find the first matching product (should be only one if published correctly)
             setMatchingProduct(products.length > 0 ? products[0] : null);
         } catch (err: any) {
-            console.error('Product check error:', err);
-            setMatchingProduct(null);
+            // Only log network errors, don't show toasts or redirect
+            if (err?.message?.includes('NetworkError') || err?.name === 'TypeError') {
+                console.warn('Product check network error (will retry):', err);
+            } else {
+                console.error('Product check error:', err);
+            }
+            // Don't clear product on network errors - keep previous value
+            if (!err?.message?.includes('NetworkError') && err?.name !== 'TypeError') {
+                setMatchingProduct(null);
+            }
         } finally {
             setCheckingProduct(false);
         }
-    };
+    }, [category, categorySlug, selectedSpecifications]);
+
+    // Calculate price and check for products whenever selections or quantity change
+    useEffect(() => {
+        if (category && Object.keys(selectedSpecifications).length > 0) {
+            calculatePrice();
+            checkForProduct();
+        } else {
+            setMatchingProduct(null);
+        }
+    }, [selectedSpecifications, totalQuantity, category, categorySlug, calculatePrice, checkForProduct]);
 
     // Get available options for a specification based on dependencies
     const getAvailableOptions = (spec: CategorySpecification): Option[] => {
@@ -366,7 +414,7 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
     const handleAddToCart = async () => {
         // Check authentication
         if (!isAuthenticated) {
-            router.push('/auth/login');
+            redirectToLoginWithReturn();
             return;
         }
 
@@ -423,12 +471,11 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
             }
 
             // Add to cart with S3 URLs
-            // Use totalQuantity (pageCount × copies) if files are uploaded, otherwise use quantity
-            const qtyToUse = pageCount > 0 ? totalQuantity : quantity;
+            // Always use totalQuantity which already includes copies multiplication
             const response = await toastPromise(
                 addToCart({
                     productId: matchingProduct.id,
-                    quantity: qtyToUse,
+                    quantity: totalQuantity,
                     customDesignUrl: s3Keys.length > 0 ? s3Keys : undefined,
                 }),
                 {
@@ -461,7 +508,7 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
     const handleBuyNow = async () => {
         // Check authentication
         if (!isAuthenticated) {
-            router.push('/auth/login');
+            redirectToLoginWithReturn();
             return;
         }
 
@@ -532,12 +579,11 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
             }
 
             // Add to cart with S3 URLs and redirect to checkout
-            // Use totalQuantity (pageCount × copies) if files are uploaded, otherwise use quantity
-            const qtyToUse = pageCount > 0 ? totalQuantity : quantity;
+            // Always use totalQuantity which already includes copies multiplication
             const response = await toastPromise(
                 addToCart({
                     productId: matchingProduct.id,
-                    quantity: qtyToUse,
+                    quantity: totalQuantity,
                     customDesignUrl: s3Keys.length > 0 ? s3Keys : undefined,
                 }),
                 {
@@ -616,6 +662,10 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
                 }}
                 priceItems={priceBreakdown}
                 totalPrice={totalPrice}
+                basePricePerUnit={basePricePerUnit}
+                pageCount={pageCount > 0 ? pageCount : undefined}
+                copies={pageCount > 0 ? copies : (isCopiesMode ? copies : undefined)}
+                quantity={pageCount > 0 ? totalQuantity : quantity}
                 onAddToCart={handleAddToCart}
                 onBuyNow={handleBuyNow}
                 addToCartLoading={addingToCart}
@@ -627,6 +677,8 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
                 images={categoryImages}
                 minQuantity={minQuantityFromFiles}
                 areRequiredFieldsFilled={areAllRequiredFieldsFilled}
+                hasUploadedFiles={uploadedFiles.length > 0}
+                calculatingPrice={calculatingPrice}
             >
                 {/* Dynamic Configuration Options */}
                 <div className="space-y-8">
@@ -743,6 +795,8 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
                             <PageCountDisplay
                                 pageCount={pageCount}
                                 fileType={getFileType(uploadedFileDetails)}
+                                pdfPageCount={pdfPageCount}
+                                imageCount={imageCount}
                             />
 
                             <CopiesSelector
@@ -765,16 +819,18 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
                         </>
                     )}
 
-                    {/* Quantity Selector (if not already included as a specification and no files uploaded) */}
-                    {!visibleSpecifications.some(spec => spec.slug === 'quantity' && spec.type === 'NUMBER') && pageCount === 0 && (
+                    {/* Quantity/Copies Selector (if not already included as a specification and no files uploaded) - Only show if files were never uploaded */}
+                    {!visibleSpecifications.some(spec => spec.slug === 'quantity' && spec.type === 'NUMBER') && pageCount === 0 && uploadedFiles.length === 0 && (
                         <div className="space-y-2">
-                            <QuantitySelector
-                                value={quantity}
-                                onChange={setQuantity}
-                                label="Quantity"
-                                unit=""
+                            <QuantityWithCopiesSelector
+                                quantity={quantity}
+                                copies={copies}
+                                onQuantityChange={setQuantity}
+                                onCopiesChange={setCopies}
+                                onModeChange={setIsCopiesMode}
                                 min={1}
                                 max={1000}
+                                label="Quantity"
                             />
                         </div>
                     )}

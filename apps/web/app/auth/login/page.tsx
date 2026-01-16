@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import Link from "next/link";
 import AuthLayout from "../../components/auth/AuthLayout";
 import AuthFormInput from "../../components/auth/AuthFormInput";
@@ -12,9 +11,7 @@ import { useAuth } from "../../../contexts/AuthContext";
 import { signInWithGoogle, signInWithFacebook } from "../../../lib/supabase";
 
 export default function LoginPage() {
-    const router = useRouter();
-    const { login, isAuthenticated, user } = useAuth();
-    const [shouldRedirect, setShouldRedirect] = useState(false);
+    const { login } = useAuth();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
@@ -22,26 +19,18 @@ export default function LoginPage() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // Handle redirect after successful login and auth state update
-    useEffect(() => {
-        if (shouldRedirect && isAuthenticated && user) {
-            const redirectPath = sessionStorage.getItem("redirectAfterLogin") || "/home";
-            sessionStorage.removeItem("redirectAfterLogin");
-            // Use window.location for a full page reload to ensure Header updates
-            window.location.href = redirectPath;
-        }
-    }, [shouldRedirect, isAuthenticated, user]);
+    // Note: Redirect is handled by AuthGuard component after authentication
+    // AuthGuard will check for saved redirect path and redirect accordingly
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
         setLoading(true);
-        setShouldRedirect(false);
 
         try {
             await login(email, password);
-            // Set flag to trigger redirect after state updates
-            setShouldRedirect(true);
+            // AuthGuard will handle redirect after isAuthenticated becomes true
+            // No need to set shouldRedirect flag
         } catch (err: any) {
             setError(err.message || "Login failed. Please check your credentials.");
             setLoading(false);

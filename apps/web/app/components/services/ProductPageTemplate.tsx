@@ -22,6 +22,7 @@ interface ProductPageTemplateProps {
     onQuantityChange?: (quantity: number) => void;
     priceItems: Array<{ label: string; value: number; description?: string }>;
     totalPrice: number;
+    basePricePerUnit?: number; // Base price per page/unit for detailed breakdown
     onAddToCart: () => void;
     onBuyNow: () => void;
     addToCartLoading?: boolean;
@@ -34,6 +35,11 @@ interface ProductPageTemplateProps {
     images?: Array<{ id: string; src: string; alt: string; thumbnailSrc?: string }>;
     minQuantity?: number;
     areRequiredFieldsFilled?: boolean;
+    pageCount?: number; // For price breakdown display
+    copies?: number; // For price breakdown display
+    quantity?: number; // For price breakdown display
+    hasUploadedFiles?: boolean; // Whether files have been uploaded
+    calculatingPrice?: boolean; // Whether price is being calculated
 }
 
 export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
@@ -46,6 +52,7 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
     onQuantityChange,
     priceItems,
     totalPrice,
+    basePricePerUnit,
     onAddToCart,
     onBuyNow,
     addToCartLoading = false,
@@ -58,9 +65,25 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
     images = [],
     minQuantity = 1,
     areRequiredFieldsFilled = false,
+    pageCount,
+    copies,
+    quantity,
+    hasUploadedFiles = false,
+    calculatingPrice = false,
 }) => {
     const router = useRouter();
     const outOfStock = isOutOfStock || (stock !== null && stock !== undefined && stock <= 0);
+
+    // Determine button disabled state and message
+    const isButtonDisabled = outOfStock || !hasUploadedFiles || !areRequiredFieldsFilled || calculatingPrice;
+    const getButtonText = (isAddToCart: boolean) => {
+        if (outOfStock) return 'Out of Stock';
+        if (isInCart && isAddToCart) return 'Go to Cart';
+        if (!hasUploadedFiles) return 'Upload the image first';
+        if (!areRequiredFieldsFilled) return 'Please select the mandatory field';
+        if (isAddToCart) return `Add to Cart - ₹${totalPrice.toFixed(2)}`;
+        return 'Buy Now';
+    };
 
     // Transform breadcrumb items to match Breadcrumbs component format
     const breadcrumbsFormatted = breadcrumbItems.map(item => ({
@@ -70,7 +93,7 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
     }));
     return (
         <div className="min-h-screen bg-white py-8 pb-24">
-            <div className="w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-30">
+            <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8">
                 {/* Breadcrumbs - Hidden on mobile, shown on tablet and above */}
                 <div className="hidden sm:block mb-6">
                     <Breadcrumbs items={breadcrumbsFormatted} />
@@ -91,8 +114,8 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
 
                 {/* Main Product Section - Matching product detail layout */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 mb-12">
-                    {/* Left Column - Product Images (7/12 on desktop) */}
-                    <div className="lg:col-span-7 space-y-4 sm:space-y-5">
+                    {/* Left Column - Product Images (5/12 on desktop, matching product page) */}
+                    <div className="lg:col-span-6 space-y-4 sm:space-y-5">
                         {/* Product Gallery */}
                         <div className="bg-white p-3 sm:p-4 rounded-2xl border border-gray-100 shadow-sm">
                             <ProductGallery
@@ -102,8 +125,8 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
                         </div>
                     </div>
 
-                    {/* Right Column - Product Info, Pricing, Upload & Customization (5/12 on desktop) */}
-                    <div className="lg:col-span-5">
+                    {/* Right Column - Product Info, Pricing, Upload & Customization (7/12 on desktop) */}
+                    <div className="lg:col-span-6">
                         <div className="sticky top-24 space-y-4 sm:space-y-6">
                             {/* Product Title */}
                             <div className="bg-white p-5 sm:p-6 rounded-2xl border border-gray-100 shadow-sm">
@@ -123,6 +146,10 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
                                     items={priceItems}
                                     total={totalPrice}
                                     currency="₹"
+                                    basePrice={basePricePerUnit}
+                                    pageCount={pageCount}
+                                    copies={copies}
+                                    quantity={quantity}
                                 />
 
                                 {/* Stock Status */}
@@ -198,29 +225,24 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
                                     size="lg"
                                     icon={ShoppingCart}
                                     fullWidth
-                                    isLoading={addToCartLoading}
-                                    disabled={!areRequiredFieldsFilled || outOfStock || addToCartLoading}
+                                    isLoading={addToCartLoading || calculatingPrice}
+                                    disabled={isButtonDisabled || addToCartLoading || calculatingPrice}
                                     onClick={isInCart ? () => router.push('/cart') : onAddToCart}
                                     className="text-base font-medium"
                                 >
-                                    {outOfStock
-                                        ? 'Out of Stock'
-                                        : isInCart
-                                            ? 'Go to Cart'
-                                            : `Add to Cart - ₹${totalPrice.toFixed(2)}`
-                                    }
+                                    {calculatingPrice ? 'Calculating...' : getButtonText(true)}
                                 </Button>
 
                                 <Button
                                     variant="primary"
                                     size="lg"
                                     fullWidth
-                                    isLoading={buyNowLoading}
-                                    disabled={!areRequiredFieldsFilled || outOfStock || buyNowLoading}
+                                    isLoading={buyNowLoading || calculatingPrice}
+                                    disabled={isButtonDisabled || buyNowLoading || calculatingPrice}
                                     onClick={onBuyNow}
                                     className="font-medium"
                                 >
-                                    {outOfStock ? 'Out of Stock' : 'Buy Now'}
+                                    {calculatingPrice ? 'Calculating...' : getButtonText(false)}
                                 </Button>
                             </div>
                         </div>
@@ -228,34 +250,7 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
                 </div>
             </div>
 
-            {/* Fixed Mobile Action Bar */}
-            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg sm:hidden z-50 pb-safe">
-                <div className="flex p-4 gap-3">
-                    <button
-                        onClick={isInCart ? () => router.push('/cart') : onAddToCart}
-                        disabled={!areRequiredFieldsFilled || outOfStock || addToCartLoading}
-                        className="flex-1 px-4 py-3 bg-blue-500 text-white rounded-lg font-medium hover:bg-[#008ECC] active:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-400 flex items-center justify-center gap-2"
-                    >
-                        {addToCartLoading && <BarsSpinner size={16} />}
-                        {outOfStock
-                            ? 'Out of Stock'
-                            : isInCart
-                                ? 'Go to Cart'
-                                : addToCartLoading
-                                    ? 'Adding...'
-                                    : 'Add to Cart'
-                        }
-                    </button>
-                    <button
-                        onClick={onBuyNow}
-                        disabled={!areRequiredFieldsFilled || outOfStock || buyNowLoading}
-                        className="flex-1 px-4 py-3 bg-orange-500 text-white rounded-lg font-medium hover:bg-orange-600 active:bg-orange-700 transition-all duration-200 shadow-sm hover:shadow disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-400 flex items-center justify-center gap-2"
-                    >
-                        {buyNowLoading && <BarsSpinner size={16} />}
-                        {buyNowLoading ? 'Processing...' : outOfStock ? 'Out of Stock' : 'Buy Now'}
-                    </button>
-                </div>
-            </div>
+
         </div>
     );
 };

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
+import { imageLoader } from "@/lib/utils/image-loader";
 import { Star, ThumbsUp, Image as ImageIcon, BadgeCheck, X } from "lucide-react";
 import { Review } from "@/lib/api/reviews";
 // Format date helper
@@ -141,10 +143,13 @@ export default function ReviewCard({
                                     onClick={() => handleImageClick(index)}
                                     className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 hover:border-blue-300 transition-colors group"
                                 >
-                                    <img
+                                    <Image
                                         src={image}
                                         alt={`Review image ${index + 1}`}
-                                        className="w-full h-full object-cover"
+                                        fill
+                                        className="object-cover"
+                                        sizes="(max-width: 768px) 33vw, 150px"
+                                        loader={imageLoader}
                                     />
                                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
                                         <ImageIcon size={20} className="text-white opacity-0 group-hover:opacity-100" />
@@ -199,12 +204,17 @@ export default function ReviewCard({
                             <X size={24} />
                         </button>
 
-                        <img
-                            src={imageViewer.images[imageViewer.index]}
-                            alt={`Review image ${imageViewer.index + 1}`}
-                            className="max-w-full max-h-[90vh] object-contain mx-auto rounded-lg"
-                            onClick={(e) => e.stopPropagation()}
-                        />
+                        <div className="relative w-full max-w-4xl max-h-[90vh] aspect-square mx-auto">
+                            <Image
+                                src={imageViewer.images[imageViewer.index] || ""}
+                                alt={`Review image ${imageViewer.index + 1}`}
+                                fill
+                                loader={imageLoader}
+                                className="object-contain rounded-lg"
+                                sizes="100vw"
+                                onClick={(e) => e.stopPropagation()}
+                            />
+                        </div>
 
                         {imageViewer.images.length > 1 && (
                             <>

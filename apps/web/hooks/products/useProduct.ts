@@ -4,6 +4,7 @@ import { getProduct, getProducts, Product } from '@/lib/api/products';
 import { addToWishlist, removeFromWishlist, checkWishlist } from '@/lib/api/wishlist';
 import { addToCart, AddToCartData, clearCart } from '@/lib/api/cart';
 import { useAuth } from '@/contexts/AuthContext';
+import { redirectToLoginWithReturn } from '@/lib/utils/auth-redirect';
 
 export interface UseProductOptions {
     productId: string;
@@ -84,7 +85,7 @@ export const useProduct = ({ productId }: UseProductOptions) => {
     // Toggle wishlist
     const toggleWishlist = useCallback(async (): Promise<boolean> => {
         if (!isAuthenticated) {
-            router.push('/auth/login');
+            redirectToLoginWithReturn();
             return false;
         }
 
@@ -117,7 +118,7 @@ export const useProduct = ({ productId }: UseProductOptions) => {
     // Add to cart
     const handleAddToCart = useCallback(async (data: Omit<AddToCartData, 'productId'>): Promise<boolean> => {
         if (!isAuthenticated) {
-            router.push('/auth/login');
+            redirectToLoginWithReturn();
             return false;
         }
 
@@ -145,7 +146,7 @@ export const useProduct = ({ productId }: UseProductOptions) => {
     // Buy now - clears cart, adds product, then redirects to checkout
     const handleBuyNow = useCallback(async (data: Omit<AddToCartData, 'productId'>): Promise<boolean> => {
         if (!isAuthenticated) {
-            router.push('/auth/login');
+            redirectToLoginWithReturn();
             return false;
         }
 

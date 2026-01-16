@@ -209,10 +209,10 @@ async function fetchAPI<T>(
                 // Don't retry refresh endpoint or if we've already retried
                 if (endpoint.includes('/auth/refresh') || retryCount > 0) {
                     // Clear token
-                    setAuthToken(undefined); 
+                    setAuthToken(undefined);
                     // Only redirect if we're on a protected route (not public pages)
                     if (typeof window !== 'undefined') {
-                        const publicRoutes = ['/home', '/', '/coupons', '/products', '/about', '/privacy', '/terms', '/shipping', '/return', '/refund'];
+                        const publicRoutes = ['/home', '/', '/coupons', '/products', '/services', '/about', '/privacy', '/terms', '/shipping', '/return', '/refund'];
                         const isPublicRoute = publicRoutes.some(route => window.location.pathname === route || window.location.pathname.startsWith(route + '/'));
                         if (!isPublicRoute && !window.location.pathname.includes('/auth/login')) {
                             window.location.href = '/auth/login';
@@ -231,7 +231,7 @@ async function fetchAPI<T>(
                     setAuthToken(undefined);
                     // Only redirect if we're on a protected route (not public pages)
                     if (typeof window !== 'undefined') {
-                        const publicRoutes = ['/home', '/', '/coupons', '/products', '/about', '/privacy', '/terms', '/shipping', '/return', '/refund'];
+                        const publicRoutes = ['/home', '/', '/coupons', '/products', '/services', '/about', '/privacy', '/terms', '/shipping', '/return', '/refund'];
                         const isPublicRoute = publicRoutes.some(route => window.location.pathname === route || window.location.pathname.startsWith(route + '/'));
                         if (!isPublicRoute && !window.location.pathname.includes('/auth/login')) {
                             window.location.href = '/auth/login';
