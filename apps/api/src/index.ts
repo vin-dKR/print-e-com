@@ -22,7 +22,7 @@ import webhookRoutes from "./routes/webhook.js";
 import uploadRoutes from "./routes/upload.js";
 
 import { errorHandler } from "./middleware/errorHandler.js";
-import { checkDatabaseConnection } from "./services/prisma.js";
+import { checkDatabaseConnection } from "./utils/db-utils.js";
 import type { Express } from "express";
 
 const app: Express = express();

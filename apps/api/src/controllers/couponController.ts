@@ -10,7 +10,7 @@ export const validateCoupon = async (req: Request, res: Response, next: NextFunc
             throw new UnauthorizedError("User not authenticated");
         }
 
-        const { code, orderAmount } = req.body;
+        const { code, orderAmount, cartItems } = req.body;
 
         if (!code) {
             throw new ValidationError("Coupon code is required");
@@ -24,7 +24,15 @@ export const validateCoupon = async (req: Request, res: Response, next: NextFunc
             where: { code: code.toUpperCase() },
             include: {
                 offerProducts: {
-                    include: { product: true },
+                    include: {
+                        product: {
+                            select: {
+                                id: true,
+                                name: true,
+                                categoryId: true,
+                            },
+                        },
+                    },
                 },
             },
         });
@@ -72,10 +80,81 @@ export const validateCoupon = async (req: Request, res: Response, next: NextFunc
             throw new ValidationError("You have already used this coupon");
         }
 
-        // Calculate discount
+        // Validate against cart items if provided
+        const eligibleItems: any[] = [];
+        const ineligibleItems: any[] = [];
+        let eligibleAmount = 0;
+
+        if (cartItems && Array.isArray(cartItems) && cartItems.length > 0) {
+            // Get mapped product IDs and category IDs
+            const mappedProductIds = await getCouponMappedProductIds(coupon.id);
+            const mappedCategoryIds = await getCouponMappedCategoryIds(coupon.id);
+
+            // Validate each cart item
+            for (const item of cartItems) {
+                const productId = item.productId;
+                const categoryId = item.categoryId;
+                const quantity = item.quantity || 1;
+                const price = Number(item.price || 0);
+                const productName = item.productName || "Product";
+                const categoryName = item.categoryName || "Category";
+                const itemTotal = price * quantity;
+
+                let isEligible = false;
+                let reason = "";
+
+                if (coupon.applicableTo === "ALL") {
+                    isEligible = true;
+                } else if (coupon.applicableTo === "PRODUCT") {
+                    isEligible = mappedProductIds.includes(productId);
+                    if (!isEligible) {
+                        reason = `Coupon not applicable to ${productName}`;
+                    }
+                } else if (coupon.applicableTo === "CATEGORY") {
+                    // For category-based coupons, check if:
+                    // 1. Product is directly linked (when categories are added, all products are linked via OfferProduct)
+                    // 2. OR product's category is in the mapped categories
+                    isEligible = mappedProductIds.includes(productId) || mappedCategoryIds.includes(categoryId);
+                    if (!isEligible) {
+                        reason = `Coupon not applicable to products in ${categoryName} category`;
+                    }
+                }
+
+                if (isEligible) {
+                    eligibleItems.push({
+                        productId,
+                        productName,
+                        quantity,
+                        eligibleAmount: itemTotal,
+                        discount: 0, // Will be calculated below
+                    });
+                    eligibleAmount += itemTotal;
+                } else {
+                    ineligibleItems.push({
+                        productId,
+                        productName,
+                        quantity,
+                        reason,
+                    });
+                }
+            }
+
+            // If no eligible items, return error
+            if (eligibleItems.length === 0) {
+                const productNames = ineligibleItems.map((item) => item.productName).join(", ");
+                throw new ValidationError(
+                    `This coupon is not valid for the selected products: ${productNames}`
+                );
+            }
+        } else {
+            // No cart items provided, use orderAmount for all products
+            eligibleAmount = orderAmount;
+        }
+
+        // Calculate discount only on eligible items
         let discountAmount = 0;
         if (coupon.discountType === "PERCENTAGE") {
-            discountAmount = (orderAmount * Number(coupon.discountValue)) / 100;
+            discountAmount = (eligibleAmount * Number(coupon.discountValue)) / 100;
         } else {
             discountAmount = Number(coupon.discountValue);
         }
@@ -85,10 +164,21 @@ export const validateCoupon = async (req: Request, res: Response, next: NextFunc
             discountAmount = Number(coupon.maxDiscountAmount);
         }
 
-        // Ensure discount doesn't exceed order amount
-        if (discountAmount > orderAmount) {
-            discountAmount = orderAmount;
+        // Ensure discount doesn't exceed eligible amount
+        if (discountAmount > eligibleAmount) {
+            discountAmount = eligibleAmount;
         }
+
+        // Calculate discount per eligible item (proportional)
+        if (eligibleItems.length > 0 && eligibleAmount > 0) {
+            eligibleItems.forEach((item) => {
+                const itemDiscount = (item.eligibleAmount / eligibleAmount) * discountAmount;
+                item.discount = Math.round(itemDiscount * 100) / 100;
+            });
+        }
+
+        const isFullyValid = ineligibleItems.length === 0;
+        const isPartiallyValid = eligibleItems.length > 0 && ineligibleItems.length > 0;
 
         return sendSuccess(res, {
             coupon: {
@@ -101,6 +191,16 @@ export const validateCoupon = async (req: Request, res: Response, next: NextFunc
             },
             discountAmount,
             finalAmount: orderAmount - discountAmount,
+            eligibleItems,
+            ineligibleItems,
+            validation: {
+                isValid: eligibleItems.length > 0,
+                isFullyValid,
+                isPartiallyValid,
+                errorMessage: isPartiallyValid
+                    ? `Coupon not valid for ${ineligibleItems.length} item(s) in cart`
+                    : undefined,
+            },
         });
     } catch (error) {
         next(error);
@@ -494,6 +594,31 @@ export const getAdminCoupon = async (req: Request, res: Response, next: NextFunc
  *       401:
  *         description: Unauthorized - Admin authentication required
  */
+// Helper function to get coupon mapped product IDs
+async function getCouponMappedProductIds(couponId: string): Promise<string[]> {
+    const mappings = await prisma.offerProduct.findMany({
+        where: { couponId },
+        select: { productId: true },
+    });
+    return mappings.map((m) => m.productId);
+}
+
+// Helper function to get coupon mapped category IDs (via products)
+async function getCouponMappedCategoryIds(couponId: string): Promise<string[]> {
+    const mappings = await prisma.offerProduct.findMany({
+        where: { couponId },
+        include: {
+            product: {
+                select: { categoryId: true },
+            },
+        },
+    });
+    const categoryIds = mappings
+        .map((m) => m.product.categoryId)
+        .filter((id, index, self) => self.indexOf(id) === index); // Unique
+    return categoryIds;
+}
+
 // Admin: Create coupon
 export const createAdminCoupon = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -511,6 +636,8 @@ export const createAdminCoupon = async (req: Request, res: Response, next: NextF
             validUntil,
             isActive,
             applicableTo,
+            productIds,
+            categoryIds,
         } = req.body;
 
         if (!code || !name || !discountType || !discountValue || !validFrom || !validUntil) {
@@ -544,7 +671,75 @@ export const createAdminCoupon = async (req: Request, res: Response, next: NextF
             },
         });
 
-        return sendSuccess(res, coupon, "Coupon created successfully");
+        // Handle product/category mapping
+        if (applicableTo === "PRODUCT" && productIds && Array.isArray(productIds) && productIds.length > 0) {
+            // Verify all products exist
+            const products = await prisma.product.findMany({
+                where: { id: { in: productIds } },
+                select: { id: true },
+            });
+
+            if (products.length !== productIds.length) {
+                throw new ValidationError("Some products not found");
+            }
+
+            // Create OfferProduct entries
+            await prisma.offerProduct.createMany({
+                data: productIds.map((productId: string) => ({
+                    couponId: coupon.id,
+                    productId,
+                })),
+            });
+        } else if (applicableTo === "CATEGORY" && categoryIds && Array.isArray(categoryIds) && categoryIds.length > 0) {
+            // Verify all categories exist
+            const categories = await prisma.category.findMany({
+                where: { id: { in: categoryIds } },
+                select: { id: true },
+            });
+
+            if (categories.length !== categoryIds.length) {
+                throw new ValidationError("Some categories not found");
+            }
+
+            // Get all products in these categories
+            const products = await prisma.product.findMany({
+                where: {
+                    categoryId: { in: categoryIds },
+                    isActive: true,
+                },
+                select: { id: true },
+            });
+
+            if (products.length > 0) {
+                // Create OfferProduct entries for all products in selected categories
+                await prisma.offerProduct.createMany({
+                    data: products.map((product) => ({
+                        couponId: coupon.id,
+                        productId: product.id,
+                    })),
+                });
+            }
+        }
+
+        // Fetch coupon with mappings
+        const couponWithMappings = await prisma.coupon.findUnique({
+            where: { id: coupon.id },
+            include: {
+                offerProducts: {
+                    include: {
+                        product: {
+                            select: {
+                                id: true,
+                                name: true,
+                                categoryId: true,
+                            },
+                        },
+                    },
+                },
+            },
+        });
+
+        return sendSuccess(res, couponWithMappings, "Coupon created successfully");
     } catch (error) {
         next(error);
     }
@@ -646,6 +841,8 @@ export const updateAdminCoupon = async (req: Request, res: Response, next: NextF
             validUntil,
             isActive,
             applicableTo,
+            productIds,
+            categoryIds,
         } = req.body;
 
         if (!id) {
@@ -679,7 +876,92 @@ export const updateAdminCoupon = async (req: Request, res: Response, next: NextF
             data: updateData,
         });
 
-        return sendSuccess(res, coupon, "Coupon updated successfully");
+        // Handle product/category mapping updates
+        const finalApplicableTo = applicableTo !== undefined ? applicableTo : existingCoupon.applicableTo;
+        const applicableToChanged = applicableTo !== undefined && applicableTo !== existingCoupon.applicableTo;
+
+        // Only update mappings if:
+        // 1. applicableTo actually changed (need to clear and potentially recreate)
+        // 2. OR new productIds/categoryIds are explicitly provided (replace existing mappings)
+        if (applicableToChanged || productIds !== undefined || categoryIds !== undefined) {
+            // Delete existing mappings
+            await prisma.offerProduct.deleteMany({
+                where: { couponId: id },
+            });
+
+            // Create new mappings only if not changed to ALL
+            if (finalApplicableTo !== "ALL") {
+                if (finalApplicableTo === "PRODUCT" && productIds && Array.isArray(productIds) && productIds.length > 0) {
+                    // Verify all products exist
+                    const products = await prisma.product.findMany({
+                        where: { id: { in: productIds } },
+                        select: { id: true },
+                    });
+
+                    if (products.length !== productIds.length) {
+                        throw new ValidationError("Some products not found");
+                    }
+
+                    // Create OfferProduct entries
+                    await prisma.offerProduct.createMany({
+                        data: productIds.map((productId: string) => ({
+                            couponId: id,
+                            productId,
+                        })),
+                    });
+                } else if (finalApplicableTo === "CATEGORY" && categoryIds && Array.isArray(categoryIds) && categoryIds.length > 0) {
+                    // Verify all categories exist
+                    const categories = await prisma.category.findMany({
+                        where: { id: { in: categoryIds } },
+                        select: { id: true },
+                    });
+
+                    if (categories.length !== categoryIds.length) {
+                        throw new ValidationError("Some categories not found");
+                    }
+
+                    // Get all products in these categories
+                    const products = await prisma.product.findMany({
+                        where: {
+                            categoryId: { in: categoryIds },
+                            isActive: true,
+                        },
+                        select: { id: true },
+                    });
+
+                    if (products.length > 0) {
+                        // Create OfferProduct entries for all products in selected categories
+                        await prisma.offerProduct.createMany({
+                            data: products.map((product) => ({
+                                couponId: id,
+                                productId: product.id,
+                            })),
+                        });
+                    }
+                }
+            }
+        }
+        // If applicableTo didn't change and no new IDs provided, existing mappings are preserved
+
+        // Fetch coupon with mappings
+        const couponWithMappings = await prisma.coupon.findUnique({
+            where: { id },
+            include: {
+                offerProducts: {
+                    include: {
+                        product: {
+                            select: {
+                                id: true,
+                                name: true,
+                                categoryId: true,
+                            },
+                        },
+                    },
+                },
+            },
+        });
+
+        return sendSuccess(res, couponWithMappings, "Coupon updated successfully");
     } catch (error) {
         next(error);
     }
@@ -1114,3 +1396,349 @@ export const getCouponUsages = async (req: Request, res: Response, next: NextFun
     }
 };
 
+/**
+ * Admin: Get products for a coupon
+ * GET /api/v1/admin/coupons/:id/products
+ */
+export const getCouponProducts = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params;
+
+        if (!id) {
+            throw new ValidationError("Coupon ID is required");
+        }
+
+        const coupon = await prisma.coupon.findUnique({
+            where: { id },
+        });
+
+        if (!coupon) {
+            throw new NotFoundError("Coupon not found");
+        }
+
+        const offerProducts = await prisma.offerProduct.findMany({
+            where: { couponId: id },
+            include: {
+                product: {
+                    select: {
+                        id: true,
+                        name: true,
+                        slug: true,
+                        basePrice: true,
+                        sellingPrice: true,
+                        category: {
+                            select: {
+                                id: true,
+                                name: true,
+                                slug: true,
+                            },
+                        },
+                    },
+                },
+            },
+        });
+
+        return sendSuccess(res, offerProducts.map((op) => ({
+            id: op.id,
+            product: op.product,
+        })));
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * Admin: Add products to a coupon
+ * POST /api/v1/admin/coupons/:id/products
+ */
+export const addCouponProducts = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params;
+        const { productIds } = req.body;
+
+        if (!id) {
+            throw new ValidationError("Coupon ID is required");
+        }
+
+        if (!Array.isArray(productIds) || productIds.length === 0) {
+            throw new ValidationError("Product IDs array is required");
+        }
+
+        const coupon = await prisma.coupon.findUnique({
+            where: { id },
+        });
+
+        if (!coupon) {
+            throw new NotFoundError("Coupon not found");
+        }
+
+        // Verify all products exist
+        const products = await prisma.product.findMany({
+            where: { id: { in: productIds } },
+            select: { id: true },
+        });
+
+        if (products.length !== productIds.length) {
+            throw new ValidationError("Some products not found");
+        }
+
+        // Remove existing associations for these products
+        await prisma.offerProduct.deleteMany({
+            where: {
+                couponId: id,
+                productId: { in: productIds },
+            },
+        });
+
+        // Create new associations
+        const created = await prisma.offerProduct.createMany({
+            data: productIds.map((productId: string) => ({
+                couponId: id,
+                productId,
+            })),
+        });
+
+        return sendSuccess(res, { count: created.count }, "Products added to coupon successfully");
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * Admin: Remove products from a coupon
+ * POST /api/v1/admin/coupons/:id/products/remove
+ */
+export const removeCouponProducts = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params;
+        const { productIds } = req.body;
+
+        if (!id) {
+            throw new ValidationError("Coupon ID is required");
+        }
+
+        if (!Array.isArray(productIds) || productIds.length === 0) {
+            throw new ValidationError("Product IDs array is required");
+        }
+
+        const coupon = await prisma.coupon.findUnique({
+            where: { id },
+        });
+
+        if (!coupon) {
+            throw new NotFoundError("Coupon not found");
+        }
+
+        const deleted = await prisma.offerProduct.deleteMany({
+            where: {
+                couponId: id,
+                productId: { in: productIds },
+            },
+        });
+
+        return sendSuccess(res, { count: deleted.count }, "Products removed from coupon successfully");
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * Admin: Get categories for a coupon (via products)
+ * GET /api/v1/admin/coupons/:id/categories
+ */
+export const getCouponCategories = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params;
+
+        if (!id) {
+            throw new ValidationError("Coupon ID is required");
+        }
+
+        const coupon = await prisma.coupon.findUnique({
+            where: { id },
+        });
+
+        if (!coupon) {
+            throw new NotFoundError("Coupon not found");
+        }
+
+        // Get all products mapped to this coupon
+        const offerProducts = await prisma.offerProduct.findMany({
+            where: { couponId: id },
+            include: {
+                product: {
+                    select: {
+                        categoryId: true,
+                    },
+                },
+            },
+        });
+
+        // Get unique category IDs
+        const categoryIds = [...new Set(offerProducts.map((op) => op.product.categoryId))];
+
+        // Get category details with product counts
+        const categories = await prisma.category.findMany({
+            where: { id: { in: categoryIds } },
+            select: {
+                id: true,
+                name: true,
+                slug: true,
+                _count: {
+                    select: {
+                        products: true,
+                    },
+                },
+            },
+        });
+
+        // Count products in each category that are mapped to this coupon
+        const categoriesWithCounts = await Promise.all(
+            categories.map(async (category) => {
+                const productCount = await prisma.offerProduct.count({
+                    where: {
+                        couponId: id,
+                        product: {
+                            categoryId: category.id,
+                        },
+                    },
+                });
+
+                return {
+                    id: category.id,
+                    name: category.name,
+                    slug: category.slug,
+                    productCount,
+                };
+            })
+        );
+
+        return sendSuccess(res, categoriesWithCounts);
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * Admin: Add categories to a coupon (adds all products in those categories)
+ * POST /api/v1/admin/coupons/:id/categories
+ */
+export const addCouponCategories = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params;
+        const { categoryIds } = req.body;
+
+        if (!id) {
+            throw new ValidationError("Coupon ID is required");
+        }
+
+        if (!Array.isArray(categoryIds) || categoryIds.length === 0) {
+            throw new ValidationError("Category IDs array is required");
+        }
+
+        const coupon = await prisma.coupon.findUnique({
+            where: { id },
+        });
+
+        if (!coupon) {
+            throw new NotFoundError("Coupon not found");
+        }
+
+        // Verify all categories exist
+        const categories = await prisma.category.findMany({
+            where: { id: { in: categoryIds } },
+            select: { id: true },
+        });
+
+        if (categories.length !== categoryIds.length) {
+            throw new ValidationError("Some categories not found");
+        }
+
+        // Get all products in these categories
+        const products = await prisma.product.findMany({
+            where: {
+                categoryId: { in: categoryIds },
+                isActive: true,
+            },
+            select: { id: true },
+        });
+
+        if (products.length === 0) {
+            throw new ValidationError("No active products found in selected categories");
+        }
+
+        const productIds = products.map((p) => p.id);
+
+        // Remove existing associations for these products
+        await prisma.offerProduct.deleteMany({
+            where: {
+                couponId: id,
+                productId: { in: productIds },
+            },
+        });
+
+        // Create new associations
+        const created = await prisma.offerProduct.createMany({
+            data: productIds.map((productId) => ({
+                couponId: id,
+                productId,
+            })),
+        });
+
+        return sendSuccess(res, { count: created.count }, "Categories added to coupon successfully");
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * Admin: Remove categories from a coupon (removes all products in those categories)
+ * POST /api/v1/admin/coupons/:id/categories/remove
+ */
+export const removeCouponCategories = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params;
+        const { categoryIds } = req.body;
+
+        if (!id) {
+            throw new ValidationError("Coupon ID is required");
+        }
+
+        if (!Array.isArray(categoryIds) || categoryIds.length === 0) {
+            throw new ValidationError("Category IDs array is required");
+        }
+
+        const coupon = await prisma.coupon.findUnique({
+            where: { id },
+        });
+
+        if (!coupon) {
+            throw new NotFoundError("Coupon not found");
+        }
+
+        // Get all products in these categories
+        const products = await prisma.product.findMany({
+            where: {
+                categoryId: { in: categoryIds },
+            },
+            select: { id: true },
+        });
+
+        const productIds = products.map((p) => p.id);
+
+        if (productIds.length === 0) {
+            return sendSuccess(res, { count: 0 }, "No products found in selected categories");
+        }
+
+        const deleted = await prisma.offerProduct.deleteMany({
+            where: {
+                couponId: id,
+                productId: { in: productIds },
+            },
+        });
+
+        return sendSuccess(res, { count: deleted.count }, "Categories removed from coupon successfully");
+    } catch (error) {
+        next(error);
+    }
+};

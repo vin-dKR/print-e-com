@@ -89,8 +89,11 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
 
     const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
     const [uploadedFileDetails, setUploadedFileDetails] = useState<FileDetail[]>([]);
-    const [uploadingFiles, setUploadingFiles] = useState(false);
-    const [minQuantityFromFiles, setMinQuantityFromFiles] = useState<number>(1);
+
+    // Check if files are currently uploading
+    const isUploadingFiles = useMemo(() => {
+        return uploadedFileDetails.some(fd => fd.uploadStatus === 'uploading');
+    }, [uploadedFileDetails]);
 
     // Calculate total quantity
     const totalQuantity = useMemo(() => {
@@ -148,10 +151,8 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
         // Set page count (fixed, based on files)
         if (calculatedPageCount > 0) {
             setPageCount(calculatedPageCount);
-            setMinQuantityFromFiles(calculatedPageCount);
         } else {
             setPageCount(0);
-            setMinQuantityFromFiles(1);
         }
 
         // Reset copies to 1 when files change
@@ -885,11 +886,12 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                                     stock={product.stock}
                                     onAddToCart={onAddToCart}
                                     onBuyNow={onBuyNow}
-                                    addToCartLoading={cartLoading || uploadingFiles}
-                                    buyNowLoading={buyNowLoading || uploadingFiles}
+                                    addToCartLoading={cartLoading}
+                                    buyNowLoading={buyNowLoading}
                                     isInCart={isInCart}
                                     hasFiles={uploadedFiles.length > 0}
                                     totalPrice={totalPrice}
+                                    isUploadingFiles={isUploadingFiles}
                                 />
                             </div>
                             <div className="sm:hidden">
@@ -903,6 +905,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                                     isMobile
                                     isInCart={isInCart}
                                     hasFiles={uploadedFiles.length > 0}
+                                    isUploadingFiles={isUploadingFiles}
                                 />
                             </div>
 

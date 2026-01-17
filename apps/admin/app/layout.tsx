@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { ToastProvider } from '@/app/components/providers/toast-provider';
+import { QueryProvider } from '@/app/components/providers/query-provider';
 
 export const metadata: Metadata = {
     title: 'Admin Panel - Print E-Com',
@@ -15,7 +16,9 @@ export default function RootLayout({
     return (
         <html lang="en">
             <body>
-                <ToastProvider>{children}</ToastProvider>
+                <QueryProvider>
+                    <ToastProvider>{children}</ToastProvider>
+                </QueryProvider>
             </body>
         </html>
     );

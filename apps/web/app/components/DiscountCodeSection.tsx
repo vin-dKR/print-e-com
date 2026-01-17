@@ -16,6 +16,18 @@ interface DiscountCodeSectionProps {
             name: string;
         };
         discountAmount: number;
+        validation?: {
+            isValid: boolean;
+            isFullyValid: boolean;
+            isPartiallyValid: boolean;
+            errorMessage?: string;
+        };
+        ineligibleItems?: Array<{
+            productId: string;
+            productName: string;
+            quantity: number;
+            reason: string;
+        }>;
     } | null;
     onRemove: () => void;
     subtotal?: number;
@@ -88,25 +100,48 @@ export default function DiscountCodeSection({
     return (
         <div className="space-y-3">
             {appliedCoupon ? (
-                <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <div className="flex items-center gap-2">
-                        <Check size={18} className="text-green-600" />
-                        <div>
-                            <p className="text-sm font-medium text-green-900">
-                                {appliedCoupon.coupon.code} - {appliedCoupon.coupon.name}
-                            </p>
-                            <p className="text-xs text-green-700">
-                                Discount: ₹{appliedCoupon.discountAmount.toFixed(2)}
-                            </p>
+                <div className="space-y-3">
+                    <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+                        <div className="flex items-center gap-2">
+                            <Check size={18} className="text-green-600" />
+                            <div>
+                                <p className="text-sm font-medium text-green-900">
+                                    {appliedCoupon.coupon.code} - {appliedCoupon.coupon.name}
+                                </p>
+                                <p className="text-xs text-green-700">
+                                    Discount: ₹{appliedCoupon.discountAmount.toFixed(2)}
+                                </p>
+                            </div>
                         </div>
+                        <button
+                            onClick={onRemove}
+                            className="p-1 text-green-600 hover:text-green-700 transition-colors cursor-pointer"
+                            aria-label="Remove coupon"
+                        >
+                            <X size={18} />
+                        </button>
                     </div>
-                    <button
-                        onClick={onRemove}
-                        className="p-1 text-green-600 hover:text-green-700 transition-colors cursor-pointer"
-                        aria-label="Remove coupon"
-                    >
-                        <X size={18} />
-                    </button>
+
+                    {/* Show partial validity warning */}
+                    {appliedCoupon.validation?.isPartiallyValid && appliedCoupon.ineligibleItems && appliedCoupon.ineligibleItems.length > 0 && (
+                        <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                            <p className="text-sm text-yellow-800 font-medium mb-2">
+                                ⚠️ Coupon applied to eligible items
+                            </p>
+                            <div>
+                                <p className="text-xs text-yellow-700 font-medium mb-1">
+                                    Not valid for:
+                                </p>
+                                <ul className="text-xs text-yellow-600 list-disc list-inside space-y-1">
+                                    {appliedCoupon.ineligibleItems.map((item) => (
+                                        <li key={item.productId}>
+                                            {item.productName} ({item.reason})
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        </div>
+                    )}
                 </div>
             ) : (
                 <>

@@ -215,14 +215,24 @@ function CheckoutPageContent() {
                         // Files are already uploaded to S3 and stored in cart items
                         // Order items are created with S3 URLs from cart items during payment verification
 
+                        // Clear buyNow data from sessionStorage if it exists
+                        if (typeof window !== 'undefined' && sessionStorage.getItem('buyNow')) {
+                            sessionStorage.removeItem('buyNow');
+                        }
+
                         // Remove only ordered items from cart (not the entire cart)
-                        try {
-                            // Remove each ordered item from cart
-                            const removePromises = cartItems.map(item => removeItem(item.id));
-                            await Promise.all(removePromises);
-                        } catch (clearError) {
-                            console.error("Failed to remove ordered items from cart:", clearError);
-                            // Don't block the redirect if removal fails
+                        // Skip if this was a buyNow order (no cart items to remove)
+                        if (cartItems.some(item => item.id !== 'buy-now-temp')) {
+                            try {
+                                // Remove each ordered item from cart
+                                const removePromises = cartItems
+                                    .filter(item => item.id !== 'buy-now-temp')
+                                    .map(item => removeItem(item.id));
+                                await Promise.all(removePromises);
+                            } catch (clearError) {
+                                console.error("Failed to remove ordered items from cart:", clearError);
+                                // Don't block the redirect if removal fails
+                            }
                         }
 
                         toastSuccess('Order placed successfully!');

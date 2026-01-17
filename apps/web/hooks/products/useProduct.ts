@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { getProduct, getProducts, Product } from '@/lib/api/products';
 import { addToWishlist, removeFromWishlist, checkWishlist } from '@/lib/api/wishlist';
-import { addToCart, AddToCartData, clearCart } from '@/lib/api/cart';
+import { addToCart, AddToCartData } from '@/lib/api/cart';
 import { useAuth } from '@/contexts/AuthContext';
 import { redirectToLoginWithReturn } from '@/lib/utils/auth-redirect';
 
@@ -21,6 +21,22 @@ export const useProduct = ({ productId }: UseProductOptions) => {
     const [wishlistLoading, setWishlistLoading] = useState(false);
     const [cartLoading, setCartLoading] = useState(false);
     const [buyNowLoading, setBuyNowLoading] = useState(false);
+
+    // Computed values
+    const currentPrice = useMemo(() => {
+        if (!product) return 0;
+        return Number(product.sellingPrice || product.basePrice);
+    }, [product]);
+
+    const originalPrice = useMemo(() => {
+        if (!product?.mrp) return undefined;
+        return Number(product.mrp);
+    }, [product]);
+
+    const discount = useMemo(() => {
+        if (!originalPrice) return undefined;
+        return Math.round(((originalPrice - currentPrice) / originalPrice) * 100);
+    }, [originalPrice, currentPrice]);
 
     // Fetch product data
     useEffect(() => {
@@ -143,39 +159,41 @@ export const useProduct = ({ productId }: UseProductOptions) => {
         }
     }, [isAuthenticated, productId, router]);
 
-    // Buy now - clears cart, adds product, then redirects to checkout
+    // Buy now - stores product data in sessionStorage and redirects to checkout (bypasses cart)
     const handleBuyNow = useCallback(async (data: Omit<AddToCartData, 'productId'>): Promise<boolean> => {
         if (!isAuthenticated) {
             redirectToLoginWithReturn();
             return false;
         }
 
-        if (!productId) return false;
+        if (!productId || !product) return false;
 
         setBuyNowLoading(true);
         try {
-            // Clear cart first to ensure only this product is in checkout
-            await clearCart();
-
-            // Add to cart
-            const cartResponse = await addToCart({
+            // Store product data in sessionStorage for direct checkout (bypass cart)
+            const buyNowData = {
                 productId,
-                ...data,
-            });
+                quantity: data.quantity || 1,
+                variantId: data.variantId,
+                customDesignUrl: data.customDesignUrl,
+                product: product,
+                price: currentPrice * (data.quantity || 1),
+            };
 
-            if (cartResponse.success) {
-                // Redirect to checkout
-                router.push('/checkout');
-                return true;
+            if (typeof window !== 'undefined') {
+                sessionStorage.setItem('buyNow', JSON.stringify(buyNowData));
             }
-            return false;
+
+            // Redirect to checkout immediately
+            router.push('/checkout');
+            return true;
         } catch (err) {
             console.error('Error in buy now:', err);
             return false;
         } finally {
             setBuyNowLoading(false);
         }
-    }, [isAuthenticated, productId, router]);
+    }, [isAuthenticated, productId, product, currentPrice, router]);
 
     // Generate share link
     const shareLink = useMemo(() => {
@@ -216,21 +234,7 @@ export const useProduct = ({ productId }: UseProductOptions) => {
         }
     }, [product, shareLink, copyShareLink]);
 
-    // Computed values
-    const currentPrice = useMemo(() => {
-        if (!product) return 0;
-        return Number(product.sellingPrice || product.basePrice);
-    }, [product]);
 
-    const originalPrice = useMemo(() => {
-        if (!product?.mrp) return undefined;
-        return Number(product.mrp);
-    }, [product]);
-
-    const discount = useMemo(() => {
-        if (!originalPrice) return undefined;
-        return Math.round(((originalPrice - currentPrice) / originalPrice) * 100);
-    }, [originalPrice, currentPrice]);
 
     const breadcrumbs = useMemo(() => {
         if (!product) return [];

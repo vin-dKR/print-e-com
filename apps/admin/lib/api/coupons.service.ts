@@ -217,3 +217,115 @@ export async function bulkCouponOperation(
     return response.data;
 }
 
+// Coupon Products & Categories Management
+
+export interface CouponProduct {
+    id: string;
+    product: {
+        id: string;
+        name: string;
+        slug: string | null;
+        basePrice: number;
+        sellingPrice: number | null;
+        category: {
+            id: string;
+            name: string;
+            slug: string;
+        };
+    };
+}
+
+export interface CouponCategory {
+    id: string;
+    name: string;
+    slug: string;
+    productCount: number;
+}
+
+/**
+ * Get products for a coupon
+ */
+export async function getCouponProducts(id: string): Promise<CouponProduct[]> {
+    const response = await get<CouponProduct[]>(`/admin/coupons/${id}/products`);
+
+    if (!response.success || !response.data) {
+        throw new Error(response.error || 'Failed to fetch coupon products');
+    }
+
+    return response.data;
+}
+
+/**
+ * Add products to a coupon
+ */
+export async function addCouponProducts(id: string, productIds: string[]): Promise<{ count: number }> {
+    const response = await post<{ count: number }>(`/admin/coupons/${id}/products`, {
+        productIds,
+    });
+
+    if (!response.success || !response.data) {
+        throw new Error(response.error || 'Failed to add products to coupon');
+    }
+
+    return response.data;
+}
+
+/**
+ * Remove products from a coupon
+ */
+export async function removeCouponProducts(id: string, productIds: string[]): Promise<{ count: number }> {
+    // Using POST since DELETE with body may not be supported in all environments
+    const response = await post<{ count: number }>(`/admin/coupons/${id}/products/remove`, {
+        productIds,
+    });
+
+    if (!response.success || !response.data) {
+        throw new Error(response.error || 'Failed to remove products from coupon');
+    }
+
+    return response.data;
+}
+
+/**
+ * Get categories for a coupon
+ */
+export async function getCouponCategories(id: string): Promise<CouponCategory[]> {
+    const response = await get<CouponCategory[]>(`/admin/coupons/${id}/categories`);
+
+    if (!response.success || !response.data) {
+        throw new Error(response.error || 'Failed to fetch coupon categories');
+    }
+
+    return response.data;
+}
+
+/**
+ * Add categories to a coupon (adds all products in those categories)
+ */
+export async function addCouponCategories(id: string, categoryIds: string[]): Promise<{ count: number }> {
+    const response = await post<{ count: number }>(`/admin/coupons/${id}/categories`, {
+        categoryIds,
+    });
+
+    if (!response.success || !response.data) {
+        throw new Error(response.error || 'Failed to add categories to coupon');
+    }
+
+    return response.data;
+}
+
+/**
+ * Remove categories from a coupon (removes all products in those categories)
+ */
+export async function removeCouponCategories(id: string, categoryIds: string[]): Promise<{ count: number }> {
+    // Using POST since DELETE with body may not be supported in all environments
+    const response = await post<{ count: number }>(`/admin/coupons/${id}/categories/remove`, {
+        categoryIds,
+    });
+
+    if (!response.success || !response.data) {
+        throw new Error(response.error || 'Failed to remove categories from coupon');
+    }
+
+    return response.data;
+}

@@ -36,6 +36,11 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
     const [uploadedFileDetails, setUploadedFileDetails] = useState<FileDetail[]>([]);
     const [uploadingFiles, setUploadingFiles] = useState(false);
     const [minQuantityFromFiles, setMinQuantityFromFiles] = useState<number>(1);
+
+    // Check if files are currently uploading
+    const isUploadingFiles = useMemo(() => {
+        return uploadedFileDetails.some(fd => fd.uploadStatus === 'uploading');
+    }, [uploadedFileDetails]);
     const [selectedSpecifications, setSelectedSpecifications] = useState<Record<string, any>>({});
     const [pageCount, setPageCount] = useState(0); // Fixed, calculated from files
     const [copies, setCopies] = useState(1); // Editable, default 1
@@ -578,31 +583,24 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
                 }
             }
 
-            // Add to cart with S3 URLs and redirect to checkout
-            // Always use totalQuantity which already includes copies multiplication
-            const response = await toastPromise(
-                addToCart({
-                    productId: matchingProduct.id,
-                    quantity: totalQuantity,
-                    customDesignUrl: s3Keys.length > 0 ? s3Keys : undefined,
-                }),
-                {
-                    loading: 'Processing...',
-                    success: 'Redirecting to checkout...',
-                    error: 'Failed to proceed. Please try again.',
-                }
-            );
+            // Store product data in sessionStorage for direct checkout (bypass cart)
+            const buyNowData = {
+                productId: matchingProduct.id,
+                quantity: totalQuantity,
+                customDesignUrl: s3Keys.length > 0 ? s3Keys : undefined,
+                product: matchingProduct,
+                price: totalPrice,
+                priceBreakdown,
+            };
 
-            if (response.success) {
-                // Reset uploaded files
-                setUploadedFiles([]);
-                // Redirect to checkout
-                setTimeout(() => {
-                    router.push('/checkout');
-                }, 1000);
-            } else {
-                toastError(response.error || 'Failed to proceed. Please try again.');
-            }
+            sessionStorage.setItem('buyNow', JSON.stringify(buyNowData));
+
+            // Reset uploaded files
+            setUploadedFiles([]);
+
+            // Redirect to checkout immediately
+            toastSuccess('Redirecting to checkout...');
+            router.push('/checkout');
         } catch (error) {
             console.error('Error in buy now:', error);
             toastError('Failed to proceed. Please try again.');
@@ -679,6 +677,7 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
                 areRequiredFieldsFilled={areAllRequiredFieldsFilled}
                 hasUploadedFiles={uploadedFiles.length > 0}
                 calculatingPrice={calculatingPrice}
+                isUploadingFiles={isUploadingFiles}
             >
                 {/* Dynamic Configuration Options */}
                 <div className="space-y-8">

@@ -419,11 +419,20 @@ export default function ProductDocumentUpload({
                     />
                     <label
                         htmlFor="document-upload"
-                        className={`inline-flex items-center gap-2 px-6 py-3 bg-[#CFCFCF] hover:bg-gray-400 text-gray-700 rounded-lg font-medium cursor-pointer transition-colors ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''
+                        className={`inline-flex items-center gap-2 px-6 py-3 bg-[#CFCFCF] hover:bg-gray-400 text-gray-700 rounded-lg font-medium cursor-pointer transition-colors ${isProcessing || uploadedFiles.some(f => f.uploadStatus === 'uploading') ? 'opacity-50 cursor-not-allowed' : ''
                             }`}
                     >
-                        <Upload size={18} />
-                        {isProcessing ? 'Processing...' : 'Upload Documents'}
+                        {(isProcessing || uploadedFiles.some(f => f.uploadStatus === 'uploading')) ? (
+                            <>
+                                <Loader2 size={18} className="animate-spin" />
+                                {uploadedFiles.some(f => f.uploadStatus === 'uploading') ? 'Uploading...' : 'Processing...'}
+                            </>
+                        ) : (
+                            <>
+                                <Upload size={18} />
+                                Upload Documents
+                            </>
+                        )}
                     </label>
                     <p className="mt-2 text-xs text-gray-500">
                         Supported formats: Images (JPG, PNG, WebP, GIF - Max 10MB) and PDFs (Max 50MB)

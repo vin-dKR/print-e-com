@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
@@ -21,6 +21,7 @@ import {
 import { generateCouponCode } from '@/lib/utils/coupon-utils';
 import { Sparkles } from 'lucide-react';
 import { toastSuccess, toastError } from '@/lib/utils/toast';
+import { CouponProductsManager } from './coupon-products-manager';
 
 interface CouponFormProps {
     initialData?: Coupon;
@@ -31,6 +32,7 @@ export function CouponForm({ initialData, onSuccess }: CouponFormProps) {
     const isEditMode = !!initialData;
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [createdCouponId, setCreatedCouponId] = useState<string | null>(null);
 
     const [formData, setFormData] = useState<CreateCouponData>({
         code: initialData?.code || '',
@@ -128,13 +130,17 @@ export function CouponForm({ initialData, onSuccess }: CouponFormProps) {
             if (isEditMode && initialData) {
                 await updateCoupon({ id: initialData.id, ...submitData });
                 toastSuccess('Coupon updated successfully');
+                if (onSuccess) {
+                    onSuccess();
+                }
             } else {
-                await createCoupon(submitData);
+                const newCoupon = await createCoupon(submitData);
                 toastSuccess('Coupon created successfully');
-            }
-
-            if (onSuccess) {
-                onSuccess();
+                setCreatedCouponId(newCoupon.id);
+                // Only call onSuccess if applicableTo is ALL (no configuration needed)
+                if (formData.applicableTo === 'ALL' && onSuccess) {
+                    onSuccess();
+                }
             }
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'Failed to save coupon';
@@ -405,11 +411,19 @@ export function CouponForm({ initialData, onSuccess }: CouponFormProps) {
                             <option value="PRODUCT">Specific Products</option>
                         </Select>
                         <p className="text-xs text-gray-500">
-                            Note: Category and Product restrictions can be configured after creation
+                            Configure products or categories below based on your selection
                         </p>
                     </div>
                 </CardContent>
             </Card>
+
+            {/* Products/Categories Manager - Show when editing or after creation */}
+            {((isEditMode && initialData) || createdCouponId) && (
+                <CouponProductsManager
+                    couponId={initialData?.id || createdCouponId!}
+                    applicableTo={formData.applicableTo || 'ALL'}
+                />
+            )}
 
             {/* Status */}
             <Card>
@@ -432,9 +446,24 @@ export function CouponForm({ initialData, onSuccess }: CouponFormProps) {
 
             {/* Submit Button */}
             <div className="flex justify-end gap-4">
+                {createdCouponId && formData.applicableTo !== 'ALL' && (
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                            if (onSuccess) {
+                                onSuccess();
+                            }
+                        }}
+                        className="cursor-pointer"
+                    >
+                        Done
+                    </Button>
+                )}
                 <Button
                     type="submit"
                     disabled={isLoading}
+                    className="cursor-pointer"
                 >
                     {isLoading ? 'Saving...' : isEditMode ? 'Update Coupon' : 'Create Coupon'}
                 </Button>

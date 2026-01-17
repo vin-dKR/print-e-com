@@ -59,6 +59,12 @@ import {
     getCouponAnalytics,
     bulkCouponOperation,
     getCouponUsages,
+    getCouponProducts,
+    addCouponProducts,
+    removeCouponProducts,
+    getCouponCategories,
+    addCouponCategories,
+    removeCouponCategories,
 } from "../controllers/couponController.js";
 import { getAdminPayment, getAdminPayments } from "../controllers/paymentController.js";
 import {
@@ -185,6 +191,13 @@ router.post("/coupons", createAdminCoupon);
 router.post("/coupons/bulk", bulkCouponOperation);
 router.put("/coupons/:id", updateAdminCoupon);
 router.delete("/coupons/:id", deleteAdminCoupon);
+// Coupon Products & Categories Management
+router.get("/coupons/:id/products", getCouponProducts);
+router.post("/coupons/:id/products", addCouponProducts);
+router.post("/coupons/:id/products/remove", removeCouponProducts);
+router.get("/coupons/:id/categories", getCouponCategories);
+router.post("/coupons/:id/categories", addCouponCategories);
+router.post("/coupons/:id/categories/remove", removeCouponCategories);
 
 // Payment Management (admin only)
 router.get("/payments", getAdminPayments);

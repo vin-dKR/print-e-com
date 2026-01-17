@@ -29,8 +29,9 @@ import {
 } from '@/lib/api/coupons.service';
 import { formatDate } from '@/lib/utils/format';
 import { formatDiscount } from '@/lib/utils/coupon-utils';
-import { Edit, Trash2, Search, X } from 'lucide-react';
+import { Edit, Trash2, Search, X, Eye, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useConfirm } from '@/lib/hooks/use-confirm';
 import { toastPromise, toastSuccess, toastError } from '@/lib/utils/toast';
 import { useDebouncedValue } from '@/lib/hooks/use-debounced-value';
@@ -43,10 +44,12 @@ interface CouponListFilters {
 }
 
 export function CouponsListEnhanced() {
+    const router = useRouter();
     const [coupons, setCoupons] = useState<Coupon[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [editingId, setEditingId] = useState<string | null>(null);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [filters, setFilters] = useState<CouponListFilters>({
         search: '',
@@ -417,17 +420,45 @@ export function CouponsListEnhanced() {
                                                 <TableCell className="text-right">
                                                     <div className="flex justify-end gap-2">
                                                         <Link href={`/coupons/${coupon.id}`}>
-                                                            <Button variant="ghost" size="icon">
-                                                                <Edit className="h-4 w-4" />
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="cursor-pointer"
+                                                                title="View coupon details"
+                                                            >
+                                                                <Eye className="h-4 w-4" />
                                                             </Button>
                                                         </Link>
                                                         <Button
                                                             variant="ghost"
                                                             size="icon"
+                                                            onClick={() => {
+                                                                setEditingId(coupon.id);
+                                                                router.push(`/coupons/${coupon.id}/edit`);
+                                                            }}
+                                                            disabled={editingId === coupon.id}
+                                                            className="cursor-pointer"
+                                                            title="Edit coupon"
+                                                        >
+                                                            {editingId === coupon.id ? (
+                                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                                            ) : (
+                                                                <Edit className="h-4 w-4" />
+                                                            )}
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
                                                             onClick={() => handleDelete(coupon.id)}
                                                             disabled={deletingId === coupon.id}
+                                                            className="cursor-pointer"
+                                                            title="Delete coupon"
                                                         >
-                                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                                            {deletingId === coupon.id ? (
+                                                                <Loader2 className="h-4 w-4 animate-spin text-destructive" />
+                                                            ) : (
+                                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                                            )}
                                                         </Button>
                                                     </div>
                                                 </TableCell>

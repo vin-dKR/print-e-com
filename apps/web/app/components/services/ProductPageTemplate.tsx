@@ -40,6 +40,7 @@ interface ProductPageTemplateProps {
     quantity?: number; // For price breakdown display
     hasUploadedFiles?: boolean; // Whether files have been uploaded
     calculatingPrice?: boolean; // Whether price is being calculated
+    isUploadingFiles?: boolean; // Whether files are currently uploading
 }
 
 export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
@@ -70,6 +71,7 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
     quantity,
     hasUploadedFiles = false,
     calculatingPrice = false,
+    isUploadingFiles = false,
 }) => {
     const router = useRouter();
     const outOfStock = isOutOfStock || (stock !== null && stock !== undefined && stock <= 0);
@@ -225,24 +227,34 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
                                     size="lg"
                                     icon={ShoppingCart}
                                     fullWidth
-                                    isLoading={addToCartLoading || calculatingPrice}
-                                    disabled={isButtonDisabled || addToCartLoading || calculatingPrice}
+                                    isLoading={isUploadingFiles || addToCartLoading || calculatingPrice}
+                                    disabled={isButtonDisabled || isUploadingFiles || addToCartLoading || calculatingPrice}
                                     onClick={isInCart ? () => router.push('/cart') : onAddToCart}
                                     className="text-base font-medium"
+                                    useCircularLoader={isUploadingFiles}
                                 >
-                                    {calculatingPrice ? 'Calculating...' : getButtonText(true)}
+                                    {isUploadingFiles
+                                        ? 'Loading files...'
+                                        : calculatingPrice
+                                            ? 'Calculating...'
+                                            : getButtonText(true)}
                                 </Button>
 
                                 <Button
                                     variant="primary"
                                     size="lg"
                                     fullWidth
-                                    isLoading={buyNowLoading || calculatingPrice}
-                                    disabled={isButtonDisabled || buyNowLoading || calculatingPrice}
+                                    isLoading={isUploadingFiles || buyNowLoading || calculatingPrice}
+                                    disabled={isButtonDisabled || isUploadingFiles || buyNowLoading || calculatingPrice}
                                     onClick={onBuyNow}
                                     className="font-medium"
+                                    useCircularLoader={isUploadingFiles}
                                 >
-                                    {calculatingPrice ? 'Calculating...' : getButtonText(false)}
+                                    {isUploadingFiles
+                                        ? 'Loading files...'
+                                        : calculatingPrice
+                                            ? 'Calculating...'
+                                            : getButtonText(false)}
                                 </Button>
                             </div>
                         </div>

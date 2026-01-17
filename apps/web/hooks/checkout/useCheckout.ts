@@ -46,10 +46,26 @@ export interface UseCheckoutReturn {
 }
 
 export function useCheckout(): UseCheckoutReturn {
-    // Cart hook
+    // Check for direct buy now data in sessionStorage
+    const [buyNowData, setBuyNowData] = useState<any | null>(null);
+
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const stored = sessionStorage.getItem('buyNow');
+            if (stored) {
+                try {
+                    setBuyNowData(JSON.parse(stored));
+                } catch (err) {
+                    console.error('Failed to parse buyNow data:', err);
+                    sessionStorage.removeItem('buyNow');
+                }
+            }
+        }
+    }, []);
+
+    // Cart hook (only used if not buyNow)
     const {
         items: cartItems,
-        total,
         itemCount,
         loading: cartLoading,
         error: cartError,
@@ -58,25 +74,51 @@ export function useCheckout(): UseCheckoutReturn {
     // Fixed delivery fee (can be calculated based on subtotal or location)
     const deliveryFee = 15;
 
+    // Use buyNow data if available, otherwise use cart
+    const effectiveCartItems = useMemo(() => {
+        if (buyNowData && buyNowData.product) {
+            // Convert buyNow data to cart item format
+            return [{
+                id: 'buy-now-temp',
+                productId: buyNowData.productId,
+                product: buyNowData.product,
+                quantity: buyNowData.quantity || 1,
+                variantId: buyNowData.variantId || null,
+                variant: buyNowData.variantId ? buyNowData.product.variants?.find((v: any) => v.id === buyNowData.variantId) : null,
+                customDesignUrl: buyNowData.customDesignUrl || [],
+                customText: buyNowData.customText || null,
+            }];
+        }
+        return cartItems;
+    }, [buyNowData, cartItems]);
+
     // Calculate MRP (Maximum Retail Price) - sum of all MRP prices
     const mrp = useMemo(() => {
-        return cartItems.reduce((sum, item) => {
+        if (buyNowData && buyNowData.product) {
+            const product = buyNowData.product;
+            const mrpPrice = Number(product?.mrp || 0);
+            return mrpPrice * (buyNowData.quantity || 1);
+        }
+        return effectiveCartItems.reduce((sum, item) => {
             // Type assertion to access mrp if it exists in the product
             const product = item.product as any;
             const mrpPrice = Number(product?.mrp || 0);
             return sum + mrpPrice * item.quantity;
         }, 0);
-    }, [cartItems]);
+    }, [buyNowData, effectiveCartItems]);
 
     // Calculate subtotal (selling price) - sum of all selling prices
     const subtotal = useMemo(() => {
-        return cartItems.reduce((sum, item) => {
+        if (buyNowData && buyNowData.price) {
+            return buyNowData.price;
+        }
+        return effectiveCartItems.reduce((sum, item) => {
             const price = Number(item.product?.sellingPrice || item.product?.basePrice || 0);
             const variantModifier = Number(item.variant?.priceModifier || 0);
             const itemPrice = price + variantModifier;
             return sum + itemPrice * item.quantity;
         }, 0);
-    }, [cartItems]);
+    }, [buyNowData, effectiveCartItems]);
 
     // Addresses hook
     const {
@@ -133,29 +175,83 @@ export function useCheckout(): UseCheckoutReturn {
         setCouponError(null);
 
         try {
+            // Prepare cart items for validation (use effective items)
+            const itemsToValidate = buyNowData ? effectiveCartItems : cartItems;
+            const cartItemsForValidation = itemsToValidate
+                .filter((item) => item.product) // Filter out items without products
+                .map((item) => ({
+                    productId: item.product!.id,
+                    quantity: item.quantity,
+                    price: Number(
+                        item.product!.sellingPrice || item.product!.basePrice || 0
+                    ),
+                    categoryId: (item.product as any).category?.id || (item.product as any).categoryId,
+                    productName: item.product!.name || 'Product',
+                    categoryName: (item.product as any).category?.name || 'Category',
+                }));
+
             const response = await validateCoupon({
                 code: couponCode.trim().toUpperCase(),
                 orderAmount: subtotal || 0,
+                cartItems: cartItemsForValidation,
             });
 
             if (response.success && response.data) {
-                setAppliedCoupon(response.data);
-                setCouponError(null);
-                return true;
+                const { validation, ineligibleItems } = response.data;
+
+                // Check if partially valid
+                if (validation?.isPartiallyValid) {
+                    // Show warning but allow application
+                    const productNames = ineligibleItems
+                        ?.map((item) => item.productName)
+                        .join(', ') || '';
+                    setCouponError(
+                        `Coupon applied to eligible items. Not valid for: ${productNames}`
+                    );
+                    setAppliedCoupon(response.data);
+                    return true;
+                } else if (validation && !validation.isValid) {
+                    // No eligible items
+                    const productNames = ineligibleItems
+                        ?.map((item) => item.productName)
+                        .join(', ') || '';
+                    setCouponError(
+                        `This coupon is not valid for the selected products: ${productNames}`
+                    );
+                    setAppliedCoupon(null);
+                    return false;
+                } else {
+                    // Fully valid
+                    setAppliedCoupon(response.data);
+                    setCouponError(null);
+                    return true;
+                }
             } else {
-                setCouponError(response.error || 'Invalid coupon code');
+                // API returned success: false with error message
+                const errorMessage = response.error || response.message || 'Invalid coupon code';
+                setCouponError(errorMessage);
                 setAppliedCoupon(null);
                 return false;
             }
-        } catch (err) {
-            const errorMessage = err instanceof Error ? err.message : 'Failed to apply coupon';
+        } catch (err: unknown) {
+            // Extract error message from ApiError or Error object
+            let errorMessage = 'Failed to apply coupon';
+
+            if (err instanceof Error) {
+                errorMessage = err.message;
+            } else if (err && typeof err === 'object' && 'message' in err) {
+                // Handle ApiError object from api-client
+                const apiError = err as { message?: string; error?: string };
+                errorMessage = apiError.message || apiError.error || errorMessage;
+            }
+
             setCouponError(errorMessage);
             setAppliedCoupon(null);
             return false;
         } finally {
             setIsApplyingCoupon(false);
         }
-    }, [couponCode, subtotal]);
+    }, [couponCode, subtotal, effectiveCartItems, buyNowData, cartItems]);
 
     // Remove coupon
     const removeCoupon = useCallback(() => {
@@ -186,13 +282,17 @@ export function useCheckout(): UseCheckoutReturn {
     // Combined error state
     const error = cartError || addressError;
 
+    // Use effective cart items (buyNow or cart)
+    const finalCartItems = buyNowData ? effectiveCartItems : cartItems;
+    const finalItemCount = buyNowData ? 1 : itemCount;
+
     return {
         // Cart data
-        cartItems,
+        cartItems: finalCartItems,
         mrp,
         subtotal,
         deliveryFee,
-        itemCount,
+        itemCount: finalItemCount,
 
         // Address data
         addresses,
