@@ -1,11 +1,12 @@
 /**
  * Enhanced Coupons List Component
  * Displays table of coupons with filters, search, and bulk operations
+ * Optimized with TanStack Query
  */
 
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent } from '@/app/components/ui/card';
 import {
     Table,
@@ -15,26 +16,23 @@ import {
     TableHeader,
     TableRow,
 } from '@/app/components/ui/table';
-import { Badge } from '@/app/components/ui/badge';
-import { PageLoading } from '@/app/components/ui/loading';
-import { Alert } from '@/app/components/ui/alert';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Select } from '@/app/components/ui/select';
-import {
-    getCoupons,
-    deleteCoupon,
-    bulkCouponOperation,
-    type Coupon,
-} from '@/lib/api/coupons.service';
+import { useCoupons, useDeleteCoupon, useBulkCouponOperation, usePrefetchCoupon } from '@/lib/hooks/use-coupons';
+import type { Coupon } from '@/lib/api/coupons.service';
 import { formatDate } from '@/lib/utils/format';
-import { formatDiscount } from '@/lib/utils/coupon-utils';
 import { Edit, Trash2, Search, X, Eye, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useConfirm } from '@/lib/hooks/use-confirm';
-import { toastPromise, toastSuccess, toastError } from '@/lib/utils/toast';
+import { toastError } from '@/lib/utils/toast';
 import { useDebouncedValue } from '@/lib/hooks/use-debounced-value';
+import { CouponStatusBadge } from '@/app/components/ui/coupon-status-badge';
+import { CouponDiscountDisplay } from '@/app/components/ui/coupon-discount-display';
+import { LoadingState } from '@/app/components/ui/loading-state';
+import { ErrorState } from '@/app/components/ui/error-state';
+import { EmptyState } from '@/app/components/ui/empty-state';
 
 interface CouponListFilters {
     search: string;
@@ -45,9 +43,11 @@ interface CouponListFilters {
 
 export function CouponsListEnhanced() {
     const router = useRouter();
-    const [coupons, setCoupons] = useState<Coupon[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const { data: coupons = [], isLoading, error, refetch } = useCoupons();
+    const deleteCouponMutation = useDeleteCoupon();
+    const bulkOperationMutation = useBulkCouponOperation();
+    const prefetchCoupon = usePrefetchCoupon();
+
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -59,23 +59,6 @@ export function CouponsListEnhanced() {
     });
     const { confirm, ConfirmDialog } = useConfirm();
     const debouncedSearch = useDebouncedValue(filters.search, 300);
-
-    useEffect(() => {
-        loadCoupons();
-    }, []);
-
-    const loadCoupons = async () => {
-        try {
-            setIsLoading(true);
-            setError(null);
-            const data = await getCoupons();
-            setCoupons(data);
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to load coupons');
-        } finally {
-            setIsLoading(false);
-        }
-    };
 
     const filteredCoupons = useMemo(() => {
         let filtered = [...coupons];
@@ -135,22 +118,14 @@ export function CouponsListEnhanced() {
             onConfirm: async () => {
                 try {
                     setDeletingId(id);
-                    await toastPromise(
-                        deleteCoupon(id),
-                        {
-                            loading: 'Deleting coupon...',
-                            success: 'Coupon deleted successfully',
-                            error: 'Failed to delete coupon',
-                        }
-                    );
-                    setCoupons(coupons.filter((c) => c.id !== id));
+                    await deleteCouponMutation.mutateAsync(id);
                     setSelectedIds((prev) => {
                         const next = new Set(prev);
                         next.delete(id);
                         return next;
                     });
-                } catch (err) {
-                    // Error handled by toastPromise
+                } catch {
+                    // Error handled by mutation
                 } finally {
                     setDeletingId(null);
                 }
@@ -174,18 +149,13 @@ export function CouponsListEnhanced() {
             variant: operation === 'delete' ? 'destructive' : 'default',
             onConfirm: async () => {
                 try {
-                    await toastPromise(
-                        bulkCouponOperation(Array.from(selectedIds), operation),
-                        {
-                            loading: `${operation.charAt(0).toUpperCase() + operation.slice(1)}ing coupons...`,
-                            success: `Successfully ${operation}d ${selectedIds.size} coupon(s)`,
-                            error: `Failed to ${operation} coupons`,
-                        }
-                    );
+                    await bulkOperationMutation.mutateAsync({
+                        ids: Array.from(selectedIds),
+                        operation,
+                    });
                     setSelectedIds(new Set());
-                    await loadCoupons();
-                } catch (err) {
-                    // Error handled by toastPromise
+                } catch {
+                    // Error handled by mutation
                 }
             },
         });
@@ -215,7 +185,7 @@ export function CouponsListEnhanced() {
         return (
             <>
                 {ConfirmDialog}
-                <PageLoading />
+                <LoadingState message="Loading coupons..." />
             </>
         );
     }
@@ -224,12 +194,10 @@ export function CouponsListEnhanced() {
         return (
             <>
                 {ConfirmDialog}
-                <Alert variant="error">
-                    {error}
-                    <Button onClick={loadCoupons} variant="outline" className="ml-4">
-                        Retry
-                    </Button>
-                </Alert>
+                <ErrorState
+                    message={error instanceof Error ? error.message : 'Failed to load coupons'}
+                    onRetry={() => refetch()}
+                />
             </>
         );
     }
@@ -253,7 +221,10 @@ export function CouponsListEnhanced() {
                         <Select
                             value={filters.status}
                             onChange={(e) =>
-                                setFilters({ ...filters, status: e.target.value as CouponListFilters['status'] })
+                                setFilters({
+                                    ...filters,
+                                    status: e.target.value as CouponListFilters['status'],
+                                })
                             }
                         >
                             <option value="all">All Status</option>
@@ -302,6 +273,7 @@ export function CouponsListEnhanced() {
                                     size="sm"
                                     variant="outline"
                                     onClick={() => handleBulkOperation('activate')}
+                                    disabled={bulkOperationMutation.isPending}
                                 >
                                     Activate
                                 </Button>
@@ -309,6 +281,7 @@ export function CouponsListEnhanced() {
                                     size="sm"
                                     variant="outline"
                                     onClick={() => handleBulkOperation('deactivate')}
+                                    disabled={bulkOperationMutation.isPending}
                                 >
                                     Deactivate
                                 </Button>
@@ -316,6 +289,7 @@ export function CouponsListEnhanced() {
                                     size="sm"
                                     variant="outline"
                                     onClick={() => handleBulkOperation('delete')}
+                                    disabled={bulkOperationMutation.isPending}
                                 >
                                     Delete
                                 </Button>
@@ -332,18 +306,22 @@ export function CouponsListEnhanced() {
 
                     {/* Table */}
                     {filteredCoupons.length === 0 ? (
-                        <div className="py-12 text-center">
-                            <p className="text-gray-600">
-                                {coupons.length === 0
-                                    ? 'No coupons found.'
-                                    : 'No coupons match your filters.'}
-                            </p>
-                            {coupons.length === 0 && (
-                                <Link href="/coupons/new">
-                                    <Button className="mt-4">Create your first coupon</Button>
-                                </Link>
-                            )}
-                        </div>
+                        <EmptyState
+                            title={coupons.length === 0 ? 'No coupons found' : 'No coupons match your filters'}
+                            description={
+                                coupons.length === 0
+                                    ? 'Get started by creating your first coupon'
+                                    : 'Try adjusting your filters to see more results'
+                            }
+                            action={
+                                coupons.length === 0
+                                    ? {
+                                        label: 'Create your first coupon',
+                                        href: '/coupons/new',
+                                    }
+                                    : undefined
+                            }
+                        />
                     ) : (
                         <div className="overflow-x-auto">
                             <Table>
@@ -357,7 +335,7 @@ export function CouponsListEnhanced() {
                                                     selectedIds.size === filteredCoupons.length
                                                 }
                                                 onChange={toggleSelectAll}
-                                                className="rounded border-gray-300"
+                                                className="rounded border-gray-300 cursor-pointer"
                                             />
                                         </TableHead>
                                         <TableHead>Code</TableHead>
@@ -371,9 +349,7 @@ export function CouponsListEnhanced() {
                                 </TableHeader>
                                 <TableBody>
                                     {filteredCoupons.map((coupon) => {
-                                        const isValid = new Date(coupon.validUntil) > new Date();
-                                        const isActive = coupon.isActive && isValid;
-                                        const usageCount = (coupon as any)._count?.usages || 0;
+                                        const usageCount = (coupon as Coupon & { _count?: { usages: number } })?._count?.usages || 0;
                                         const usageLimit = coupon.usageLimit;
                                         const usagePercentage =
                                             usageLimit && usageLimit > 0
@@ -381,13 +357,17 @@ export function CouponsListEnhanced() {
                                                 : null;
 
                                         return (
-                                            <TableRow key={coupon.id}>
+                                            <TableRow
+                                                key={coupon.id}
+                                                onMouseEnter={() => prefetchCoupon(coupon.id)}
+                                                className="hover:bg-gray-50"
+                                            >
                                                 <TableCell>
                                                     <input
                                                         type="checkbox"
                                                         checked={selectedIds.has(coupon.id)}
                                                         onChange={() => toggleSelect(coupon.id)}
-                                                        className="rounded border-gray-300"
+                                                        className="rounded border-gray-300 cursor-pointer"
                                                     />
                                                 </TableCell>
                                                 <TableCell className="font-mono font-medium">
@@ -395,13 +375,26 @@ export function CouponsListEnhanced() {
                                                 </TableCell>
                                                 <TableCell>{coupon.name}</TableCell>
                                                 <TableCell>
-                                                    {formatDiscount(coupon.discountType, Number(coupon.discountValue))}
+                                                    <CouponDiscountDisplay
+                                                        discountType={coupon.discountType}
+                                                        discountValue={Number(coupon.discountValue)}
+                                                        maxDiscountAmount={
+                                                            coupon.maxDiscountAmount
+                                                                ? Number(coupon.maxDiscountAmount)
+                                                                : null
+                                                        }
+                                                        size="sm"
+                                                    />
                                                 </TableCell>
                                                 <TableCell>{formatDate(coupon.validUntil)}</TableCell>
                                                 <TableCell>
-                                                    <Badge variant={isActive ? 'success' : 'secondary'}>
-                                                        {isActive ? 'Active' : 'Inactive'}
-                                                    </Badge>
+                                                    <CouponStatusBadge
+                                                        isActive={coupon.isActive}
+                                                        validFrom={coupon.validFrom}
+                                                        validUntil={coupon.validUntil}
+                                                        showIcon
+                                                        size="sm"
+                                                    />
                                                 </TableCell>
                                                 <TableCell>
                                                     {usageLimit ? (
@@ -450,7 +443,10 @@ export function CouponsListEnhanced() {
                                                             variant="ghost"
                                                             size="icon"
                                                             onClick={() => handleDelete(coupon.id)}
-                                                            disabled={deletingId === coupon.id}
+                                                            disabled={
+                                                                deletingId === coupon.id ||
+                                                                deleteCouponMutation.isPending
+                                                            }
                                                             className="cursor-pointer"
                                                             title="Delete coupon"
                                                         >
@@ -474,4 +470,3 @@ export function CouponsListEnhanced() {
         </>
     );
 }
-

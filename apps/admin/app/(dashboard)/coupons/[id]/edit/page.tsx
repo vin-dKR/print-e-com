@@ -1,66 +1,41 @@
 /**
  * Edit Coupon Page
+ * Optimized with TanStack Query
  */
 
 'use client';
 
-import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { CouponForm } from '@/app/components/features/coupons/coupon-form';
-import { getCoupon, type Coupon } from '@/lib/api/coupons.service';
-import { PageLoading } from '@/app/components/ui/loading';
-import { Alert } from '@/app/components/ui/alert';
-import { Button } from '@/app/components/ui/button';
+import { useCoupon } from '@/lib/hooks/use-coupons';
+import { LoadingState } from '@/app/components/ui/loading-state';
+import { ErrorState } from '@/app/components/ui/error-state';
 
 export default function EditCouponPage() {
     const router = useRouter();
     const params = useParams();
-    const [coupon, setCoupon] = useState<Coupon | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-
-    useEffect(() => {
-        if (params.id) {
-            loadCoupon();
-        }
-    }, [params.id]);
-
-    const loadCoupon = async () => {
-        try {
-            setLoading(true);
-            setError(null);
-            const data = await getCoupon(params.id as string);
-            setCoupon(data);
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to load coupon');
-        } finally {
-            setLoading(false);
-        }
-    };
+    const couponId = params.id as string;
+    const { data: coupon, isLoading, error, refetch } = useCoupon(couponId);
 
     const handleSuccess = () => {
         router.push('/coupons');
     };
 
-    if (loading) {
-        return <PageLoading />;
+    if (isLoading) {
+        return <LoadingState message="Loading coupon..." />;
     }
 
     if (error) {
         return (
-            <div className="space-y-4">
-                <Alert variant="error">
-                    {error}
-                    <Button onClick={loadCoupon} variant="outline" className="ml-4">
-                        Retry
-                    </Button>
-                </Alert>
-            </div>
+            <ErrorState
+                message={error instanceof Error ? error.message : 'Failed to load coupon'}
+                onRetry={() => refetch()}
+            />
         );
     }
 
     if (!coupon) {
-        return null;
+        return <ErrorState message="Coupon not found" />;
     }
 
     return (

@@ -13,15 +13,15 @@ import { Label } from '@/app/components/ui/label';
 import { Select } from '@/app/components/ui/select';
 import { Alert } from '@/app/components/ui/alert';
 import {
-    createCoupon,
-    updateCoupon,
     type CreateCouponData,
     type Coupon,
 } from '@/lib/api/coupons.service';
+import { useCreateCoupon, useUpdateCoupon } from '@/lib/hooks/use-coupons';
 import { generateCouponCode } from '@/lib/utils/coupon-utils';
 import { Sparkles } from 'lucide-react';
-import { toastSuccess, toastError } from '@/lib/utils/toast';
+import { toastError } from '@/lib/utils/toast';
 import { CouponProductsManager } from './coupon-products-manager';
+import { CouponSelectionManager } from './coupon-selection-manager';
 
 interface CouponFormProps {
     initialData?: Coupon;
@@ -30,9 +30,14 @@ interface CouponFormProps {
 
 export function CouponForm({ initialData, onSuccess }: CouponFormProps) {
     const isEditMode = !!initialData;
-    const [isLoading, setIsLoading] = useState(false);
+    const createCouponMutation = useCreateCoupon();
+    const updateCouponMutation = useUpdateCoupon();
     const [error, setError] = useState<string | null>(null);
     const [createdCouponId, setCreatedCouponId] = useState<string | null>(null);
+    const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
+    const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+
+    const isLoading = createCouponMutation.isPending || updateCouponMutation.isPending;
 
     const [formData, setFormData] = useState<CreateCouponData>({
         code: initialData?.code || '',
@@ -117,26 +122,32 @@ export function CouponForm({ initialData, onSuccess }: CouponFormProps) {
             return;
         }
 
-        setIsLoading(true);
-
         try {
             const submitData = {
                 ...formData,
                 code: formData.code.toUpperCase(),
                 validFrom: validFrom.toISOString(),
                 validUntil: validUntil.toISOString(),
+                // Include selected product/category IDs if applicable
+                ...(formData.applicableTo === 'PRODUCT' && selectedProductIds.length > 0
+                    ? { productIds: selectedProductIds }
+                    : {}),
+                ...(formData.applicableTo === 'CATEGORY' && selectedCategoryIds.length > 0
+                    ? { categoryIds: selectedCategoryIds }
+                    : {}),
             };
 
             if (isEditMode && initialData) {
-                await updateCoupon({ id: initialData.id, ...submitData });
-                toastSuccess('Coupon updated successfully');
+                await updateCouponMutation.mutateAsync({ id: initialData.id, ...submitData });
                 if (onSuccess) {
                     onSuccess();
                 }
             } else {
-                const newCoupon = await createCoupon(submitData);
-                toastSuccess('Coupon created successfully');
+                const newCoupon = await createCouponMutation.mutateAsync(submitData);
                 setCreatedCouponId(newCoupon.id);
+                // Clear selection state after creation (items are now linked via backend)
+                setSelectedProductIds([]);
+                setSelectedCategoryIds([]);
                 // Only call onSuccess if applicableTo is ALL (no configuration needed)
                 if (formData.applicableTo === 'ALL' && onSuccess) {
                     onSuccess();
@@ -146,8 +157,6 @@ export function CouponForm({ initialData, onSuccess }: CouponFormProps) {
             const errorMessage = err instanceof Error ? err.message : 'Failed to save coupon';
             setError(errorMessage);
             toastError(errorMessage);
-        } finally {
-            setIsLoading(false);
         }
     };
 
@@ -416,6 +425,17 @@ export function CouponForm({ initialData, onSuccess }: CouponFormProps) {
                     </div>
                 </CardContent>
             </Card>
+
+            {/* Products/Categories Selection - Show during creation (before coupon ID exists) */}
+            {!isEditMode && !createdCouponId && formData.applicableTo !== 'ALL' && (
+                <CouponSelectionManager
+                    applicableTo={formData.applicableTo || 'ALL'}
+                    selectedProductIds={selectedProductIds}
+                    selectedCategoryIds={selectedCategoryIds}
+                    onProductIdsChange={setSelectedProductIds}
+                    onCategoryIdsChange={setSelectedCategoryIds}
+                />
+            )}
 
             {/* Products/Categories Manager - Show when editing or after creation */}
             {((isEditMode && initialData) || createdCouponId) && (

@@ -19,11 +19,7 @@ export default function CouponsPage() {
                         Create and manage discount coupons and promotional offers
                     </p>
                 </div>
-                <div className="flex gap-3">
-                    <Button variant="outline">
-                        <Download className="mr-2 h-4 w-4" />
-                        Export
-                    </Button>
+                <div className="">
                     <Link href="/coupons/new">
                         <Button>
                             <Plus className="mr-2 h-4 w-4" />

@@ -1,20 +1,22 @@
+/**
+ * Coupon Detail Client Component
+ * Optimized with TanStack Query and improved preview UI
+ */
+
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
-import { Badge } from '@/app/components/ui/badge';
-import { Alert } from '@/app/components/ui/alert';
 import {
-    getCouponUsages,
-    type Coupon,
-    type CouponAnalytics,
-    type CouponUsage,
-} from '@/lib/api/coupons.service';
+    useCoupon,
+    useCouponAnalytics,
+    useCouponUsages,
+} from '@/lib/hooks/use-coupons';
+import type { Coupon, CouponAnalytics, CouponUsage } from '@/lib/api/coupons.service';
 import { formatDate, formatCurrency } from '@/lib/utils/format';
-import { formatDiscount } from '@/lib/utils/coupon-utils';
-import { Edit, ArrowLeft, Users, TrendingUp, DollarSign } from 'lucide-react';
+import { Edit, ArrowLeft, Users, TrendingUp, DollarSign, Copy, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 import {
     Table,
@@ -24,6 +26,11 @@ import {
     TableHeader,
     TableRow,
 } from '@/app/components/ui/table';
+import { CouponStatusBadge } from '@/app/components/ui/coupon-status-badge';
+import { CouponDiscountDisplay } from '@/app/components/ui/coupon-discount-display';
+import { LoadingState } from '@/app/components/ui/loading-state';
+import { ErrorState } from '@/app/components/ui/error-state';
+import { toastSuccess } from '@/lib/utils/toast';
 
 interface CouponDetailClientProps {
     couponId: string;
@@ -46,154 +53,234 @@ export function CouponDetailClient({
     initialUsagePagination = { page: 1, limit: 20, total: 0, totalPages: 0 },
 }: CouponDetailClientProps) {
     const router = useRouter();
-    const [coupon] = useState<Coupon | null>(initialCoupon || null);
-    const [analytics] = useState<CouponAnalytics | null>(initialAnalytics || null);
-    const [usages, setUsages] = useState<CouponUsage[]>(initialUsages);
     const [usagePage, setUsagePage] = useState(initialUsagePagination.page);
-    const [usageTotalPages, setUsageTotalPages] = useState(initialUsagePagination.totalPages);
-    const [loadingUsages, setLoadingUsages] = useState(false);
+    const [copied, setCopied] = useState(false);
 
-    useEffect(() => {
-        if (usagePage > 1 || !initialUsages.length) {
-            loadUsages();
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [usagePage]);
+    // Use TanStack Query with initial data
+    const {
+        data: coupon,
+        isLoading: loadingCoupon,
+        error: couponError,
+    } = useCoupon(couponId);
 
-    const loadUsages = async () => {
-        try {
-            setLoadingUsages(true);
-            const usagesData = await getCouponUsages(couponId, usagePage, 20);
-            setUsages(usagesData.data || []);
-            setUsageTotalPages(usagesData.pagination?.totalPages || 0);
-        } catch (err) {
-            console.error('Failed to load usages:', err);
-        } finally {
-            setLoadingUsages(false);
+    const { data: analytics } = useCouponAnalytics(couponId);
+
+    const {
+        data: usagesData,
+        isLoading: loadingUsages,
+    } = useCouponUsages(couponId, usagePage, 20);
+
+    // Use query data if available, otherwise fall back to initial data
+    // This ensures we always show the latest data from the API
+    const displayCoupon = coupon || initialCoupon;
+    const displayAnalytics = analytics || initialAnalytics;
+    // Always use query data when available, only use initial data as fallback when query hasn't loaded yet
+    const displayUsages = usagesData?.usages ?? (loadingUsages && !usagesData ? initialUsages : []);
+    const displayPagination = usagesData?.pagination ?? initialUsagePagination;
+
+    const handleCopyCode = () => {
+        if (displayCoupon) {
+            navigator.clipboard.writeText(displayCoupon.code);
+            setCopied(true);
+            toastSuccess('Coupon code copied to clipboard');
+            setTimeout(() => setCopied(false), 2000);
         }
     };
 
-    if (!coupon) {
+    if (loadingCoupon && !initialCoupon) {
+        return <LoadingState message="Loading coupon details..." />;
+    }
+
+    if (couponError && !initialCoupon) {
         return (
-            <div className="space-y-4">
-                <Alert variant="error">Coupon not found</Alert>
-            </div>
+            <ErrorState
+                message={couponError instanceof Error ? couponError.message : 'Failed to load coupon'}
+            />
         );
     }
 
-    const isValid = new Date(coupon.validUntil) > new Date();
-    const isActive = coupon.isActive && isValid;
+    if (!displayCoupon) {
+        return <ErrorState message="Coupon not found" />;
+    }
+
+    const usageCount = (displayCoupon as Coupon & { _count?: { usages: number } })?._count?.usages || 0;
+    const usageLimit = displayCoupon.usageLimit;
+    const remainingUses = usageLimit ? Math.max(0, usageLimit - usageCount) : null;
 
     return (
         <div className="space-y-6">
-            {/* Header */}
+            {/* Header with Quick Info */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                    <Button variant="ghost" size="icon" onClick={() => router.back()}>
+                    <Button variant="ghost" size="icon" onClick={() => router.back()} className="cursor-pointer">
                         <ArrowLeft className="h-4 w-4" />
                     </Button>
                     <div>
-                        <h1 className="text-3xl font-bold text-gray-900">{coupon.name}</h1>
-                        <p className="mt-1 text-sm text-gray-600">Coupon Code: {coupon.code}</p>
+                        <h1 className="text-3xl font-bold text-gray-900">{displayCoupon.name}</h1>
+                        <div className="mt-2 flex items-center gap-3">
+                            <p className="font-mono text-lg font-semibold text-gray-700">
+                                {displayCoupon.code}
+                            </p>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={handleCopyCode}
+                                className="cursor-pointer"
+                            >
+                                {copied ? (
+                                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                                ) : (
+                                    <Copy className="h-4 w-4" />
+                                )}
+                            </Button>
+                            <CouponStatusBadge
+                                isActive={displayCoupon.isActive}
+                                validFrom={displayCoupon.validFrom}
+                                validUntil={displayCoupon.validUntil}
+                                showIcon
+                                size="md"
+                            />
+                        </div>
                     </div>
                 </div>
-                <Link href={`/coupons/${coupon.id}/edit`}>
-                    <Button>
+                <Link href={`/coupons/${displayCoupon.id}/edit`}>
+                    <Button className="cursor-pointer">
                         <Edit className="mr-2 h-4 w-4" />
                         Edit Coupon
                     </Button>
                 </Link>
             </div>
 
-            {/* Coupon Details */}
+            {/* Quick Stats Row */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <Card>
+                    <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-xs text-gray-600">Discount</p>
+                                <CouponDiscountDisplay
+                                    discountType={displayCoupon.discountType}
+                                    discountValue={Number(displayCoupon.discountValue)}
+                                    maxDiscountAmount={
+                                        displayCoupon.maxDiscountAmount
+                                            ? Number(displayCoupon.maxDiscountAmount)
+                                            : null
+                                    }
+                                    size="lg"
+                                />
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardContent className="p-4">
+                        <div>
+                            <p className="text-xs text-gray-600">Total Uses</p>
+                            <p className="text-2xl font-bold text-gray-900">{usageCount}</p>
+                            {usageLimit && (
+                                <p className="text-xs text-gray-500 mt-1">
+                                    {remainingUses} remaining
+                                </p>
+                            )}
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardContent className="p-4">
+                        <div>
+                            <p className="text-xs text-gray-600">Valid Until</p>
+                            <p className="text-sm font-semibold text-gray-900">
+                                {formatDate(displayCoupon.validUntil)}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">
+                                {new Date(displayCoupon.validUntil) > new Date()
+                                    ? 'Active'
+                                    : 'Expired'}
+                            </p>
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardContent className="p-4">
+                        <div>
+                            <p className="text-xs text-gray-600">Applicable To</p>
+                            <p className="text-sm font-semibold text-gray-900 capitalize">
+                                {displayCoupon.applicableTo === 'ALL'
+                                    ? 'All Products'
+                                    : displayCoupon.applicableTo.toLowerCase()}
+                            </p>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* Coupon Details & Analytics */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card>
                     <CardHeader>
                         <CardTitle>Coupon Details</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        <div>
-                            <p className="text-sm text-gray-600">Code</p>
-                            <p className="font-mono font-bold text-lg">{coupon.code}</p>
-                        </div>
-                        <div>
-                            <p className="text-sm text-gray-600">Discount</p>
-                            <p className="text-2xl font-bold text-blue-600">
-                                {formatDiscount(coupon.discountType, Number(coupon.discountValue))}
-                            </p>
-                        </div>
-                        {coupon.description && (
+                        {displayCoupon.description && (
                             <div>
                                 <p className="text-sm text-gray-600">Description</p>
-                                <p>{coupon.description}</p>
+                                <p className="mt-1">{displayCoupon.description}</p>
                             </div>
                         )}
                         <div>
-                            <p className="text-sm text-gray-600">Status</p>
-                            <Badge variant={isActive ? 'success' : 'secondary'}>
-                                {isActive ? 'Active' : 'Inactive'}
-                            </Badge>
-                        </div>
-                        <div>
                             <p className="text-sm text-gray-600">Valid From</p>
-                            <p>{formatDate(coupon.validFrom)}</p>
+                            <p className="mt-1">{formatDate(displayCoupon.validFrom)}</p>
                         </div>
                         <div>
                             <p className="text-sm text-gray-600">Valid Until</p>
-                            <p>{formatDate(coupon.validUntil)}</p>
+                            <p className="mt-1">{formatDate(displayCoupon.validUntil)}</p>
                         </div>
-                        {coupon.minPurchaseAmount && (
+                        {displayCoupon.minPurchaseAmount && (
                             <div>
                                 <p className="text-sm text-gray-600">Minimum Purchase</p>
-                                <p>{formatCurrency(Number(coupon.minPurchaseAmount))}</p>
+                                <p className="mt-1">{formatCurrency(Number(displayCoupon.minPurchaseAmount))}</p>
                             </div>
                         )}
-                        {coupon.maxDiscountAmount && (
+                        {displayCoupon.maxDiscountAmount && (
                             <div>
                                 <p className="text-sm text-gray-600">Maximum Discount</p>
-                                <p>{formatCurrency(Number(coupon.maxDiscountAmount))}</p>
+                                <p className="mt-1">{formatCurrency(Number(displayCoupon.maxDiscountAmount))}</p>
                             </div>
                         )}
                         <div>
                             <p className="text-sm text-gray-600">Usage Limit</p>
-                            <p>
-                                {coupon.usageLimit
-                                    ? `${(coupon as any)._count?.usages || 0} / ${coupon.usageLimit}`
-                                    : 'Unlimited'}
+                            <p className="mt-1">
+                                {usageLimit ? `${usageCount} / ${usageLimit}` : 'Unlimited'}
                             </p>
                         </div>
                         <div>
                             <p className="text-sm text-gray-600">Usage Limit Per User</p>
-                            <p>{coupon.usageLimitPerUser}</p>
-                        </div>
-                        <div>
-                            <p className="text-sm text-gray-600">Applicable To</p>
-                            <p>{coupon.applicableTo}</p>
+                            <p className="mt-1">{displayCoupon.usageLimitPerUser}</p>
                         </div>
                     </CardContent>
                 </Card>
 
                 {/* Analytics */}
-                {analytics && (
+                {displayAnalytics && (
                     <Card>
                         <CardHeader>
                             <CardTitle>Analytics</CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-4">
+                        <CardContent>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="p-4 bg-blue-50 rounded-lg">
                                     <div className="flex items-center gap-2 mb-2">
                                         <TrendingUp className="h-5 w-5 text-blue-600" />
                                         <p className="text-sm text-gray-600">Total Uses</p>
                                     </div>
-                                    <p className="text-2xl font-bold text-gray-900">{analytics.totalUses}</p>
+                                    <p className="text-2xl font-bold text-gray-900">{displayAnalytics.totalUses}</p>
                                 </div>
                                 <div className="p-4 bg-green-50 rounded-lg">
                                     <div className="flex items-center gap-2 mb-2">
                                         <Users className="h-5 w-5 text-green-600" />
                                         <p className="text-sm text-gray-600">Unique Users</p>
                                     </div>
-                                    <p className="text-2xl font-bold text-gray-900">{analytics.uniqueUsers}</p>
+                                    <p className="text-2xl font-bold text-gray-900">{displayAnalytics.uniqueUsers}</p>
                                 </div>
                                 <div className="p-4 bg-purple-50 rounded-lg">
                                     <div className="flex items-center gap-2 mb-2">
@@ -201,7 +288,7 @@ export function CouponDetailClient({
                                         <p className="text-sm text-gray-600">Total Discount</p>
                                     </div>
                                     <p className="text-2xl font-bold text-gray-900">
-                                        {formatCurrency(analytics.totalDiscount)}
+                                        {formatCurrency(displayAnalytics.totalDiscount)}
                                     </p>
                                 </div>
                                 <div className="p-4 bg-orange-50 rounded-lg">
@@ -210,7 +297,7 @@ export function CouponDetailClient({
                                         <p className="text-sm text-gray-600">Average Discount</p>
                                     </div>
                                     <p className="text-2xl font-bold text-gray-900">
-                                        {formatCurrency(analytics.averageDiscount)}
+                                        {formatCurrency(displayAnalytics.averageDiscount)}
                                     </p>
                                 </div>
                             </div>
@@ -225,9 +312,9 @@ export function CouponDetailClient({
                     <CardTitle>Usage History</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    {loadingUsages ? (
-                        <p className="text-center text-gray-600 py-8">Loading...</p>
-                    ) : usages.length === 0 ? (
+                    {loadingUsages && !initialUsages.length ? (
+                        <LoadingState message="Loading usage history..." size="sm" />
+                    ) : displayUsages.length === 0 ? (
                         <p className="text-center text-gray-600 py-8">No usage history yet</p>
                     ) : (
                         <>
@@ -243,7 +330,7 @@ export function CouponDetailClient({
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {usages.map((usage) => (
+                                        {displayUsages.map((usage) => (
                                             <TableRow key={usage.id}>
                                                 <TableCell>{usage.user.name || 'N/A'}</TableCell>
                                                 <TableCell>{usage.user.email}</TableCell>
@@ -257,10 +344,10 @@ export function CouponDetailClient({
                                     </TableBody>
                                 </Table>
                             </div>
-                            {usageTotalPages > 1 && (
+                            {displayPagination.totalPages > 1 && (
                                 <div className="flex items-center justify-between mt-4">
                                     <p className="text-sm text-gray-600">
-                                        Page {usagePage} of {usageTotalPages}
+                                        Page {usagePage} of {displayPagination.totalPages}
                                     </p>
                                     <div className="flex gap-2">
                                         <Button
@@ -268,6 +355,7 @@ export function CouponDetailClient({
                                             size="sm"
                                             onClick={() => setUsagePage((p) => Math.max(1, p - 1))}
                                             disabled={usagePage === 1}
+                                            className="cursor-pointer"
                                         >
                                             Previous
                                         </Button>
@@ -275,9 +363,12 @@ export function CouponDetailClient({
                                             variant="outline"
                                             size="sm"
                                             onClick={() =>
-                                                setUsagePage((p) => Math.min(usageTotalPages, p + 1))
+                                                setUsagePage((p) =>
+                                                    Math.min(displayPagination.totalPages, p + 1)
+                                                )
                                             }
-                                            disabled={usagePage === usageTotalPages}
+                                            disabled={usagePage === displayPagination.totalPages}
+                                            className="cursor-pointer"
                                         >
                                             Next
                                         </Button>
@@ -291,4 +382,3 @@ export function CouponDetailClient({
         </div>
     );
 }
-

@@ -41,6 +41,8 @@ export interface CreateCouponData {
     validUntil: string;
     isActive?: boolean;
     applicableTo?: CouponApplicableTo;
+    productIds?: string[];
+    categoryIds?: string[];
 }
 
 export interface UpdateCouponData extends Partial<CreateCouponData> {
@@ -144,7 +146,7 @@ export interface CouponUsage {
 }
 
 export interface PaginatedResponse<T> {
-    data: T[];
+    usages: T[];
     pagination: {
         page: number;
         limit: number;
