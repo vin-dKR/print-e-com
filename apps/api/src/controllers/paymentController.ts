@@ -242,6 +242,8 @@ export const verifyPayment = async (req: Request, res: Response, next: NextFunct
                     price: number;
                     customDesignUrl: string[];
                     customText: string | null;
+                    hasAddon: boolean;
+                    addons: string[];
                     metadata?: any;
                 }> = [];
 
@@ -271,6 +273,17 @@ export const verifyPayment = async (req: Request, res: Response, next: NextFunct
                         itemPrice += Number(variant.priceModifier);
                     }
 
+                    // If metadata contains a full price breakdown (base + addons), use it to derive item price
+                    if (metadata && Array.isArray(metadata.priceBreakdown)) {
+                        const lineTotal = metadata.priceBreakdown.reduce(
+                            (sum: number, entry: any) => sum + Number(entry?.value || 0),
+                            0
+                        );
+                        if (quantity > 0 && lineTotal > 0) {
+                            itemPrice = lineTotal / quantity;
+                        }
+                    }
+
                     const itemTotal = itemPrice * quantity;
                     subtotal += itemTotal;
 
@@ -284,6 +297,11 @@ export const verifyPayment = async (req: Request, res: Response, next: NextFunct
                         }
                     }
 
+                    // Extract addon metadata if present
+                    const selectedAddons: string[] = Array.isArray(metadata?.selectedAddons)
+                        ? (metadata.selectedAddons as string[])
+                        : [];
+
                     // Create order item with S3 URLs from cart (files already uploaded)
                     orderItems.push({
                         productId,
@@ -292,6 +310,8 @@ export const verifyPayment = async (req: Request, res: Response, next: NextFunct
                         price: itemPrice,
                         customDesignUrl: normalizedUrls, // Use S3 URLs from cart items
                         customText: customText || null,
+                        hasAddon: selectedAddons.length > 0,
+                        addons: selectedAddons,
                         metadata: metadata || undefined,
                     });
                 }

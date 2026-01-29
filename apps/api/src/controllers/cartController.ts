@@ -1,9 +1,8 @@
 import { Request, Response, NextFunction } from "express";
 import { prisma } from "../services/prisma.js";
-import { sendSuccess, sendError } from "../utils/response.js";
+import { sendSuccess } from "../utils/response.js";
 import { ValidationError, NotFoundError, UnauthorizedError } from "../utils/errors.js";
 import { deleteFromS3, extractKeyFromUrl } from "../services/s3.js";
-
 // Get user's cart
 export const getCart = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -13,16 +12,48 @@ export const getCart = async (req: Request, res: Response, next: NextFunction) =
 
         let cart = await prisma.cart.findUnique({
             where: { userId: req.user.id },
-            include: {
+            select: {
+                id: true,
+                userId: true,
+                createdAt: true,
+                updatedAt: true,
                 items: {
-                    include: {
+                    select: {
+                        id: true,
+                        cartId: true,
+                        productId: true,
+                        quantity: true,
+                        customDesignUrl: true,
+                        hasAddon: true,
                         product: {
-                            include: {
+                            select: {
+                                id: true,
+                                name: true,
+                                basePrice: true,
+                                sellingPrice: true,
                                 category: true,
                                 images: true,
                             },
                         },
-                        variant: true,
+                        variant: {
+                            select: {
+                                id: true,
+                                priceModifier: true,
+                            },
+                        },
+                        // @ts-ignore - updated in Prisma schema to be a relation
+                        addons: {
+                            select: {
+                                id: true,
+                                categoryId: true,
+                                ruleType: true,
+                                basePrice: true,
+                                priceModifier: true,
+                                quantityMultiplier: true,
+                                minQuantity: true,
+                                maxQuantity: true,
+                            },
+                        },
                     },
                 },
             },
@@ -42,6 +73,8 @@ export const getCart = async (req: Request, res: Response, next: NextFunction) =
                                 },
                             },
                             variant: true,
+                            // @ts-ignore - updated in Prisma schema to be a relation
+                            addons: true,
                         },
                     },
                 },
@@ -49,20 +82,67 @@ export const getCart = async (req: Request, res: Response, next: NextFunction) =
         }
 
         // Calculate totals
-        let subtotal = 0;
-        cart.items.forEach((item) => {
-            const productPrice = Number(item.product.basePrice);
+        let baseSubtotal = 0;
+        let addonsSubtotal = 0;
+
+        const cartItems = (cart as any).items as any[];
+
+        const itemsWithPricing = cartItems.map((item) => {
+            const productBasePrice = Number(item.product.sellingPrice ?? item.product.basePrice);
             const variantPrice = item.variant ? Number(item.variant.priceModifier) : 0;
-            const itemPrice = (productPrice + variantPrice) * item.quantity;
-            subtotal += itemPrice;
+            const unitBasePrice = productBasePrice + variantPrice;
+            const baseTotal = unitBasePrice * item.quantity;
+
+            let addonUnitPrice = 0;
+            let addonTotal = 0;
+
+            if (item.addons && item.addons.length > 0) {
+                for (const addon of item.addons as any[]) {
+                    const rawAddonPrice =
+                        addon.priceModifier !== null && addon.priceModifier !== undefined
+                            ? Number(addon.priceModifier)
+                            : addon.basePrice !== null && addon.basePrice !== undefined
+                                ? Number(addon.basePrice)
+                                : 0;
+
+                    addonUnitPrice += rawAddonPrice;
+
+                    const multiplier = addon.quantityMultiplier ? item.quantity : 1;
+                    addonTotal += rawAddonPrice * multiplier;
+                }
+            }
+
+            const total = baseTotal + addonTotal;
+
+            baseSubtotal += baseTotal;
+            addonsSubtotal += addonTotal;
+
+            return {
+                ...item,
+                pricing: {
+                    unitBasePrice,
+                    unitAddonPrice: addonUnitPrice,
+                    baseTotal,
+                    addonTotal,
+                    total,
+                },
+            };
         });
 
+        const subtotal = baseSubtotal + addonsSubtotal;
+
         return sendSuccess(res, {
-            cart,
+            cart: {
+                ...cart,
+                items: itemsWithPricing,
+            },
             subtotal,
-            itemCount: cart.items.length,
+            baseSubtotal,
+            addonsSubtotal,
+            itemCount: cartItems.length,
         });
     } catch (error) {
+        console.log("server err-----------------", error)
         next(error);
     }
 };
@@ -74,7 +154,7 @@ export const addToCart = async (req: Request, res: Response, next: NextFunction)
             throw new UnauthorizedError("User not authenticated");
         }
 
-        const { productId, variantId, quantity = 1, customDesignUrl, customText } = req.body;
+        const { productId, variantId, quantity = 1, customDesignUrl, customText, hasAddon, addons, metadata } = req.body;
 
         if (!productId) {
             throw new ValidationError("Product ID is required");
@@ -130,6 +210,10 @@ export const addToCart = async (req: Request, res: Response, next: NextFunction)
                     variantId: variantId || "",
                 },
             },
+            include: {
+                // @ts-ignore - updated in Prisma schema to be a relation
+                addons: true,
+            },
         });
 
         let cartItem;
@@ -164,6 +248,17 @@ export const addToCart = async (req: Request, res: Response, next: NextFunction)
             // Merge or replace URLs (if new URLs provided, use them; otherwise keep existing)
             const finalUrls = newUrls.length > 0 ? newUrls : existingUrls;
 
+            // Normalize addons
+            const newAddonIds: string[] = Array.isArray(addons)
+                ? (addons as any[]).filter((id) => typeof id === "string" && id.trim().length > 0) as string[]
+                : [];
+            const existingAddonIds: string[] = Array.isArray((existingItem as any).addons)
+                ? ((existingItem as any).addons as any[])
+                    .map((addon) => addon.id)
+                    .filter((id: unknown) => typeof id === "string" && (id as string).trim().length > 0) as string[]
+                : [];
+            const mergedAddons = Array.from(new Set([...existingAddonIds, ...newAddonIds]));
+
             // Update quantity
             cartItem = await prisma.cartItem.update({
                 where: { id: existingItem.id },
@@ -171,6 +266,17 @@ export const addToCart = async (req: Request, res: Response, next: NextFunction)
                     quantity: existingItem.quantity + quantity,
                     customDesignUrl: finalUrls,
                     customText: customText || existingItem.customText,
+                    hasAddon: mergedAddons.length > 0 || Boolean(hasAddon),
+                    // @ts-ignore - using relation field as defined in updated Prisma schema
+                    addons:
+                        mergedAddons.length > 0
+                            ? {
+                                set: mergedAddons.map((id) => ({ id })),
+                            }
+                            : {
+                                set: [],
+                            },
+                    metadata: metadata !== undefined ? metadata : (existingItem as any).metadata,
                 },
                 include: {
                     product: {
@@ -194,6 +300,11 @@ export const addToCart = async (req: Request, res: Response, next: NextFunction)
                 }
             }
 
+            // Normalize addons for new item
+            const addonIds: string[] = Array.isArray(addons)
+                ? (addons as any[]).filter((id) => typeof id === "string" && id.trim().length > 0) as string[]
+                : [];
+
             cartItem = await prisma.cartItem.create({
                 data: {
                     cartId: cart.id,
@@ -202,6 +313,15 @@ export const addToCart = async (req: Request, res: Response, next: NextFunction)
                     quantity,
                     customDesignUrl: normalizedUrls,
                     customText: customText || null,
+                    hasAddon: addonIds.length > 0 || Boolean(hasAddon),
+                    // @ts-ignore - using relation field as defined in updated Prisma schema
+                    addons:
+                        addonIds.length > 0
+                            ? {
+                                connect: addonIds.map((id) => ({ id })),
+                            }
+                            : undefined,
+                    metadata: metadata !== undefined ? metadata : null,
                 },
                 include: {
                     product: {
@@ -211,8 +331,10 @@ export const addToCart = async (req: Request, res: Response, next: NextFunction)
                         },
                     },
                     variant: true,
+                    // @ts-ignore - updated in Prisma schema to be a relation
+                    addons: true,
                 },
-            });
+            } as any);
         }
 
         return sendSuccess(res, cartItem, "Item added to cart successfully", 201);

@@ -24,6 +24,8 @@ interface ProductDocumentUploadProps {
     maxSizeMB?: number;
     maxFiles?: number;
     className?: string;
+    uploadedFilesS3?: FileDetail[]
+    setUploadedFilesS3: React.Dispatch<React.SetStateAction<FileDetail[]>>
 }
 
 export default function ProductDocumentUpload({
@@ -33,9 +35,10 @@ export default function ProductDocumentUpload({
     maxSizeMB = 50,
     maxFiles,
     className = "",
+    uploadedFilesS3,
+    setUploadedFilesS3
 }: ProductDocumentUploadProps) {
     const { isAuthenticated } = useAuth();
-    const [uploadedFiles, setUploadedFiles] = useState<FileDetail[]>([]);
     const [totalQuantity, setTotalQuantity] = useState<number>(0);
     const [isProcessing, setIsProcessing] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -43,6 +46,7 @@ export default function ProductDocumentUpload({
     const fileInputRef = useRef<HTMLInputElement>(null);
     const uploadAbortControllersRef = useRef<Map<string, AbortController>>(new Map());
     const pendingCallbackRef = useRef<{ files: File[]; quantity: number; details: FileDetail[] } | null>(null);
+    console.log("---uploadedFilesS3", uploadedFilesS3)
 
     // Sync state changes to parent component using useEffect (only for upload status changes)
     useEffect(() => {
@@ -56,7 +60,7 @@ export default function ProductDocumentUpload({
                 onQuantityChange(quantity);
             }
         }
-    }, [uploadedFiles]);
+    }, [uploadedFilesS3]);
 
     // Valid image types
     const validImageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
@@ -232,14 +236,15 @@ export default function ProductDocumentUpload({
 
         try {
             // Process files locally (NO S3 upload yet - files stored in memory only)
-            const { totalQuantity: newTotalQuantity, fileDetails: newFileDetails } = await processFiles(files);
+            const { fileDetails: newFileDetails } = await processFiles(files);
 
             // Combine with existing files
-            const allFileDetails = [...uploadedFiles, ...newFileDetails];
+            const allFileDetails = [...(uploadedFilesS3 || []), ...newFileDetails];
             const allFiles = allFileDetails.map(fd => fd.file);
             const finalPageCount = allFileDetails.reduce((sum, fd) => sum + fd.pageCount, 0);
 
-            setUploadedFiles(allFileDetails);
+            // Update state first
+            setUploadedFilesS3(allFileDetails);
             setTotalQuantity(finalPageCount);
 
             // Call callback immediately for initial file selection
@@ -273,7 +278,7 @@ export default function ProductDocumentUpload({
         uploadAbortControllersRef.current.set(fileDetail.id, abortController);
 
         // Update status to uploading
-        setUploadedFiles((prev) => {
+        setUploadedFilesS3((prev) => {
             const updated = prev.map((fd) =>
                 fd.id === fileDetail.id
                     ? { ...fd, uploadStatus: 'uploading' as const, uploadAbortController: abortController }
@@ -298,7 +303,7 @@ export default function ProductDocumentUpload({
                 const uploadedFile = response.data.files[0];
                 if (uploadedFile?.key) {
                     // Update status to uploaded and store S3 key
-                    setUploadedFiles((prev) => {
+                    setUploadedFilesS3((prev) => {
                         const updated = prev.map((fd) =>
                             fd.id === fileDetail.id
                                 ? { ...fd, uploadStatus: 'uploaded' as const, s3Key: uploadedFile.key }
@@ -320,20 +325,20 @@ export default function ProductDocumentUpload({
             // Check if upload was aborted
             if (abortController.signal.aborted) {
                 // Upload was cancelled, remove the file
-                setUploadedFiles((prev) => prev.filter((fd) => fd.id !== fileDetail.id));
-                const updatedFiles = uploadedFiles.filter((fd) => fd.id !== fileDetail.id);
-                const updatedQuantity = updatedFiles.reduce((sum, fd) => sum + fd.pageCount, 0);
-                setTotalQuantity(updatedQuantity);
-                const files = updatedFiles.map((fd) => fd.file);
-                onFileSelect(files, updatedQuantity, updatedFiles);
-                if (onQuantityChange) {
-                    onQuantityChange(updatedQuantity);
-                }
+                setUploadedFilesS3((prev) => {
+                    const updated = prev.filter((fd) => fd.id !== fileDetail.id);
+                    const updatedQuantity = updated.reduce((sum, fd) => sum + fd.pageCount, 0);
+                    setTotalQuantity(updatedQuantity);
+                    const files = updated.map((fd) => fd.file);
+                    // Schedule callback after state update
+                    pendingCallbackRef.current = { files, quantity: updatedQuantity, details: updated };
+                    return updated;
+                });
                 return;
             }
 
             // Upload failed
-            setUploadedFiles((prev) => {
+            setUploadedFilesS3((prev) => {
                 const updated = prev.map((fd) =>
                     fd.id === fileDetail.id ? { ...fd, uploadStatus: 'error' as const } : fd
                 );
@@ -351,7 +356,8 @@ export default function ProductDocumentUpload({
     };
 
     const handleRemove = async (fileId: string) => {
-        const fileToRemove = uploadedFiles.find((fd) => fd.id === fileId);
+        console.log("---file to be deleted", fileId)
+        const fileToRemove = uploadedFilesS3?.find((fd) => fd.id === fileId);
         if (!fileToRemove) return;
 
         // Set removing state to show loader
@@ -375,28 +381,27 @@ export default function ProductDocumentUpload({
         }
 
         // Remove file from state
-        const updatedFiles = uploadedFiles.filter((fd) => fd.id !== fileId);
-        const updatedQuantity = updatedFiles.reduce((sum, fd) => sum + fd.pageCount, 0);
+        setUploadedFilesS3((prev) => {
+            const updated = prev.filter((fd) => fd.id !== fileId);
+            const updatedQuantity = updated.reduce((sum, fd) => sum + fd.pageCount, 0);
+            setTotalQuantity(updatedQuantity);
 
-        setUploadedFiles(updatedFiles);
-        setTotalQuantity(updatedQuantity);
+            // Schedule callback after state update
+            const files = updated.map((fd) => fd.file);
+            pendingCallbackRef.current = { files, quantity: updatedQuantity, details: updated };
 
-        // Call callback immediately for file removal
-        const files = updatedFiles.map((fd) => fd.file);
-        onFileSelect(files, updatedQuantity, updatedFiles);
-        if (onQuantityChange) {
-            onQuantityChange(updatedQuantity);
-        }
+            return updated;
+        });
 
         // Clear removing state
         setRemovingFileId(null);
     };
 
-    const imageCount = uploadedFiles.filter(f => f.type === 'image').length;
-    const pdfCount = uploadedFiles.filter(f => f.type === 'pdf').length;
-    const pdfPageCount = uploadedFiles
-        .filter(f => f.type === 'pdf')
-        .reduce((sum, f) => sum + f.pageCount, 0);
+    // const imageCount = uploadedFilesS3.filter(f => f.type === 'image').length;
+    // const pdfCount = uploadedFilesS3.filter(f => f.type === 'pdf').length;
+    // const pdfPageCount = uploadedFilesS3
+    //     .filter(f => f.type === 'pdf')
+    //     .reduce((sum, f) => sum + f.pageCount, 0);
 
     return (
         <div className={className}>
@@ -419,13 +424,13 @@ export default function ProductDocumentUpload({
                     />
                     <label
                         htmlFor="document-upload"
-                        className={`inline-flex items-center gap-2 px-6 py-3 bg-[#CFCFCF] hover:bg-gray-400 text-gray-700 rounded-lg font-medium cursor-pointer transition-colors ${isProcessing || uploadedFiles.some(f => f.uploadStatus === 'uploading') ? 'opacity-50 cursor-not-allowed' : ''
+                        className={`inline-flex items-center gap-2 px-6 py-3 bg-[#CFCFCF] hover:bg-gray-400 text-gray-700 rounded-lg font-medium cursor-pointer transition-colors ${isProcessing || uploadedFilesS3?.some(f => f.uploadStatus === 'uploading') ? 'opacity-50 cursor-not-allowed' : ''
                             }`}
                     >
-                        {(isProcessing || uploadedFiles.some(f => f.uploadStatus === 'uploading')) ? (
+                        {(isProcessing || uploadedFilesS3?.some(f => f.uploadStatus === 'uploading')) ? (
                             <>
                                 <Loader2 size={18} className="animate-spin" />
-                                {uploadedFiles.some(f => f.uploadStatus === 'uploading') ? 'Uploading...' : 'Processing...'}
+                                {uploadedFilesS3?.some(f => f.uploadStatus === 'uploading') ? 'Uploading...' : 'Processing...'}
                             </>
                         ) : (
                             <>
@@ -449,10 +454,10 @@ export default function ProductDocumentUpload({
                 )}
 
                 {/* File List */}
-                {uploadedFiles.length > 0 && (
+                {uploadedFilesS3 && uploadedFilesS3.length > 0 && (
                     <div className="space-y-3">
                         <div className="space-y-2">
-                            {uploadedFiles.map((fileDetail) => (
+                            {uploadedFilesS3?.map((fileDetail) => (
                                 <div
                                     key={fileDetail.id}
                                     className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
@@ -509,7 +514,7 @@ export default function ProductDocumentUpload({
                 )}
 
                 {/* Processing Indicator */}
-                {isProcessing && uploadedFiles.length === 0 && (
+                {isProcessing && uploadedFilesS3?.length === 0 && (
                     <div className="text-sm text-gray-600 flex items-center gap-2">
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
                         Processing files...

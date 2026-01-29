@@ -87,6 +87,11 @@ export function useCheckout(): UseCheckoutReturn {
                 variant: buyNowData.variantId ? buyNowData.product.variants?.find((v: any) => v.id === buyNowData.variantId) : null,
                 customDesignUrl: buyNowData.customDesignUrl || [],
                 customText: buyNowData.customText || null,
+                metadata: buyNowData.metadata || {
+                    pageCount: buyNowData.pageCount,
+                    copies: buyNowData.copies,
+                    priceBreakdown: buyNowData.priceBreakdown,
+                },
             }];
         }
         return cartItems;
@@ -109,10 +114,21 @@ export function useCheckout(): UseCheckoutReturn {
 
     // Calculate subtotal (selling price) - sum of all selling prices
     const subtotal = useMemo(() => {
-        if (buyNowData && buyNowData.price) {
+        // For Buy Now, use the pre-calculated total price (includes addons if any)
+        if (buyNowData && typeof buyNowData.price === 'number') {
             return buyNowData.price;
         }
-        return effectiveCartItems.reduce((sum, item) => {
+
+        // For cart-based checkout, if metadata with priceBreakdown is present, prefer that
+        return effectiveCartItems.reduce((sum, item: any) => {
+            if (item.metadata && Array.isArray(item.metadata.priceBreakdown)) {
+                const lineTotal = item.metadata.priceBreakdown.reduce(
+                    (acc: number, entry: any) => acc + Number(entry?.value || 0),
+                    0
+                );
+                return sum + lineTotal;
+            }
+
             const price = Number(item.product?.sellingPrice || item.product?.basePrice || 0);
             const variantModifier = Number(item.variant?.priceModifier || 0);
             const itemPrice = price + variantModifier;

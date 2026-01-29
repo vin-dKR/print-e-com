@@ -24,6 +24,16 @@ export interface OrderItem {
     customDesignPresignedUrls?: string[] | null; // Array of presigned URLs for viewing private S3 files
     customDesignPresignedUrl?: string | null; // Legacy: single presigned URL (for backward compatibility)
     customText?: string | null;
+    addons?: Array<{
+        id: string;
+        categoryId: string;
+        ruleType: 'BASE_PRICE' | 'SPECIFICATION_COMBINATION' | 'QUANTITY_TIER' | 'ADDON';
+        basePrice?: number | null;
+        priceModifier?: number | null;
+        quantityMultiplier: boolean;
+        minQuantity?: number | null;
+        maxQuantity?: number | null;
+    }> | null;
     product?: {
         id: string;
         name: string;

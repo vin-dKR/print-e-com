@@ -61,14 +61,28 @@ function CartPageContent() {
         }, 0);
     }, [selectedItemsList]);
 
-    // Calculate subtotal (selling price) for selected items only
-    const subtotal = useMemo(() => {
-        return selectedItemsList.reduce((sum, item) => {
-            const price = Number(item.product?.sellingPrice || item.product?.basePrice || 0);
-            const variantModifier = Number(item.variant?.priceModifier || 0);
-            const itemPrice = price + variantModifier;
-            return sum + itemPrice * item.quantity;
-        }, 0);
+    // Calculate base & addon subtotals for selected items only
+    const { baseSubtotal, addonsSubtotal, subtotal } = useMemo(() => {
+        let base = 0;
+        let addons = 0;
+
+        for (const item of selectedItemsList as any[]) {
+            if (item.pricing) {
+                base += Number(item.pricing.baseTotal || 0);
+                addons += Number(item.pricing.addonTotal || 0);
+            } else {
+                const price = Number(item.product?.sellingPrice || item.product?.basePrice || 0);
+                const variantModifier = Number(item.variant?.priceModifier || 0);
+                const itemPrice = price + variantModifier;
+                base += itemPrice * item.quantity;
+            }
+        }
+
+        return {
+            baseSubtotal: base,
+            addonsSubtotal: addons,
+            subtotal: base + addons,
+        };
     }, [selectedItemsList]);
 
     // Cart-level billing values (no extra discount/coupon on cart page)
@@ -377,7 +391,8 @@ function CartPageContent() {
                             <div className="lg:col-span-1">
                                 <BillingSummary
                                     mrp={mrp || 0}
-                                    subtotal={subtotal || 0}
+                                    subtotal={baseSubtotal || 0}
+                                    addonsSubtotal={addonsSubtotal || 0}
                                     discount={discount}
                                     couponApplied={couponApplied}
                                     shipping={shippingFee}

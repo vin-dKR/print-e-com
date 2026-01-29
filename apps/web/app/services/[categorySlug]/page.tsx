@@ -24,7 +24,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import { ProductData, BreadcrumbItem } from '@/types';
 import { Option } from '@/types';
-import { uploadOrderFilesToS3 } from '@/lib/api/uploads';
+// Files are uploaded immediately in ProductDocumentUpload component, no need to import uploadOrderFilesToS3 here
 import { toastWarning, toastError, toastSuccess, toastPromise } from '@/lib/utils/toast';
 import { redirectToLoginWithReturn } from '@/lib/utils/auth-redirect';
 
@@ -42,18 +42,28 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
     const [error, setError] = useState<string | null>(null);
     const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
     const [uploadedFileDetails, setUploadedFileDetails] = useState<FileDetail[]>([]);
-    const [uploadingFiles, setUploadingFiles] = useState(false);
     const [minQuantityFromFiles, setMinQuantityFromFiles] = useState<number>(1);
 
-    // Check if files are currently uploading
-    const isUploadingFiles = useMemo(() => {
-        return uploadedFileDetails.some(fd => fd.uploadStatus === 'uploading');
-    }, [uploadedFileDetails]);
     const [selectedSpecifications, setSelectedSpecifications] = useState<Record<string, any>>({});
     const [pageCount, setPageCount] = useState(0); // Fixed, calculated from files
     const [copies, setCopies] = useState(1); // Editable, default 1
     const [quantity, setQuantity] = useState<number>(1); // Keep for backward compatibility with NUMBER spec type
     const [isCopiesMode, setIsCopiesMode] = useState(false); // Track if user is in copies mode
+
+    const [priceBreakdown, setPriceBreakdown] = useState<Array<{ label: string; value: number }>>([]);
+    const [totalPrice, setTotalPrice] = useState<number>(0);
+    const [basePricePerUnit, setBasePricePerUnit] = useState<number>(0);
+    const [calculatingPrice, setCalculatingPrice] = useState(false);
+    const [matchingProduct, setMatchingProduct] = useState<any | null>(null);
+    const [addingToCart, setAddingToCart] = useState(false);
+    const [buyNowLoading, setBuyNowLoading] = useState(false);
+    const [availableAddons, setAvailableAddons] = useState<CategoryAddon[]>([]);
+    const [uploadedFilesS3, setUploadedFilesS3] = useState<FileDetail[]>([]);
+
+    // Check if files are currently uploading
+    const isUploadingFiles = useMemo(() => {
+        return uploadedFileDetails.some(fd => fd.uploadStatus === 'uploading');
+    }, [uploadedFileDetails]);
 
     // Calculate total quantity
     const totalQuantity = useMemo(() => {
@@ -81,16 +91,6 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
 
         return { pdfPageCount: pdfPages, imageCount: images };
     }, [uploadedFileDetails]);
-
-    const [priceBreakdown, setPriceBreakdown] = useState<Array<{ label: string; value: number }>>([]);
-    const [totalPrice, setTotalPrice] = useState<number>(0);
-    const [basePricePerUnit, setBasePricePerUnit] = useState<number>(0);
-    const [calculatingPrice, setCalculatingPrice] = useState(false);
-    const [matchingProduct, setMatchingProduct] = useState<any | null>(null);
-    const [checkingProduct, setCheckingProduct] = useState(false);
-    const [addingToCart, setAddingToCart] = useState(false);
-    const [buyNowLoading, setBuyNowLoading] = useState(false);
-    const [availableAddons, setAvailableAddons] = useState<CategoryAddon[]>([]);
 
     // Fetch category data on mount
     useEffect(() => {
@@ -197,8 +197,23 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
         if (!category) return;
 
         try {
-            setCheckingProduct(true);
-            const products = await getProductsBySpecifications(categorySlug, selectedSpecifications);
+            // When matching a published product, ignore addon-only specification keys
+            const addonSpecSlugs = new Set<string>();
+            availableAddons.forEach((addon) => {
+                const specValues = (addon.specificationValues || {}) as Record<string, any>;
+                Object.keys(specValues).forEach((slug) => addonSpecSlugs.add(slug));
+            });
+
+            const specsForProduct: Record<string, any> = {};
+            Object.entries(selectedSpecifications).forEach(([slug, value]) => {
+                if (!addonSpecSlugs.has(slug)) {
+                    specsForProduct[slug] = value;
+                }
+            });
+
+            console.log('🔍 Product match - using specifications:', specsForProduct);
+
+            const products = await getProductsBySpecifications(categorySlug, specsForProduct);
             // Find the first matching product (should be only one if published correctly)
             setMatchingProduct(products.length > 0 ? products[0] : null);
         } catch (err: any) {
@@ -212,10 +227,9 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
             if (!err?.message?.includes('NetworkError') && err?.name !== 'TypeError') {
                 setMatchingProduct(null);
             }
-        } finally {
-            setCheckingProduct(false);
         }
-    }, [category, categorySlug, selectedSpecifications]);
+    }, [category, categorySlug, selectedSpecifications, availableAddons]);
+
 
     // Calculate price and check for products whenever selections or quantity change
     useEffect(() => {
@@ -264,6 +278,38 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
             }));
     };
 
+    // Compute which addon pricing rules are active for current selection and total pages
+    const selectedAddonIds = useMemo(() => {
+        if (!availableAddons || availableAddons.length === 0) return [];
+
+        // Effective pages = pages × copies when files uploaded
+        const effectivePages =
+            pageCount > 0 ? pageCount * (copies > 0 ? copies : 1) : null;
+
+        return availableAddons
+            .filter((rule) => {
+                const ruleSpecs = (rule.specificationValues || {}) as Record<string, any>;
+
+                // All rule spec values must match the current selections
+                for (const [slug, val] of Object.entries(ruleSpecs)) {
+                    if (selectedSpecifications[slug] !== val) {
+                        return false;
+                    }
+                }
+
+                // Page range check (if configured on the rule)
+                const hasPageRange = rule.minQuantity != null || rule.maxQuantity != null;
+                if (hasPageRange) {
+                    if (effectivePages == null) return false;
+                    if (rule.minQuantity != null && effectivePages < rule.minQuantity) return false;
+                    if (rule.maxQuantity != null && effectivePages > rule.maxQuantity) return false;
+                }
+
+                return true;
+            })
+            .map((rule) => rule.id);
+    }, [availableAddons, selectedSpecifications, pageCount, copies]);
+
     // Check if a specification should be visible based on dependencies
     const isSpecificationVisible = (spec: CategorySpecification): boolean => {
         if (!spec.dependsOn) return true;
@@ -279,6 +325,7 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
 
     // Handle specification selection change
     const handleSpecificationChange = (specSlug: string, value: string) => {
+        console.log('🔧 Spec change', { specSlug, value });
         setSelectedSpecifications(prev => {
             const updated = { ...prev };
 
@@ -368,11 +415,13 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
     }, [category, categorySlug]);
 
     // Handle file upload with page count calculation
-    // Files are stored in memory - uploaded to S3 only when adding to cart
+    // Files are uploaded to S3 immediately when selected via ProductDocumentUpload component
     const handleFileSelect = async (files: File[], calculatedPageCount: number, fileDetails?: FileDetail[]) => {
         setUploadedFiles(files);
         if (fileDetails) {
             setUploadedFileDetails(fileDetails);
+            // Update uploadedFilesS3 state to match fileDetails (which includes S3 keys after upload)
+            setUploadedFilesS3(fileDetails);
         }
 
         // Set page count (fixed, based on files)
@@ -386,8 +435,6 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
 
         // Reset copies to 1 when files change
         setCopies(1);
-
-        // Files will be uploaded to S3 when user adds to cart
     };
 
     // Helper function to get file type for display
@@ -462,6 +509,7 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
         return true;
     }, [category, selectedSpecifications, uploadedFiles, isSpecificationVisible]);
 
+
     const handleAddToCart = async () => {
         // Check authentication
         if (!isAuthenticated) {
@@ -475,6 +523,20 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
             return;
         }
 
+        // Check if files are still uploading
+        const filesStillUploading = uploadedFilesS3.some(f => f.uploadStatus === 'uploading');
+        if (filesStillUploading) {
+            toastWarning('Please wait for all files to finish uploading before adding to cart.');
+            return;
+        }
+
+        // Check if any files failed to upload
+        const filesWithErrors = uploadedFilesS3.filter(f => f.uploadStatus === 'error');
+        if (filesWithErrors.length > 0) {
+            toastError(`Some files failed to upload. Please remove them and try again.`);
+            return;
+        }
+
         // Check if product is out of stock
         if (matchingProduct && matchingProduct.stock <= 0) {
             toastWarning('This product is out of stock. Please select a different combination or contact us.');
@@ -483,42 +545,24 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
 
         // Check if product exists
         if (!matchingProduct?.id) {
-            toastWarning('Product does not exist. Please contact us.');
+            console.log(matchingProduct)
+            toastWarning('Product does not exist. Please contact us');
             return;
         }
 
         setAddingToCart(true);
         try {
-            // Upload files to S3 if files are present
-            let s3Keys: string[] = [];
-            if (uploadedFiles.length > 0) {
-                setUploadingFiles(true);
-                try {
-                    const uploadResponse = await toastPromise(
-                        uploadOrderFilesToS3(uploadedFiles),
-                        {
-                            loading: 'Uploading files...',
-                            success: 'Files uploaded successfully!',
-                            error: 'Failed to upload files. Please try again.',
-                        }
-                    );
-                    if (uploadResponse.success && uploadResponse.data) {
-                        s3Keys = uploadResponse.data.files.map(f => f.key);
-                    } else {
-                        toastError('Failed to upload files. Please try again.');
-                        setAddingToCart(false);
-                        setUploadingFiles(false);
-                        return;
-                    }
-                } catch (error) {
-                    console.error('Error uploading files:', error);
-                    toastError('Failed to upload files. Please try again.');
-                    setAddingToCart(false);
-                    setUploadingFiles(false);
-                    return;
-                } finally {
-                    setUploadingFiles(false);
-                }
+            // Extract S3 keys from already uploaded files (files are uploaded immediately when selected)
+            const s3Keys: string[] = uploadedFilesS3
+                .filter(f => f.uploadStatus === 'uploaded' && f.s3Key)
+                .map(f => f.s3Key!)
+                .filter(Boolean);
+
+            // If we have files but no S3 keys, something went wrong
+            if (uploadedFiles.length > 0 && s3Keys.length === 0) {
+                toastError('Files are not ready yet. Please wait for uploads to complete.');
+                setAddingToCart(false);
+                return;
             }
 
             // Add to cart with S3 URLs
@@ -528,6 +572,14 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
                     productId: matchingProduct.id,
                     quantity: totalQuantity,
                     customDesignUrl: s3Keys.length > 0 ? s3Keys : undefined,
+                    metadata: {
+                        pageCount: pageCount > 0 ? pageCount : undefined,
+                        copies: pageCount > 0 ? copies : undefined,
+                        priceBreakdown,
+                        selectedAddons: selectedAddonIds,
+                    },
+                    hasAddon: selectedAddonIds.length > 0,
+                    addons: selectedAddonIds,
                 }),
                 {
                     loading: 'Adding to cart...',
@@ -539,6 +591,11 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
             if (response.success) {
                 // Reset uploaded files after adding to cart
                 setUploadedFiles([]);
+                setUploadedFileDetails([]);
+                setUploadedFilesS3([]);
+                setPageCount(0);
+                setMinQuantityFromFiles(1);
+                setCopies(1);
                 // Refresh cart to update count
                 await refetchCart();
                 // Optionally reload to update UI
@@ -597,38 +654,34 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
 
         setBuyNowLoading(true);
         try {
-            // Upload files to S3 if files are present
-            let s3Keys: string[] = [];
-            if (uploadedFiles.length > 0) {
-                setUploadingFiles(true);
-                try {
-                    const uploadResponse = await toastPromise(
-                        uploadOrderFilesToS3(uploadedFiles),
-                        {
-                            loading: 'Uploading files...',
-                            success: 'Files uploaded successfully!',
-                            error: 'Failed to upload files. Please try again.',
-                        }
-                    );
-                    if (uploadResponse.success && uploadResponse.data) {
-                        s3Keys = uploadResponse.data.files.map(f => f.key);
-                    } else {
-                        toastError('Failed to upload files. Please try again.');
-                        setBuyNowLoading(false);
-                        setUploadingFiles(false);
-                        return;
-                    }
-                } catch (error) {
-                    console.error('Error uploading files:', error);
-                    toastError('Failed to upload files. Please try again.');
-                    setBuyNowLoading(false);
-                    setUploadingFiles(false);
-                    return;
-                } finally {
-                    setUploadingFiles(false);
-                }
+            // Check if files are still uploading
+            const filesStillUploading = uploadedFilesS3.some(f => f.uploadStatus === 'uploading');
+            if (filesStillUploading) {
+                toastWarning('Please wait for all files to finish uploading before proceeding.');
+                setBuyNowLoading(false);
+                return;
             }
 
+            // Check if any files failed to upload
+            const filesWithErrors = uploadedFilesS3.filter(f => f.uploadStatus === 'error');
+            if (filesWithErrors.length > 0) {
+                toastError(`Some files failed to upload. Please remove them and try again.`);
+                setBuyNowLoading(false);
+                return;
+            }
+
+            // Extract S3 keys from already uploaded files (files are uploaded immediately when selected)
+            const s3Keys: string[] = uploadedFilesS3
+                .filter(f => f.uploadStatus === 'uploaded' && f.s3Key)
+                .map(f => f.s3Key!)
+                .filter(Boolean);
+
+            // If we have files but no S3 keys, something went wrong
+            if (uploadedFiles.length > 0 && s3Keys.length === 0) {
+                toastError('Files are not ready yet. Please wait for uploads to complete.');
+                setBuyNowLoading(false);
+                return;
+            }
             // Store product data in sessionStorage for direct checkout (bypass cart)
             const buyNowData = {
                 productId: matchingProduct.id,
@@ -639,12 +692,25 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
                 priceBreakdown,
                 pageCount: pageCount > 0 ? pageCount : undefined,
                 copies: pageCount > 0 ? copies : undefined,
+                metadata: {
+                    pageCount: pageCount > 0 ? pageCount : undefined,
+                    copies: pageCount > 0 ? copies : undefined,
+                    priceBreakdown,
+                    selectedAddons: selectedAddonIds,
+                },
+                hasAddon: selectedAddonIds.length > 0,
+                addons: selectedAddonIds,
             };
 
             sessionStorage.setItem('buyNow', JSON.stringify(buyNowData));
 
             // Reset uploaded files
             setUploadedFiles([]);
+            setUploadedFileDetails([]);
+            setUploadedFilesS3([]);
+            setPageCount(0);
+            setMinQuantityFromFiles(1);
+            setCopies(1);
 
             // Redirect to checkout immediately
             toastSuccess('Redirecting to checkout...');
@@ -683,7 +749,6 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
     const visibleSpecifications = category.specifications
         .filter(isSpecificationVisible)
         .sort((a, b) => a.displayOrder - b.displayOrder);
-    // console.log("-------visibleSpec", visibleSpecifications)
     return (
         <div className="min-h-screen bg-white">
             <ProductPageTemplate
@@ -702,6 +767,7 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
                 onFileRemove={() => {
                     setUploadedFiles([]);
                     setUploadedFileDetails([]);
+                    setUploadedFilesS3([]);
                     setPageCount(0);
                     setMinQuantityFromFiles(1);
                     setCopies(1);
@@ -726,6 +792,8 @@ export default function DynamicServicePage({ params }: DynamicServicePageProps) 
                 hasUploadedFiles={uploadedFiles.length > 0}
                 calculatingPrice={calculatingPrice}
                 isUploadingFiles={isUploadingFiles}
+                uploadedFilesS3={uploadedFilesS3}
+                setUploadedFilesS3={setUploadedFilesS3}
             >
                 {/* Dynamic Configuration Options */}
                 <div className="space-y-8">

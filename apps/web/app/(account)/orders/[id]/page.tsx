@@ -29,6 +29,7 @@ interface OrderItem {
     image?: string;
     customDesignUrl?: string[]; // Array of S3 URLs
     variant?: string;
+    addonsTotal?: number;
 }
 
 interface OrderStatusHistoryDisplay {
@@ -134,16 +135,31 @@ function transformOrder(order: Order): OrderDetails {
         shipping: Number(order.shippingCharges || 0),
         tax: 0, // Tax is typically included in subtotal or calculated separately
         discount: Number(order.discountAmount || 0),
-        items: order.items.map((item) => ({
-            id: item.id,
-            productId: item.productId,
-            name: item.product?.name || "Unknown Product",
-            quantity: item.quantity,
-            price: Number(item.price),
-            image: item.product?.images?.[0]?.url,
-            customDesignUrl: item.customDesignUrl,
-            variant: item.variant?.name,
-        })),
+        items: order.items.map((item: any) => {
+            const addons = Array.isArray(item.addons) ? item.addons : [];
+            const addonsTotal = addons.reduce((sum: number, addon: any) => {
+                const rawPrice =
+                    addon.priceModifier !== null && addon.priceModifier !== undefined
+                        ? Number(addon.priceModifier)
+                        : addon.basePrice !== null && addon.basePrice !== undefined
+                            ? Number(addon.basePrice)
+                            : 0;
+                const multiplier = addon.quantityMultiplier ? item.quantity : 1;
+                return sum + rawPrice * multiplier;
+            }, 0);
+
+            return {
+                id: item.id,
+                productId: item.productId,
+                name: item.product?.name || "Unknown Product",
+                quantity: item.quantity,
+                price: Number(item.price),
+                image: item.product?.images?.[0]?.url,
+                customDesignUrl: item.customDesignUrl,
+                variant: item.variant?.name,
+                addonsTotal: addonsTotal > 0 ? addonsTotal : undefined,
+            } as OrderItem;
+        }),
         shippingAddress: {
             name: "", // Address doesn't have name in current schema
             phone: "", // Address doesn't have phone in current schema
@@ -319,16 +335,23 @@ function OrderDetailsPageContent({
                                                     </span>
                                                 )}
                                             </div>
-                                            <div className="flex items-center justify-between">
-                                                <p className="text-sm sm:text-base font-hkgb text-gray-900">
-                                                    ₹{item.price.toFixed(2)}
-                                                </p>
-                                                <Link
-                                                    href={`/products/${item.productId || item.id}`}
-                                                    className="text-xs sm:text-sm text-[#008ECC] hover:text-[#0077B3] font-medium"
-                                                >
-                                                    View Product
-                                                </Link>
+                                            <div className="flex flex-col gap-1">
+                                                <div className="flex items-center justify-between">
+                                                    <p className="text-sm sm:text-base font-hkgb text-gray-900">
+                                                        ₹{item.price.toFixed(2)}
+                                                    </p>
+                                                    <Link
+                                                        href={`/products/${item.productId || item.id}`}
+                                                        className="text-xs sm:text-sm text-[#008ECC] hover:text-[#0077B3] font-medium"
+                                                    >
+                                                        View Product
+                                                    </Link>
+                                                </div>
+                                                {typeof item.addonsTotal === "number" && item.addonsTotal > 0 && (
+                                                    <p className="text-xs text-gray-600">
+                                                        Addons: <span className="font-medium">₹{item.addonsTotal.toFixed(2)}</span>
+                                                    </p>
+                                                )}
                                             </div>
                                         </div>
                                     </div>

@@ -5,7 +5,8 @@ import Link from "next/link";
 
 interface BillingSummaryProps {
     mrp: number;
-    subtotal: number;
+    subtotal: number; // Base price subtotal
+    addonsSubtotal?: number; // Addon price subtotal
     discount: number;
     couponApplied: number;
     shipping: number;
@@ -20,12 +21,12 @@ interface BillingSummaryProps {
 export default function BillingSummary({
     mrp,
     subtotal,
+    addonsSubtotal = 0,
     discount,
     couponApplied,
     shipping,
     tax,
     grandTotal,
-    itemCount,
     showCheckoutActions = true,
     onPay,
     isPaying = false,
@@ -34,7 +35,7 @@ export default function BillingSummary({
     const [agreedToTerms, setAgreedToTerms] = useState(false);
 
     return (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-md p-6">
+        <div className="bg-white rounded-2xl border border-gray-100 p-6">
             <h2 className="text-xl font-hkgb font-bold text-gray-900 mb-6">Billing Summary</h2>
 
             {/* Price Breakdown */}
@@ -47,8 +48,14 @@ export default function BillingSummary({
                 )}
 
                 <div className="flex justify-between text-gray-600">
-                    <span>Subtotal</span>
+                    <span>Base Price Total</span>
                     <span className="font-medium">₹{subtotal.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-gray-600">
+                    <span>Addon Price Total</span>
+                    <span className="font-medium">
+                        ₹{addonsSubtotal.toFixed(2)}
+                    </span>
                 </div>
 
                 <div className="flex justify-between text-gray-600">

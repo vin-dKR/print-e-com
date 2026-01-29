@@ -1,8 +1,12 @@
+import { cn } from "@/lib/utils";
+
 interface PriceDisplayProps {
     currentPrice: number;
     originalPrice?: number;
     discount?: number;
     currency?: string;
+    className?: string;
+    size?: "sm" | "md" | "lg";
 }
 
 export default function PriceDisplay({
@@ -10,10 +14,18 @@ export default function PriceDisplay({
     originalPrice,
     discount,
     currency = "₹",
+    className,
+    size = "lg",
 }: PriceDisplayProps) {
+    const sizeClasses = {
+        sm: 'text-lg',
+        md: 'text-xl',
+        lg: 'text-3xl',
+    };
+
     return (
-        <div className="flex items-center gap-4">
-            <span className="text-xl lg:text-3xl font-bold text-gray-900">
+        <div className={cn("flex items-center gap-4", className)}>
+            <span className={cn("font-bold text-gray-900", sizeClasses[size])}>
                 {currency}
                 {currentPrice.toFixed(2)}
             </span>

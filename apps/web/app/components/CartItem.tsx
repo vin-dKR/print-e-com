@@ -2,9 +2,8 @@
 
 import Link from "next/link";
 import { useState, useRef, useMemo } from "react";
-import QuantitySelector from "./QuantitySelector";
 import PriceDisplay from "./PriceDisplay";
-import { CartItem as CartItemType } from "@/lib/api/cart";
+import { CartItem as CartItemType, AddonRule } from "@/lib/api/cart";
 import Image from "next/image";
 import { FileText } from "lucide-react";
 import { getPublicS3Url, isImageFile, getFilenameFromS3Key } from "@/lib/utils/s3";
@@ -25,10 +24,7 @@ interface CartItemProps {
 
 export default function CartItem({
     item,
-    onQuantityChange,
     onRemove,
-    isUpdating = false,
-    isRemoving = false,
     isSelected = false,
     onSelectChange,
     showCheckbox = false,
@@ -41,9 +37,8 @@ export default function CartItem({
 
     const product = item.product;
     const variant = item.variant;
-    const productId = product?.id || item.productId;
     const productName = product?.name || 'Unknown Product';
-    const variantId = variant?.id || item.variantId;
+    console.log("---------more about the items", item)
 
     // Get uploaded files from cart item (S3 URLs already stored)
     const uploadedFileUrls = Array.isArray(item.customDesignUrl)
@@ -210,14 +205,11 @@ export default function CartItem({
                                         </div>
                                     );
                                 })}
-                                {uploadedFileUrls.length > 3 && (
-                                    <div className="relative w-10 h-10 rounded border border-blue-200 bg-gray-100 flex items-center justify-center">
-                                        <span className="text-xs font-semibold text-gray-600">+{uploadedFileUrls.length - 3}</span>
-                                    </div>
-                                )}
                             </div>
+
                         </div>
                     )}
+
 
                     {/* Image Upload Section - Show if no images */}
                     {!hasImages && (
@@ -271,13 +263,152 @@ export default function CartItem({
                     )}
 
                     <div className="flex justify-between text-lg font-bold text-gray-900">
-                        <PriceDisplay currentPrice={itemPrice} />
-                        <QuantitySelector
-                            quantity={item.quantity}
-                            onQuantityChange={(newQuantity) => onQuantityChange(item.id, newQuantity)}
-                        />
+                        <div className="flex flex-col items-end text-right space-y-1 w-full">
+
+                            {/* Price breakdown */}
+                            <div className="flex flex-col items-end w-full space-y-0.5">
+
+                                {/* Individual price calculation */}
+                                <div className="flex flex-col items-end space-y-0.5 w-full">
+
+                                    {/* Show addons with names and prices if available */}
+                                    {item.metadata?.priceBreakdown && item.metadata.priceBreakdown.length > 0 && (
+                                        <div className="w-full text-xs flex flex-col items-end">
+                                            {item.metadata.priceBreakdown.map((breakdown, i) => (
+                                                <div key={i} className="flex items-center gap-1 justify-end text-gray-600">
+                                                    <span>+ {breakdown.label}:</span>
+                                                    <span>
+                                                        <PriceDisplay currentPrice={breakdown.value} />
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {/* Show base and addons price on the left in smaller text, total on the right */}
+                                    <div className="flex flex-row w-full justify-between items-center">
+                                        <div className="flex flex-row gap-4 items-start text-md text-gray-700">
+                                            {/* Base price */}
+                                            <div className="flex items-center gap-1 text-xs">
+                                                Base:&nbsp;
+                                                <span className="font-semibold">
+                                                    <PriceDisplay
+                                                        size="sm"
+                                                        currentPrice={
+                                                            (() => {
+                                                                // Prefer backend pricing breakdown if available
+                                                                if ((item as any).pricing) {
+                                                                    return Number((item as any).pricing.baseTotal || 0);
+                                                                }
+                                                                // Fallback: use metadata priceBreakdown
+                                                                if (item.metadata?.priceBreakdown && Array.isArray(item.metadata.priceBreakdown)) {
+                                                                    const base = item.metadata.priceBreakdown.find(x => x.label === "Base");
+                                                                    return base ? base.value : 0;
+                                                                }
+                                                                // Fallback: get from product/variant
+                                                                if (item.product) {
+                                                                    const price = Number(item.product?.sellingPrice || item.product?.basePrice || 0);
+                                                                    const variantModifier = Number(item.variant?.priceModifier || 0);
+                                                                    return (price + variantModifier);
+                                                                }
+                                                                return 0;
+                                                            })()
+                                                        }
+                                                    />
+                                                </span>
+                                            </div>
+                                            +
+                                            {/* Addon price list or "Addons" summary */}
+                                            <div className="flex items-center gap-1 text-xs">
+                                                Addons:&nbsp;
+                                                <span className="font-semibold">
+                                                    <PriceDisplay
+                                                        size="sm"
+                                                        currentPrice={
+                                                            (() => {
+                                                                // Prefer backend pricing breakdown if available
+                                                                if ((item as any).pricing) {
+                                                                    return Number((item as any).pricing.addonTotal || 0);
+                                                                }
+                                                                // Fallback: metadata priceBreakdown
+                                                                if (item.metadata?.priceBreakdown && Array.isArray(item.metadata.priceBreakdown)) {
+                                                                    // sum all except the "Base"
+                                                                    return item.metadata.priceBreakdown
+                                                                        .filter(x => x.label !== "Base" && typeof x.value === "number")
+                                                                        .reduce((acc, x) => acc + (x.value || 0), 0);
+                                                                }
+                                                                // Fallback: sum AddonRule[]
+                                                                if (item.addons && item.addons.length > 0) {
+                                                                    return (item.addons as AddonRule[]).reduce((sum, addon) => {
+                                                                        const price =
+                                                                            (addon.priceModifier ?? undefined) !== undefined
+                                                                                ? Number(addon.priceModifier)
+                                                                                : (addon.basePrice ?? undefined) !== undefined
+                                                                                    ? Number(addon.basePrice)
+                                                                                    : 0;
+                                                                        return sum + price;
+                                                                    }, 0);
+                                                                }
+                                                                return 0;
+                                                            })()
+                                                        }
+                                                    />
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-row items-center gap-1 text-blue-800 font-semibold text-lg">
+                                            <span>Total:</span>
+                                            <span>
+                                                <PriceDisplay
+                                                    size="lg"
+                                                    currentPrice={
+                                                        (() => {
+                                                            // Prefer backend pricing breakdown if available
+                                                            if ((item as any).pricing) {
+                                                                return Number((item as any).pricing.total || 0);
+                                                            }
+                                                            // Fallback: use metadata priceBreakdown
+                                                            let total = 0;
+                                                            if (item.metadata?.priceBreakdown && Array.isArray(item.metadata.priceBreakdown)) {
+                                                                total = item.metadata.priceBreakdown.reduce(
+                                                                    (acc, x) => acc + (x.value || 0),
+                                                                    0
+                                                                );
+                                                            } else if (item.addons && item.addons.length > 0) {
+                                                                let base = 0;
+                                                                if (item.product) {
+                                                                    const price = Number(item.product?.sellingPrice || item.product?.basePrice || 0);
+                                                                    const variantModifier = Number(item.variant?.priceModifier || 0);
+                                                                    base = price + variantModifier;
+                                                                }
+                                                                const addonTotal = (item.addons as AddonRule[]).reduce((sum, addon) => {
+                                                                    const price =
+                                                                        (addon.priceModifier ?? undefined) !== undefined
+                                                                            ? Number(addon.priceModifier)
+                                                                            : (addon.basePrice ?? undefined) !== undefined
+                                                                                ? Number(addon.basePrice)
+                                                                                : 0;
+                                                                    return sum + price;
+                                                                }, 0);
+                                                                total = base + addonTotal;
+                                                            }
+                                                            return total;
+                                                        })()
+                                                    }
+                                                />
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
+
+                {/* <QuantitySelector
+                            quantity={item.quantity}
+                            onQuantityChange={(newQuantity) => onQuantityChange(item.id, newQuantity)}
+                        /> */}
             </div>
         </div>
     );

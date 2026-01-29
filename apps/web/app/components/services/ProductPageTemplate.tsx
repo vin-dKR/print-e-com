@@ -10,7 +10,6 @@ import { ProductData, BreadcrumbItem } from '@/types';
 import Breadcrumbs from '../Breadcrumbs';
 import { useRouter } from 'next/navigation';
 import ProductDocumentUpload, { FileDetail } from '../products/ProductDocumentUpload';
-import { BarsSpinner } from '../shared/BarsSpinner';
 import { toastError } from '@/lib/utils/toast';
 
 interface ProductPageTemplateProps {
@@ -42,6 +41,8 @@ interface ProductPageTemplateProps {
     hasUploadedFiles?: boolean; // Whether files have been uploaded
     calculatingPrice?: boolean; // Whether price is being calculated
     isUploadingFiles?: boolean; // Whether files are currently uploading
+    uploadedFilesS3: FileDetail[]
+    setUploadedFilesS3: React.Dispatch<React.SetStateAction<FileDetail[]>>
 }
 
 export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
@@ -73,6 +74,8 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
     hasUploadedFiles = false,
     calculatingPrice = false,
     isUploadingFiles = false,
+    uploadedFilesS3,
+    setUploadedFilesS3
 }) => {
     const router = useRouter();
     const outOfStock = isOutOfStock || (stock !== null && stock !== undefined && stock <= 0);
@@ -98,7 +101,7 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
         if (isInCart && isAddToCart) return 'Go to Cart';
         if (!hasUploadedFiles) return 'Upload the files first';
         if (!areRequiredFieldsFilled) return 'Please select the mandatory field';
-        if (isAddToCart) return `Add to Cart - ₹${totalPrice.toFixed(2)}`;
+        if (isAddToCart) return `Add to Cart to Buy - ₹${totalPrice.toFixed(2)}`;
         return 'Buy Now';
     };
 
@@ -134,7 +137,7 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
                     {/* Left Column - Product Images (5/12 on desktop, matching product page) */}
                     <div className="lg:col-span-6 space-y-4 sm:space-y-5">
                         {/* Product Gallery */}
-                        <div className="bg-white p-3 sm:p-4 rounded-2xl border border-gray-100 shadow-sm">
+                        <div className="bg-white p-3 sm:p-4 rounded-2xl border border-gray-100">
                             <ProductGallery
                                 images={images}
                                 fallbackIcon={<ShoppingCart className="w-24 h-24 text-[#008ECC]" />}
@@ -146,7 +149,7 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
                     <div className="lg:col-span-6">
                         <div className="sticky top-24 space-y-4 sm:space-y-6">
                             {/* Product Title */}
-                            <div className="bg-white p-5 sm:p-6 rounded-2xl border border-gray-100 shadow-sm">
+                            <div className="bg-white p-5 sm:p-6 rounded-2xl border border-gray-100">
                                 <h1 className="text-2xl sm:text-3xl font-semibold text-gray-900 mb-3">
                                     {productData.title || 'Service'}
                                 </h1>
@@ -158,7 +161,7 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
                             </div>
 
                             {/* Price Section */}
-                            <div className="bg-white p-5 sm:p-6 rounded-2xl border border-gray-100 shadow-sm">
+                            <div className="bg-white p-5 sm:p-6 rounded-2xl border border-gray-100">
                                 <PriceBreakdown
                                     items={priceItems}
                                     total={totalPrice}
@@ -200,14 +203,14 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
 
                             {/* Features */}
                             {productData.features && productData.features.length > 0 && (
-                                <div className="bg-white p-4 sm:p-6 rounded-2xl border border-gray-100 shadow-sm">
+                                <div className="bg-white p-4 sm:p-6 rounded-2xl border border-gray-100">
                                     <h3 className="font-semibold text-gray-900 mb-4">Features</h3>
                                     <ProductFeatures features={productData.features} />
                                 </div>
                             )}
 
                             {/* File Upload Section */}
-                            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-100 shadow-sm">
+                            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-100">
                                 <ProductDocumentUpload
                                     onFileSelect={(files: File[], pageCount: number, fileDetails?: FileDetail[]) => {
                                         // Use the new callback if provided, otherwise use legacy callback
@@ -226,11 +229,13 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
                                         }
                                     }}
                                     maxSizeMB={50}
+                                    uploadedFilesS3={uploadedFilesS3}
+                                    setUploadedFilesS3={setUploadedFilesS3}
                                 />
                             </div>
 
                             {/* Configuration Options */}
-                            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-100 shadow-sm">
+                            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-100">
                                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Customize Your Order</h3>
                                 {children}
                             </div>
@@ -255,7 +260,8 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
                                             : getButtonText(true)}
                                 </Button>
 
-                                <Button
+                                {/* FUTURE: Add Buy Now button */}
+                                {/* <Button
                                     variant="primary"
                                     size="lg"
                                     fullWidth
@@ -270,7 +276,7 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({
                                         : calculatingPrice
                                             ? 'Calculating...'
                                             : getButtonText(false)}
-                                </Button>
+                                </Button> */}
                             </div>
                         </div>
                     </div>
