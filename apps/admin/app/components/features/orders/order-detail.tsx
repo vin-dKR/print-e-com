@@ -418,7 +418,7 @@ export function OrderDetail({ orderId, initialOrder }: { orderId: string; initia
 
                                         {item.metadata?.selectedAddons && item.metadata.selectedAddons.length > 0 && (
                                             <div className="mt-2 p-2 bg-blue-50 rounded border border-blue-200">
-                                                <p className="text-xs font-semibold text-blue-900 mb-1">Applied Addons:</p>
+                                                <p className="text-xs font-semibold text-blue-900 mb-1">Applied Addons (IDs):</p>
                                                 {item.metadata.selectedAddons.map((addonId, idx) => (
                                                     <p key={idx} className="text-[11px] text-blue-700 break-all">
                                                         {addonId}
@@ -436,6 +436,30 @@ export function OrderDetail({ orderId, initialOrder }: { orderId: string; initia
                                                         <span>₹{pbItem.value.toFixed(2)}</span>
                                                     </div>
                                                 ))}
+                                            </div>
+                                        )}
+                                        {Array.isArray((item as any).addons) && (item as any).addons.length > 0 && (
+                                            <div className="mt-2 p-2 bg-purple-50 rounded border border-purple-200">
+                                                <p className="text-xs font-semibold text-purple-900 mb-1">Addon Pricing (from rules):</p>
+                                                {((item as any).addons as any[]).map((addon, idx) => {
+                                                    const rawPrice =
+                                                        addon.priceModifier !== null && addon.priceModifier !== undefined
+                                                            ? Number(addon.priceModifier)
+                                                            : addon.basePrice !== null && addon.basePrice !== undefined
+                                                                ? Number(addon.basePrice)
+                                                                : 0;
+                                                    const multiplier = addon.quantityMultiplier ? item.quantity : 1;
+                                                    const total = rawPrice * multiplier;
+                                                    return (
+                                                        <div key={idx} className="flex justify-between text-[11px] text-purple-700">
+                                                            <span>Addon #{idx + 1}</span>
+                                                            <span>
+                                                                ₹{rawPrice.toFixed(2)}
+                                                                {multiplier > 1 && ` × ${multiplier} = ₹${total.toFixed(2)}`}
+                                                            </span>
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
                                         )}
                                         <div className="flex-1">

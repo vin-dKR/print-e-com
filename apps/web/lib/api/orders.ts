@@ -16,6 +16,17 @@ export type OrderStatus =
 export type PaymentMethod = 'ONLINE' | 'OFFLINE';
 export type PaymentStatus = 'PENDING' | 'SUCCESS' | 'FAILED' | 'REFUNDED';
 
+export interface OrderItemAddon {
+    id: string;
+    categoryId: string;
+    ruleType: 'BASE_PRICE' | 'SPECIFICATION_COMBINATION' | 'QUANTITY_TIER' | 'ADDON';
+    basePrice?: number | null;
+    priceModifier?: number | null;
+    quantityMultiplier: boolean;
+    minQuantity?: number | null;
+    maxQuantity?: number | null;
+}
+
 export interface OrderItem {
     id: string;
     orderId: string;
@@ -26,6 +37,7 @@ export interface OrderItem {
     customDesignUrl?: string[]; // Array of S3 URLs
     customText?: string;
     createdAt: string;
+    addons?: OrderItemAddon[];
     product?: {
         id: string;
         name: string;

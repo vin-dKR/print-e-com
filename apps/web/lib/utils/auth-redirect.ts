@@ -34,7 +34,6 @@ export function redirectToLoginWithReturn(currentPath?: string): void {
 
     // Validate path (security)
     if (isValidRedirectPath(path)) {
-        console.log('[auth-redirect] Saving redirect path:', path);
         sessionStorage.setItem("redirectAfterLogin", path);
     } else {
         console.warn('[auth-redirect] Invalid redirect path, not saving:', path);
@@ -52,18 +51,15 @@ export function getRedirectPath(): string | null {
     if (typeof window === "undefined") return null;
 
     const redirectPath = sessionStorage.getItem("redirectAfterLogin");
-    console.log('[auth-redirect] Getting redirect path:', redirectPath);
 
     if (!redirectPath) return null;
 
     // Validate the path before returning
     if (isValidRedirectPath(redirectPath)) {
-        console.log('[auth-redirect] Valid redirect path found:', redirectPath);
         return redirectPath;
     }
 
     // If invalid, clear it and return null
-    console.warn('[auth-redirect] Invalid redirect path, clearing:', redirectPath);
     sessionStorage.removeItem("redirectAfterLogin");
     return null;
 }

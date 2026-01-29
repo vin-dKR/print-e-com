@@ -14,6 +14,7 @@ import {
     type CartResponse,
     type UpdateCartItemData,
 } from '@/lib/api/cart';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface UseCartReturn {
     cart: Cart | null;

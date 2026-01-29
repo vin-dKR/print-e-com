@@ -147,7 +147,6 @@ export async function getProducts(
     }
 
     const queryString = queryParams.toString();
-    console.log("this is the queryString", queryString)
     return get<ProductListResponse>(`/products${queryString ? `?${queryString}` : ''}`);
 }
 
